@@ -2522,22 +2522,12 @@
         -- Unlock A-Chassis parking brakes & unanchor parts if vehicle was frozen
         FarmManager.UnfreezeVehicle()
 
-        -- Proactive Car & Character Body Ghosting
+        -- Proactive Car Ghosting & Frictionless Anti-Shake Hover Mode (Wheels clear off ground)
         if Settings.GhostGodMode or Settings.AutoDriveFarm then
             for _, p in ipairs(car:GetDescendants()) do
                 if p:IsA("BasePart") then
-                    local pNameLower = p.Name:lower()
-                    local isWheelOrSeat = (p.Name == "DriveSeat") 
-                        or p:IsA("VehicleSeat")
-                        or pNameLower:find("wheel")
-                        or pNameLower:find("tire")
-                        or (p.Parent and p.Parent.Name:lower():find("wheel"))
-                    if not isWheelOrSeat then
-                        if p.CanCollide then p.CanCollide = false end
-                        if p.CanTouch then p.CanTouch = false end
-                    else
-                        if not p.CanCollide then p.CanCollide = true end
-                    end
+                    if p.CanCollide then p.CanCollide = false end
+                    if p.CanTouch then p.CanTouch = false end
                 end
             end
         end
@@ -2778,9 +2768,10 @@
         end
 
         local targetPathPos = frame.CenterPos + (frame.Direction * lookaheadDist) + (frame.Normal * aimLateral)
-        local roadY = frame.CenterPos.Y + 1.8
+        local HOVER_OFFSET = 2.4 -- Hover clearance: wheels cleanly float above asphalt, eliminating chassis vibration
+        local roadY = frame.CenterPos.Y + HOVER_OFFSET
 
-        local rayOrigin = Vector3.new(targetPathPos.X, frame.CenterPos.Y + 14.0, targetPathPos.Z)
+        local rayOrigin = Vector3.new(targetPathPos.X, frame.CenterPos.Y + 16.0, targetPathPos.Z)
         local rayDir = Vector3.new(0, -32.0, 0)
         local rayParams = RaycastParams.new()
         rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -2791,7 +2782,7 @@
 
         local rayResult = workspace:Raycast(rayOrigin, rayDir, rayParams)
         if rayResult and rayResult.Position then
-            roadY = rayResult.Position.Y + 1.8
+            roadY = rayResult.Position.Y + HOVER_OFFSET
         end
 
         targetPathPos = Vector3.new(targetPathPos.X, roadY, targetPathPos.Z)
@@ -2800,9 +2791,10 @@
         local flatMoveVec = Vector3.new(moveVec.X, 0, moveVec.Z)
         local moveDir = flatMoveVec.Magnitude > 0.01 and flatMoveVec.Unit or Vector3.new(frame.Direction.X, 0, frame.Direction.Z).Unit
 
-        -- Apply Velocity directly to VehicleSeat (Smooth Horizontal Propulsion)
-        local curYVel = math.clamp(seat.AssemblyLinearVelocity.Y, -15, 15)
-        seat.AssemblyLinearVelocity = Vector3.new(moveDir.X * forwardSpeed, curYVel, moveDir.Z * forwardSpeed)
+        -- Anti-Gravity Hover Propulsion: Locks vertical height smoothly to eliminate all wheel bounce & chassis shaking
+        local yDiff = roadY - currentPos.Y
+        local hoverYVel = math.clamp(yDiff * 12.0, -18.0, 22.0)
+        seat.AssemblyLinearVelocity = Vector3.new(moveDir.X * forwardSpeed, hoverYVel, moveDir.Z * forwardSpeed)
         seat.AssemblyAngularVelocity = Vector3.zero
 
         -- Vehicle Heading & Smooth Steering
