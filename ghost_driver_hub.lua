@@ -335,21 +335,88 @@
             Parent = MainFrame
         })
 
-        local isMinimized = false
-        MinBtn.MouseButton1Click:Connect(function()
-            isMinimized = not isMinimized
-            if isMinimized then
-                tw(MainFrame, { Size = UDim2.new(0, WindowSize.X.Offset, 0, 58) }, 0.28, Enum.EasingStyle.Quart)
-                tw(ShadowBackdrop, { Size = UDim2.new(0, WindowSize.X.Offset + 64, 0, 58 + 64) }, 0.28, Enum.EasingStyle.Quart)
-                Body.Visible = false
-                MinBtn.Text = "+"
-            else
-                tw(MainFrame, { Size = WindowSize }, 0.28, Enum.EasingStyle.Quart)
-                tw(ShadowBackdrop, { Size = UDim2.new(0, WindowSize.X.Offset + 64, 0, WindowSize.Y.Offset + 64) }, 0.28, Enum.EasingStyle.Quart)
-                Body.Visible = true
-                MinBtn.Text = "-"
+        local FloatingBadge = make("ImageButton", {
+            Name = "FloatingBadge",
+            Size = UDim2.new(0, 48, 0, 48),
+            Position = UDim2.new(0, 24, 0, 120),
+            BackgroundColor3 = Color3.fromRGB(15, 17, 26),
+            AutoButtonColor = false,
+            Visible = false,
+            ZIndex = 100,
+            Parent = ScreenGui
+        }, {
+            make("UICorner", { CornerRadius = UDim.new(1, 0) }),
+            make("UIStroke", { Color = Theme.AccentCyan, Thickness = 2, Transparency = 0.2 }),
+            make("UIGradient", {
+                Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0.0, Color3.fromRGB(24, 28, 42)),
+                    ColorSequenceKeypoint.new(1.0, Color3.fromRGB(11, 13, 19))
+                }),
+                Rotation = 45
+            }),
+            make("TextLabel", {
+                Text = "PB",
+                Font = Theme.FontTitle,
+                TextSize = 16,
+                TextColor3 = Theme.AccentCyan,
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundTransparency = 1,
+                ZIndex = 101
+            })
+        })
+
+        -- Dragging logic for Floating Badge
+        local badgeDragging, badgeDragStart, badgeStartPos
+        FloatingBadge.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                badgeDragging = true
+                badgeDragStart = input.Position
+                badgeStartPos = FloatingBadge.Position
             end
         end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if badgeDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                local delta = input.Position - badgeDragStart
+                FloatingBadge.Position = UDim2.new(
+                    badgeStartPos.X.Scale, badgeStartPos.X.Offset + delta.X,
+                    badgeStartPos.Y.Scale, badgeStartPos.Y.Offset + delta.Y
+                )
+            end
+        end)
+
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                badgeDragging = false
+            end
+        end)
+
+        local isMinimized = false
+        local function toggleMinimize()
+            isMinimized = not isMinimized
+            if isMinimized then
+                tw(MainFrame, { Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1 }, 0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+                tw(ShadowBackdrop, { ImageTransparency = 1 }, 0.2)
+                task.wait(0.25)
+                MainFrame.Visible = false
+                ShadowBackdrop.Visible = false
+                FloatingBadge.Visible = true
+                FloatingBadge.Size = UDim2.new(0, 0, 0, 0)
+                tw(FloatingBadge, { Size = UDim2.new(0, 48, 0, 48) }, 0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            else
+                tw(FloatingBadge, { Size = UDim2.new(0, 0, 0, 0) }, 0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+                task.wait(0.2)
+                FloatingBadge.Visible = false
+                MainFrame.Visible = true
+                ShadowBackdrop.Visible = true
+                tw(MainFrame, { Size = WindowSize, BackgroundTransparency = 0 }, 0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                tw(ShadowBackdrop, { ImageTransparency = 0.35 }, 0.28)
+                Body.Visible = true
+            end
+        end
+
+        MinBtn.MouseButton1Click:Connect(toggleMinimize)
+        FloatingBadge.MouseButton1Click:Connect(toggleMinimize)
 
         CloseBtn.MouseButton1Click:Connect(function()
             tw(MainFrame, { Size = UDim2.new(0, 0, 0, 0), Position = MainFrame.Position + UDim2.new(0, WindowSize.X.Offset/2, 0, WindowSize.Y.Offset/2) }, 0.25)
