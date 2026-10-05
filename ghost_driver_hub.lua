@@ -2542,6 +2542,7 @@
             end
         end
 
+        -- 4. Intelligent Dual-System Radar (Laser Raycasting + Deep Model Scanner)
         local rightDist = 9999
         local centerDist = 9999
         local leftDist = 9999
@@ -2550,34 +2551,66 @@
         local nearestObsLateral = 0
 
         local CAR_HALF_WIDTH = 4.5
-        local SAFETY_MARGIN = 5.5
-        local RADAR_MAX_DIST = 850.0
+        local SAFETY_MARGIN = 6.0
+        local RADAR_MAX_DIST = 900.0
 
         local carVecFromCenter = currentPos - frame.CenterPos
         local carCurrentRoadOffset = carVecFromCenter:Dot(frame.Normal)
 
+        -- 4A. Broad-Phase Obstacle Cache Refresh (Every 0.15s)
         if tick() - FarmManager.LastObstacleCacheTick > 0.15 then
             FarmManager.LastObstacleCacheTick = tick()
             local list = {}
             local pName = LocalPlayer.Name
             local char = LocalPlayer.Character
 
-            local trafficFolder = workspace:FindFirstChild("Traffic") 
-                or workspace:FindFirstChild("AITraffic") 
-                or workspace:FindFirstChild("TrafficAI")
-                or workspace:FindFirstChild("Vehicles")
-            if trafficFolder then
-                for _, obj in ipairs(trafficFolder:GetChildren()) do
-                    if obj:IsA("Model") and obj ~= car and obj ~= char then
+            local function scanContainer(c)
+                if not c then return end
+                for _, obj in ipairs(c:GetChildren()) do
+                    if obj ~= car and obj ~= char and (obj:IsA("Model") or obj:IsA("BasePart")) then
                         table.insert(list, obj)
                     end
                 end
             end
 
+            -- Check all known traffic and vehicle containers
+            scanContainer(workspace:FindFirstChild("Traffic"))
+            scanContainer(workspace:FindFirstChild("AITraffic"))
+            scanContainer(workspace:FindFirstChild("TrafficAI"))
+            scanContainer(workspace:FindFirstChild("Vehicles"))
+            scanContainer(workspace:FindFirstChild("Cars"))
+            scanContainer(workspace:FindFirstChild("TrafficCars"))
+            scanContainer(workspace:FindFirstChild("LocalTraffic"))
+            scanContainer(workspace:FindFirstChild("CivilianVehicles"))
+            scanContainer(workspace:FindFirstChild("CurrentTraffic"))
+
+            -- Check workspace top-level models
             for _, m in ipairs(workspace:GetChildren()) do
-                if m:IsA("Model") and m ~= car and m ~= char then
-                    if m:FindFirstChild("DriveSeat") or m:FindFirstChildWhichIsA("VehicleSeat") then
+                if m ~= car and m ~= char and (m:IsA("Model") or m:IsA("BasePart")) then
+                    local mName = m.Name:lower()
+                    local isVeh = m:FindFirstChild("DriveSeat")
+                        or m:FindFirstChildWhichIsA("VehicleSeat")
+                        or m:FindFirstChild("Body")
+                        or m:FindFirstChild("Hitbox")
+                        or mName:find("traffic")
+                        or mName:find("car")
+                        or mName:find("veh")
+                        or mName:find("civ")
+                        or mName:find("truck")
+                        or mName:find("sedan")
+                        or mName:find("bus")
+                        or mName:find("taxi")
+                        or mName:find("police")
+                        or mName:find("van")
+
+                    if isVeh then
                         table.insert(list, m)
+                    elseif m:IsA("Model") and not mName:find("road") and not mName:find("map") and not mName:find("track") and not mName:find("terrain") and not mName:find("ground") then
+                        local pivot = m:GetPivot().Position
+                        local d2 = (Vector3.new(pivot.X, 0, pivot.Z) - Vector3.new(currentPos.X, 0, currentPos.Z)).Magnitude
+                        if d2 < 850 then
+                            table.insert(list, m)
+                        end
                     end
                 end
             end
@@ -2585,71 +2618,79 @@
             FarmManager.CachedObstacles = list
         end
 
+        -- 4B. Evaluate Spatial Obstacles
         local function checkObstacle(obj)
             if not obj or obj == car or obj == LocalPlayer.Character then return end
-            local p = obj:IsA("BasePart") and obj or obj.PrimaryPart or obj:FindFirstChild("Body") or obj:FindFirstChild("CoreHitbox") or obj:FindFirstChildWhichIsA("BasePart")
-            if p then
-                local offsetVec = p.Position - currentPos
-                if (offsetVec.X * offsetVec.X + offsetVec.Z * offsetVec.Z) > (RADAR_MAX_DIST * RADAR_MAX_DIST) then
-                    return
+            
+            local pPos = nil
+            if obj:IsA("BasePart") then
+                pPos = obj.Position
+            elseif obj:IsA("Model") then
+                local pPart = obj.PrimaryPart or obj:FindFirstChild("Body") or obj:FindFirstChild("Hitbox") or obj:FindFirstChildWhichIsA("BasePart")
+                if pPart then
+                    pPos = pPart.Position
+                else
+                    pPos = obj:GetPivot().Position
+                end
+            end
+
+            if not pPos then return end
+
+            local offsetVec = pPos - currentPos
+            if (offsetVec.X * offsetVec.X + offsetVec.Z * offsetVec.Z) > (RADAR_MAX_DIST * RADAR_MAX_DIST) then
+                return
+            end
+
+            local forwardDist = offsetVec:Dot(frame.Direction)
+
+            -- Track passed obstacles for evasion counter
+            if forwardDist > 0 and forwardDist < 120 then
+                FarmManager.TrackedForwardObstacles[obj] = true
+            elseif forwardDist < -8 and forwardDist > -60 and FarmManager.TrackedForwardObstacles[obj] then
+                FarmManager.TrackedForwardObstacles[obj] = nil
+                Telemetry.EvadedVehicles = Telemetry.EvadedVehicles + 1
+            end
+
+            -- CRITICAL FIX: Only evaluate obstacles in FRONT of vehicle (forwardDist >= 4.0 studs)
+            if forwardDist >= 4.0 and forwardDist < RADAR_MAX_DIST then
+                local obsVecFromCenter = pPos - frame.CenterPos
+                local obsLaneOffset = obsVecFromCenter:Dot(frame.Normal)
+
+                if forwardDist < nearestObsDist then
+                    nearestObsDist = forwardDist
+                    nearestObsLateral = obsLaneOffset
                 end
 
-                local forwardDist = offsetVec:Dot(frame.Direction)
+                local lateralDiffToCar = math.abs(obsLaneOffset - carCurrentRoadOffset)
+                local lateralDiffToTarget = math.abs(obsLaneOffset - FarmManager.CurrentLaneOffset)
 
-                if forwardDist > 0 and forwardDist < 120 then
-                    FarmManager.TrackedForwardObstacles[obj] = true
-                elseif forwardDist < -10 and forwardDist > -50 and FarmManager.TrackedForwardObstacles[obj] then
-                    FarmManager.TrackedForwardObstacles[obj] = nil
-                    Telemetry.EvadedVehicles = Telemetry.EvadedVehicles + 1
+                if (lateralDiffToCar < (CAR_HALF_WIDTH + SAFETY_MARGIN)) or (lateralDiffToTarget < (CAR_HALF_WIDTH + SAFETY_MARGIN)) then
+                    if forwardDist < currentLaneObstacleDist then
+                        currentLaneObstacleDist = forwardDist
+                    end
                 end
 
-                if forwardDist > -20 and forwardDist < RADAR_MAX_DIST then
-                    local obsVecFromCenter = p.Position - frame.CenterPos
-                    local obsLaneOffset = obsVecFromCenter:Dot(frame.Normal)
+                -- Close Call / Traffic Swerve Event Trigger
+                if Settings.AutoSwerveCloseCall and Remote_TrafficSwerve and forwardDist > 0 and forwardDist < 50 and lateralDiffToCar < 18 then
+                    if tick() - FarmManager.LastCloseCallTick > 0.35 then
+                        FarmManager.LastCloseCallTick = tick()
+                        pcall(function()
+                            local swerveSide = (obsLaneOffset > carCurrentRoadOffset) and "Left" or "Right"
+                            Remote_TrafficSwerve:FireServer(obj, swerveSide)
+                        end)
+                    end
+                end
 
-                    if forwardDist < nearestObsDist then
-                        nearestObsDist = forwardDist
-                        nearestObsLateral = obsLaneOffset
-                    end
-
-                    local lateralDiffToCar = math.abs(obsLaneOffset - carCurrentRoadOffset)
-                    local lateralDiffToTarget = math.abs(obsLaneOffset - FarmManager.CurrentLaneOffset)
-                    if (lateralDiffToCar < (CAR_HALF_WIDTH + SAFETY_MARGIN)) or (lateralDiffToTarget < (CAR_HALF_WIDTH + SAFETY_MARGIN)) then
-                        if forwardDist > 0 and forwardDist < currentLaneObstacleDist then
-                            currentLaneObstacleDist = forwardDist
-                        end
-                    end
-
-                    if forwardDist < 250 and (lateralDiffToCar < 20 or lateralDiffToTarget < 20) then
-                        if p.CanCollide then p.CanCollide = false end
-                        for _, part in ipairs(obj:GetDescendants()) do
-                            if part:IsA("BasePart") then
-                                if part.CanCollide then part.CanCollide = false end
-                                part.CollisionGroup = "TrafficBox"
-                            end
-                        end
-                    end
-
-                    if Settings.AutoSwerveCloseCall and Remote_TrafficSwerve and forwardDist > 0 and forwardDist < 45 and lateralDiffToCar < 18 then
-                        if tick() - FarmManager.LastCloseCallTick > 0.35 then
-                            FarmManager.LastCloseCallTick = tick()
-                            pcall(function()
-                                local swerveSide = (obsLaneOffset > carCurrentRoadOffset) and "Left" or "Right"
-                                Remote_TrafficSwerve:FireServer(obj, swerveSide)
-                            end)
-                        end
-                    end
-
-                    local blockRadius = CAR_HALF_WIDTH + SAFETY_MARGIN
-                    if math.abs(obsLaneOffset - (-13.5)) < blockRadius then
-                        if forwardDist < leftDist then leftDist = forwardDist end
-                    end
-                    if math.abs(obsLaneOffset - 0.0) < blockRadius then
-                        if forwardDist < centerDist then centerDist = forwardDist end
-                    end
-                    if math.abs(obsLaneOffset - 13.5) < blockRadius then
-                        if forwardDist < rightDist then rightDist = forwardDist end
-                    end
+                -- Map obstacle to 3 lanes (Left: -13.5, Center: 0.0, Right: +13.5)
+                local blockRadius = CAR_HALF_WIDTH + SAFETY_MARGIN
+                if math.abs(obsLaneOffset - (-13.5)) < blockRadius then
+                    if forwardDist < leftDist then leftDist = forwardDist end
+                end
+                if math.abs(obsLaneOffset - 0.0) < blockRadius then
+                    if forwardDist < centerDist then centerDist = forwardDist end
+                end
+                if math.abs(obsLaneOffset - 13.5) < blockRadius then
+                    if forwardDist < rightDist then rightDist = forwardDist end
                 end
             end
         end
@@ -2658,7 +2699,39 @@
             checkObstacle(obj)
         end
 
-        local SAFE_DISTANCE = 650
+        -- 4C. High-Precision Laser Radar Raycasting (Direct Surface Probe on All Lanes)
+        local radarRayParams = RaycastParams.new()
+        radarRayParams.FilterType = Enum.RaycastFilterType.Exclude
+        local radarIgnore = { LocalPlayer.Character, car }
+        radarRayParams.FilterDescendantsInstances = radarIgnore
+        radarRayParams.IgnoreWater = true
+
+        local function probeLaneRay(laneOffset)
+            local probeOrigin = frame.CenterPos + (frame.Normal * laneOffset) + Vector3.new(0, 2.5, 0)
+            local probeDir = frame.Direction * 650.0
+            local hit = workspace:Raycast(probeOrigin, probeDir, radarRayParams)
+            if hit and hit.Instance then
+                local hitName = hit.Instance.Name:lower()
+                if not hitName:find("road") and not hitName:find("lane") and not hitName:find("asphalt") and not hitName:find("ground") and not hitName:find("terrain") and not hitName:find("barrier") then
+                    local d = (hit.Position - probeOrigin):Dot(frame.Direction)
+                    if d >= 4.0 then return d end
+                end
+            end
+            return 9999
+        end
+
+        local lRay = probeLaneRay(-13.5)
+        local cRay = probeLaneRay(0.0)
+        local rRay = probeLaneRay(13.5)
+        local curRay = probeLaneRay(FarmManager.CurrentLaneOffset)
+
+        if lRay < leftDist then leftDist = lRay end
+        if cRay < centerDist then centerDist = cRay end
+        if rRay < rightDist then rightDist = rRay end
+        if curRay < currentLaneObstacleDist then currentLaneObstacleDist = curRay end
+
+        -- 4D. Intelligent 3-Lane Evasion Decision Matrix
+        local SAFE_DISTANCE = 480
         local baseLaneOffset = 0.0
         if Settings.FarmLane and (Settings.FarmLane:find("Left") or Settings.FarmLane:find("Lane 1")) then
             baseLaneOffset = -13.5
@@ -2669,14 +2742,17 @@
         local targetLaneOffset = baseLaneOffset
         local baseDist = (baseLaneOffset == 0.0) and centerDist or ((baseLaneOffset < 0) and leftDist or rightDist)
 
-        if baseDist >= SAFE_DISTANCE then
+        local isCurrentLaneBlocked = (currentLaneObstacleDist < SAFE_DISTANCE)
+        local isBaseLaneBlocked = (baseDist < SAFE_DISTANCE)
+
+        if not isCurrentLaneBlocked and not isBaseLaneBlocked then
             targetLaneOffset = baseLaneOffset
         else
             local leftClear = (leftDist >= SAFE_DISTANCE)
             local centerClear = (centerDist >= SAFE_DISTANCE)
             local rightClear = (rightDist >= SAFE_DISTANCE)
 
-            if centerClear and baseLaneOffset ~= 0.0 then
+            if centerClear and baseLaneOffset == 0.0 and currentLaneObstacleDist >= SAFE_DISTANCE then
                 targetLaneOffset = 0.0
             elseif rightClear and leftClear then
                 if FarmManager.CurrentLaneOffset < -2.0 then
@@ -2703,19 +2779,22 @@
             end
         end
 
+        -- 4E. Swift & Decisive Lane Transition Physics
         local offsetDiff = targetLaneOffset - FarmManager.CurrentLaneOffset
-        local isDodging = (math.abs(offsetDiff) > 0.8) or (currentLaneObstacleDist < 350)
+        local isDodging = (math.abs(offsetDiff) > 0.8) or (currentLaneObstacleDist < 420)
+
         if math.abs(offsetDiff) > 0.03 then
-            local pullUrgency = 0.28
-            local maxStep = 2.0
+            local pullUrgency = 0.42
+            local maxStep = 3.2
             if currentLaneObstacleDist < 300 or math.abs(offsetDiff) > 4.0 then
-                pullUrgency = 0.50
-                maxStep = 3.8
+                pullUrgency = 0.70
+                maxStep = 5.6
             end
             local step = math.clamp(offsetDiff * pullUrgency, -maxStep, maxStep)
             FarmManager.CurrentLaneOffset = FarmManager.CurrentLaneOffset + step
         end
 
+        -- 5. Route Distance & Reset Check
         local maxAllowedDist = RoadData.TotalLength * (Settings.FarmPercent or 1.0)
         if not Settings.LoopMode:find("Infinite") and FarmManager.LoopDistanceTraveled >= maxAllowedDist then
             FarmManager.LoopDistanceTraveled = 0
@@ -2740,11 +2819,15 @@
             return
         end
 
+        -- 6. Precision Navigation & High-Speed Pure Pursuit Propulsion
         local speedMPH = math.clamp(Settings.FarmDriveSpeed or 170, 80, 320)
         local forwardSpeed = speedMPH * 1.467
 
-        if currentLaneObstacleDist < 200 and math.abs(offsetDiff) > 0.8 then
+        -- Anti-Plow Speed Cushioning during urgent lateral swerve
+        if currentLaneObstacleDist < 250 and math.abs(offsetDiff) > 1.2 then
             forwardSpeed = forwardSpeed * 0.65
+        elseif currentLaneObstacleDist < 120 and math.abs(offsetDiff) > 0.8 then
+            forwardSpeed = forwardSpeed * 0.45
         end
 
         local curveAngleDeg = 0
@@ -2764,11 +2847,12 @@
 
         local dynamicLead = Settings.LookaheadLead or 38
         local baseLookahead = math.clamp(forwardSpeed * 0.18, dynamicLead * 0.7, dynamicLead * 1.4)
-        local lookaheadDist = isDodging and math.clamp(baseLookahead * 0.55, 14, 26) or baseLookahead
+        local lookaheadDist = isDodging and math.clamp(baseLookahead * 0.45, 12, 22) or baseLookahead
         local aimLateral = FarmManager.CurrentLaneOffset
         if isDodging then
-            aimLateral = (FarmManager.CurrentLaneOffset * 0.35) + (targetLaneOffset * 0.65)
+            aimLateral = (FarmManager.CurrentLaneOffset * 0.20) + (targetLaneOffset * 0.80)
         end
+
 
         local targetPathPos = frame.CenterPos + (frame.Direction * lookaheadDist) + (frame.Normal * aimLateral)
         local roadY = frame.CenterPos.Y + 1.8
