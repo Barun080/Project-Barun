@@ -1153,6 +1153,7 @@
     local ReplicatedStorage  = game:GetService("ReplicatedStorage")
     local RunService         = game:GetService("RunService")
     local UserInputService   = game:GetService("UserInputService")
+    local HttpService        = game:GetService("HttpService")
     local LocalPlayer        = Players.LocalPlayer or Players.PlayerAdded:Wait()
     local CarSpeedLimitsModule = ReplicatedStorage:FindFirstChild("CarSpeedLimits")
 
@@ -1215,8 +1216,70 @@
 
         -- Selected Car to Spawn
         SelectedCar          = "Voss RT8",
+
+        -- Advanced Smooth Physics & Adaptive Cornering Engine
+        AdaptiveCornering    = true,     -- เข้าโค้งเนียนสมูท ป้องกันหลุดโค้ง
+        CornerSlowdown       = true,     -- ชะลอความเร็วเล็กน้อยตอนเจอโค้งหักศอก
+        SmoothSteerFactor    = 0.22,     -- ความนุ่มนวลของการหักเลี้ยว (0.15 - 0.40)
+        LookaheadLead        = 38,       -- ระยะคำนวณถนนล่วงหน้า (studs)
     }
     _G.GhostDriverSettings = Settings
+
+    -- ─── Config Persistence Engine (Save / Load) ──────────────────────
+    local CONFIG_FILE = "ProjectBarun_GhostDriver.json"
+
+    local function SaveConfig()
+        if writefile then
+            local ok, err = pcall(function()
+                local dataToSave = {
+                    VehicleSpeedBoost = Settings.VehicleSpeedBoost,
+                    BoostMultiplier = Settings.BoostMultiplier,
+                    InfiniteNitrous = Settings.InfiniteNitrous,
+                    NoCollisionTraffic = Settings.NoCollisionTraffic,
+                    GhostGodMode = Settings.GhostGodMode,
+                    AutoEscapePolice = Settings.AutoEscapePolice,
+                    PoliceTargetCash = Settings.PoliceTargetCash,
+                    FarmDriveSpeed = Settings.FarmDriveSpeed,
+                    FarmLane = Settings.FarmLane,
+                    LoopMode = Settings.LoopMode,
+                    AutoBankCombo = Settings.AutoBankCombo,
+                    AutoKeepCombo = Settings.AutoKeepCombo,
+                    AutoRespawnCar = Settings.AutoRespawnCar,
+                    AntiAFK = Settings.AntiAFK,
+                    PerformanceMode = Settings.PerformanceMode,
+                    SelectedCar = Settings.SelectedCar,
+                    AdaptiveCornering = Settings.AdaptiveCornering,
+                    CornerSlowdown = Settings.CornerSlowdown,
+                    SmoothSteerFactor = Settings.SmoothSteerFactor,
+                    LookaheadLead = Settings.LookaheadLead
+                }
+                writefile(CONFIG_FILE, HttpService:JSONEncode(dataToSave))
+            end)
+            return ok
+        end
+        return false
+    end
+
+    local function LoadConfig()
+        if isfile and readfile and isfile(CONFIG_FILE) then
+            local ok, content = pcall(readfile, CONFIG_FILE)
+            if ok and content and #content > 0 then
+                local okJson, decoded = pcall(function() return HttpService:JSONDecode(content) end)
+                if okJson and type(decoded) == "table" then
+                    for k, v in pairs(decoded) do
+                        if Settings[k] ~= nil then
+                            Settings[k] = v
+                        end
+                    end
+                    return true
+                end
+            end
+        end
+        return false
+    end
+
+    -- Auto-load saved config on startup
+    pcall(LoadConfig)
 
     -- ─── Telemetry & Live Statistics ──────────────────────────────────
     local Telemetry = {
@@ -1295,6 +1358,7 @@
     local TabPolice  = Window:MakeTab({ Name = "Police & Defense", Icon = "rbxassetid://4483345998" })
     local TabFarm    = Window:MakeTab({ Name = "Farm & Economy",   Icon = "rbxassetid://4483345998" })
     local TabTP      = Window:MakeTab({ Name = "Teleports",        Icon = "rbxassetid://4483345998" })
+    local TabConfig  = Window:MakeTab({ Name = "⚙️ Settings & Save", Icon = "rbxassetid://4483345998" })
 
     -- ─── Tab: Live Dashboard & Telemetry ──────────────────────────────
     TabDash:AddSection({ Name = "🚀 Real-time Telemetry & Farm Metrics" })
@@ -1715,6 +1779,81 @@
             end
             tpTo(CFrame.new(-30081.0, 65.0, -14010.0))
         end
+    })
+
+    -- ─── Tab: Settings & Config System ───────────────────────────────
+    TabConfig:AddSection({ Name = "💾 Configuration Profile Management" })
+
+    TabConfig:AddButton({
+        Name = "Save Settings (บันทึกการตั้งค่าลงเครื่อง)",
+        Callback = function()
+            local success = SaveConfig()
+            if success then
+                OrionLib:MakeNotification({
+                    Name = "💾 Settings Saved",
+                    Content = "บันทึกการตั้งค่าทั้งหมดลงใน " .. CONFIG_FILE .. " สำเร็จ!",
+                    Image = "rbxassetid://4483345998",
+                    Time = 4
+                })
+            else
+                OrionLib:MakeNotification({
+                    Name = "⚠️ Save Failed",
+                    Content = "ไม่สามารถบันทึกไฟล์ได้ (Executor อาจไม่รองรับ writefile)",
+                    Image = "rbxassetid://4483345998",
+                    Time = 4
+                })
+            end
+        end
+    })
+
+    TabConfig:AddButton({
+        Name = "Load Settings (โหลดการตั้งค่าจากเครื่อง)",
+        Callback = function()
+            local success = LoadConfig()
+            if success then
+                OrionLib:MakeNotification({
+                    Name = "📂 Settings Loaded",
+                    Content = "โหลดการตั้งค่าจากไฟล์ " .. CONFIG_FILE .. " เรียบร้อย!",
+                    Image = "rbxassetid://4483345998",
+                    Time = 4
+                })
+            else
+                OrionLib:MakeNotification({
+                    Name = "⚠️ Load Failed",
+                    Content = "ไม่พบไฟล์ที่บันทึกไว้ หรืออ่านไฟล์ล้มเหลว",
+                    Image = "rbxassetid://4483345998",
+                    Time = 4
+                })
+            end
+        end
+    })
+
+    TabConfig:AddSection({ Name = "🏎️ Adaptive Physics & Curve Steering" })
+
+    TabConfig:AddToggle({
+        Name = "Adaptive Cornering (คำนวณโค้งล่วงหน้า & เลี้ยวสมูท)",
+        Default = Settings.AdaptiveCornering,
+        Callback = function(Value) Settings.AdaptiveCornering = Value end
+    })
+
+    TabConfig:AddToggle({
+        Name = "Corner Dynamic Slowdown (ชะลอความเร็วเล็กน้อยตอนโค้งหักศอก)",
+        Default = Settings.CornerSlowdown,
+        Callback = function(Value) Settings.CornerSlowdown = Value end
+    })
+
+    TabConfig:AddSlider({
+        Name = "Smooth Steer Factor (ความนุ่มนวลของการหักเลี้ยว)",
+        Min = 0.10, Max = 0.50, Default = Settings.SmoothSteerFactor, Color = Color3.fromRGB(0, 240, 255),
+        Increment = 0.02, ValueName = "factor",
+        Callback = function(Value) Settings.SmoothSteerFactor = Value end
+    })
+
+    TabConfig:AddSlider({
+        Name = "Lookahead Distance Lead (ระยะดึงสายตามองถนน)",
+        Min = 20, Max = 60, Default = Settings.LookaheadLead, Color = Color3.fromRGB(255, 180, 0),
+        Increment = 2, ValueName = "studs",
+        Callback = function(Value) Settings.LookaheadLead = Value end
     })
 
     -- ═══════════════════════════════════════════════════════════════════
@@ -2457,8 +2596,26 @@
                         forwardSpeed = forwardSpeed * 0.65
                     end
 
-                    -- Dynamic lookahead & aim offset: lead directly into the open lane when dodging for zero reaction delay
-                    local baseLookahead = math.clamp(forwardSpeed * 0.16, 26, 52)
+                    -- ─── Predictive Curvature & Adaptive Cornering Engine ───
+                    local curveAngleDeg = 0
+                    local aheadIdx = ((frame.Index + 2) % RoadData.TotalPoints) + 1
+                    local aheadPt = RoadData.Lanes[2][aheadIdx]
+                    if aheadPt then
+                        local aheadVec = Vector3.new(aheadPt[1] - frame.CenterPos.X, 0, aheadPt[3] - frame.CenterPos.Z).Unit
+                        local currentDirFlat = Vector3.new(frame.Direction.X, 0, frame.Direction.Z).Unit
+                        local dotVal = math.clamp(currentDirFlat:Dot(aheadVec), -1, 1)
+                        curveAngleDeg = math.deg(math.acos(dotVal))
+                    end
+
+                    -- Dynamic Corner Slowdown when encountering sharp turns
+                    if Settings.CornerSlowdown and curveAngleDeg > 22 then
+                        local slowdownFactor = math.clamp(1.0 - ((curveAngleDeg - 22) / 60), 0.55, 0.95)
+                        forwardSpeed = forwardSpeed * slowdownFactor
+                    end
+
+                    -- Dynamic lookahead lead based on speed & curvature
+                    local dynamicLead = Settings.LookaheadLead or 38
+                    local baseLookahead = math.clamp(forwardSpeed * 0.18, dynamicLead * 0.7, dynamicLead * 1.4)
                     local lookaheadDist = isDodging and math.clamp(baseLookahead * 0.55, 14, 26) or baseLookahead
                     local aimLateral = currentLaneOffset
                     if isDodging then
@@ -2470,38 +2627,43 @@
                     targetPathPos = Vector3.new(targetPathPos.X, roadY, targetPathPos.Z)
 
                     local moveVec = targetPathPos - currentPos
-                    -- Keep horizontal driving direction purely flat, let suspension/physics handle ground contact naturally
                     local flatMoveVec = Vector3.new(moveVec.X, 0, moveVec.Z)
                     local moveDir = flatMoveVec.Magnitude > 0.01 and flatMoveVec.Unit or Vector3.new(frame.Direction.X, 0, frame.Direction.Z).Unit
 
-                    -- Apply Velocity directly to VehicleSeat (Horizontal propulsion only, keep Y velocity gentle)
+                    -- Apply Velocity directly to VehicleSeat (Smooth Horizontal Propulsion)
                     local curYVel = math.clamp(seat.AssemblyLinearVelocity.Y, -10, 10)
                     seat.AssemblyLinearVelocity = Vector3.new(moveDir.X * forwardSpeed, curYVel, moveDir.Z * forwardSpeed)
                     seat.AssemblyAngularVelocity = Vector3.zero
 
-                    -- Smoothly keep vehicle facing highway direction cleanly
+                    -- Vehicle Heading & Smooth Steering
                     local curPivot = car:GetPivot()
                     local flatLook = Vector3.new(curPivot.LookVector.X, 0, curPivot.LookVector.Z)
                     local flatDir = Vector3.new(frame.Direction.X, 0, frame.Direction.Z)
                     if flatLook.Magnitude > 0.001 then flatLook = flatLook.Unit else flatLook = Vector3.new(0, 0, -1) end
                     if flatDir.Magnitude > 0.001 then flatDir = flatDir.Unit else flatDir = Vector3.new(0, 0, -1) end
-                    local alignment = flatLook:Dot(flatDir)
 
-                    -- Pure Horizontal Yaw Alignment & Anti-Flip Stabilization
                     local targetHeading = Vector3.new(moveDir.X, 0, moveDir.Z)
                     if targetHeading.Magnitude > 0.001 then targetHeading = targetHeading.Unit else targetHeading = flatDir end
                     local headingAlignment = flatLook:Dot(targetHeading)
 
                     if headingAlignment < 0.65 or curPivot.UpVector.Y < 0.70 or math.abs(currentPos.Y - frame.CenterPos.Y) > 8.0 then
-                        -- Re-align instantly onto road surface if vehicle spins out or tilts (Safe +3.2 studs elevation)
+                        -- Re-align instantly onto road surface if vehicle spins out
                         local uprightPos = Vector3.new(currentPos.X, frame.CenterPos.Y + 3.2, currentPos.Z)
                         car:PivotTo(CFrame.lookAt(uprightPos, uprightPos + targetHeading))
                         seat.AssemblyAngularVelocity = Vector3.zero
                         seat.AssemblyLinearVelocity = targetHeading * forwardSpeed
                     else
-                        -- Pure horizontal yaw rotation (Zero artificial roll twist on chassis springs)
-                        local targetRot = CFrame.lookAt(seat.Position, seat.Position + targetHeading)
-                        seat.CFrame = seat.CFrame:Lerp(targetRot, 0.20)
+                        -- Pure horizontal yaw rotation with Adaptive Smooth Factor & Subtle Corner Banking
+                        local steerFactor = math.clamp(Settings.SmoothSteerFactor or 0.22, 0.12, 0.45)
+                        local rollAngle = 0
+                        if Settings.AdaptiveCornering and curveAngleDeg > 8 then
+                            local cross = currentDirFlat:Cross(aheadVec)
+                            local turnSide = (cross.Y > 0) and 1 or -1
+                            rollAngle = math.clamp(math.rad(turnSide * (curveAngleDeg * 0.08)), math.rad(-3), math.rad(3))
+                        end
+
+                        local targetRot = CFrame.lookAt(seat.Position, seat.Position + targetHeading) * CFrame.Angles(0, 0, -rollAngle)
+                        seat.CFrame = seat.CFrame:Lerp(targetRot, steerFactor)
                     end
 
                     seat.Throttle = 1
