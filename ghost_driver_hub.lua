@@ -2053,6 +2053,8 @@
         CornerSlowdown       = true,     -- ชะลอความเร็วเล็กน้อยตอนเจอโค้งหักศอก
         SmoothSteerFactor    = 0.22,     -- ความนุ่มนวลของการหักเลี้ยว (0.15 - 0.40)
         LookaheadLead        = 38,       -- ระยะคำนวณถนนล่วงหน้า (studs)
+        HoverSuspension      = true,     -- ระบบยกตัวลอยเหนือถนน กันจม & ลดแรงสั่นสะเทือน 100%
+        RideHeightOffset     = 2.8,      -- ความสูงลอยเหนือถนน (studs) ดึงล้อพ้นพื้นนิดหน่อย
     }
     _G.GhostDriverSettings = Settings
 
@@ -2082,7 +2084,9 @@
                     AdaptiveCornering = Settings.AdaptiveCornering,
                     CornerSlowdown = Settings.CornerSlowdown,
                     SmoothSteerFactor = Settings.SmoothSteerFactor,
-                    LookaheadLead = Settings.LookaheadLead
+                    LookaheadLead = Settings.LookaheadLead,
+                    HoverSuspension = Settings.HoverSuspension,
+                    RideHeightOffset = Settings.RideHeightOffset
                 }
                 writefile(CONFIG_FILE, HttpService:JSONEncode(dataToSave))
             end)
@@ -2337,6 +2341,8 @@
         WorkerThread = nil,
         LastPos = nil,
         StuckTicks = 0,
+        LastMoveTick = tick(),
+        LastCheckedPos = nil,
         CurrentWaypointIdx = 1,
         CurrentLaneOffset = 0,
         TargetLane = 0,
@@ -2371,6 +2377,10 @@
             if pb and pb:IsA("BoolValue") and pb.Value == true then pb.Value = false end
             local ign = vals:FindFirstChild("Ignition")
             if ign and ign:IsA("BoolValue") and ign.Value == false then ign.Value = true end
+            local brk = vals:FindFirstChild("Brake")
+            if brk and brk:IsA("NumberValue") and brk.Value > 0 then brk.Value = 0 end
+            local thr = vals:FindFirstChild("Throttle")
+            if thr and thr:IsA("NumberValue") and thr.Value == 0 then thr.Value = 1 end
         end
     end
 
@@ -2458,19 +2468,30 @@
 
         local currentPos = seat.Position
 
-        -- Track distance traveled & check stuck state
+        -- Track distance traveled & real-time stuck state (Timer-based, prevents false 0.25s stuck loops!)
+        if not FarmManager.LastMoveTick then FarmManager.LastMoveTick = tick() end
+        if not FarmManager.LastCheckedPos then FarmManager.LastCheckedPos = currentPos end
+
         if FarmManager.LastPos then
             local stepDist = (Vector3.new(currentPos.X, 0, currentPos.Z) - Vector3.new(FarmManager.LastPos.X, 0, FarmManager.LastPos.Z)).Magnitude
             if stepDist < 200 then
                 FarmManager.LoopDistanceTraveled = FarmManager.LoopDistanceTraveled + stepDist
             end
-            if stepDist < 1.0 then
-                FarmManager.StuckTicks = FarmManager.StuckTicks + 1
-            else
-                FarmManager.StuckTicks = 0
-            end
         end
         FarmManager.LastPos = currentPos
+
+        -- Check position progression every 1.0 second (Requires 4.0 studs delta)
+        local movedDelta = (Vector3.new(currentPos.X, 0, currentPos.Z) - Vector3.new(FarmManager.LastCheckedPos.X, 0, FarmManager.LastCheckedPos.Z)).Magnitude
+        if movedDelta > 4.0 then
+            FarmManager.LastMoveTick = tick()
+            FarmManager.LastCheckedPos = currentPos
+            FarmManager.StuckTicks = 0
+        else
+            -- Only trigger recovery if truly stopped for >= 4.0 continuous seconds!
+            if tick() - FarmManager.LastMoveTick >= 4.0 then
+                FarmManager.StuckTicks = 30
+            end
+        end
 
         -- 3. Resolve Current Road Position on Official 96,000 Studs Track
         local frame = findRoadFrame(currentPos, FarmManager.CurrentWaypointIdx)
@@ -2513,8 +2534,10 @@
             end
         end
 
-        if isFlipped or isFalling or isOffTrack or hasBrokenWheel or FarmManager.StuckTicks >= 15 then
+        if isFlipped or isFalling or isOffTrack or hasBrokenWheel or FarmManager.StuckTicks >= 25 then
             FarmManager.StuckTicks = 0
+            FarmManager.LastMoveTick = tick()
+            FarmManager.LastCheckedPos = currentPos
             FarmManager.UnfreezeVehicle()
 
             -- If car has a detached/broken wheel, respawn fresh car immediately!
@@ -2524,14 +2547,15 @@
                 return
             end
 
-            local safePt = frame.CenterPos + (frame.Normal * FarmManager.CurrentLaneOffset) + Vector3.new(0, 3.2, 0)
+            local rideH = Settings.RideHeightOffset or 2.8
+            local safePt = frame.CenterPos + (frame.Normal * FarmManager.CurrentLaneOffset) + Vector3.new(0, rideH + 0.6, 0)
             if LocalPlayer.RequestStreamAroundAsync then
                 LocalPlayer:RequestStreamAroundAsync(safePt, 2)
                 task.wait(0.04)
             end
             local flatDir = Vector3.new(frame.Direction.X, 0, frame.Direction.Z)
             if flatDir.Magnitude < 0.001 then flatDir = Vector3.new(0, 0, -1) else flatDir = flatDir.Unit end
-            seat.AssemblyLinearVelocity = flatDir * 100
+            seat.AssemblyLinearVelocity = flatDir * 120 + Vector3.new(0, 8, 0)
             seat.AssemblyAngularVelocity = Vector3.zero
             car:PivotTo(CFrame.lookAt(safePt, safePt + flatDir))
             task.wait(0.12)
@@ -2797,10 +2821,10 @@
         end
 
         local targetPathPos = frame.CenterPos + (frame.Direction * lookaheadDist) + (frame.Normal * aimLateral)
-        local roadY = frame.CenterPos.Y + 1.6
 
-        local rayOrigin = Vector3.new(targetPathPos.X, frame.CenterPos.Y + 16.0, targetPathPos.Z)
-        local rayDir = Vector3.new(0, -32.0, 0)
+        -- Multi-Point Road Surface Detection & Hover Altitude Resolver (Anti-Sink & Anti-Vibration Engine)
+        local rayOrigin = Vector3.new(currentPos.X, currentPos.Y + 14.0, currentPos.Z)
+        local rayDir = Vector3.new(0, -35.0, 0)
         local rayParams = RaycastParams.new()
         rayParams.FilterType = Enum.RaycastFilterType.Exclude
         local ignoreList = { LocalPlayer.Character }
@@ -2808,23 +2832,37 @@
         rayParams.FilterDescendantsInstances = ignoreList
         rayParams.IgnoreWater = true
 
-        local rayResult = workspace:Raycast(rayOrigin, rayDir, rayParams)
-        if rayResult and rayResult.Position then
-            roadY = rayResult.Position.Y + 1.6
-        end
+        local roadHit = workspace:Raycast(rayOrigin, rayDir, rayParams)
+        local groundY = (roadHit and roadHit.Position) and roadHit.Position.Y or frame.CenterPos.Y
+        local targetRideHeight = Settings.RideHeightOffset or 2.8
+        local desiredHoverY = groundY + targetRideHeight
 
-        targetPathPos = Vector3.new(targetPathPos.X, roadY, targetPathPos.Z)
+        -- Lookahead road target altitude
+        local roadAheadY = frame.CenterPos.Y + targetRideHeight
+        local aheadHit = workspace:Raycast(Vector3.new(targetPathPos.X, frame.CenterPos.Y + 16.0, targetPathPos.Z), Vector3.new(0, -32.0, 0), rayParams)
+        if aheadHit and aheadHit.Position then
+            roadAheadY = aheadHit.Position.Y + targetRideHeight
+        end
+        targetPathPos = Vector3.new(targetPathPos.X, roadAheadY, targetPathPos.Z)
 
         local moveVec = targetPathPos - currentPos
         local flatMoveVec = Vector3.new(moveVec.X, 0, moveVec.Z)
         local moveDir = flatMoveVec.Magnitude > 0.01 and flatMoveVec.Unit or Vector3.new(frame.Direction.X, 0, frame.Direction.Z).Unit
 
-        -- Smooth Physics Propulsion: Wheels stay on road with normal suspension, no position fighting
-        local curYVel = math.clamp(seat.AssemblyLinearVelocity.Y, -10, 10)
-        seat.AssemblyLinearVelocity = Vector3.new(moveDir.X * forwardSpeed, curYVel, moveDir.Z * forwardSpeed)
+        -- Vertical velocity & Hover suspension: Active height hold keeps wheels 0.5-1.0 studs clear of the road
+        local yDiff = desiredHoverY - currentPos.Y
+        local isSinking = currentPos.Y < (groundY + 1.2)
+        local targetYVel = 0
+        if Settings.HoverSuspension then
+            targetYVel = math.clamp(yDiff * 20, -12, 26)
+        else
+            targetYVel = math.clamp(seat.AssemblyLinearVelocity.Y, -10, 10)
+        end
+
+        seat.AssemblyLinearVelocity = Vector3.new(moveDir.X * forwardSpeed, targetYVel, moveDir.Z * forwardSpeed)
         seat.AssemblyAngularVelocity = Vector3.zero
 
-        -- Vehicle Heading: Smooth Pure-Yaw Steering (Does NOT force CFrame.Position, eliminating chassis vibration 100%!)
+        -- Vehicle Heading: Smooth Pure-Yaw Steering (Locks hover altitude, eliminates road jitter 100%)
         local curPivot = car:GetPivot()
         local flatLook = Vector3.new(curPivot.LookVector.X, 0, curPivot.LookVector.Z)
         local flatDir = Vector3.new(frame.Direction.X, 0, frame.Direction.Z)
@@ -2835,18 +2873,29 @@
         if targetHeading.Magnitude > 0.001 then targetHeading = targetHeading.Unit else targetHeading = flatDir end
         local headingAlignment = flatLook:Dot(targetHeading)
 
-        if headingAlignment < 0.25 or curPivot.UpVector.Y < 0.50 then
-            local uprightPos = Vector3.new(currentPos.X, currentPos.Y + 1.5, currentPos.Z)
+        local targetSeatY = currentPos.Y
+        if Settings.HoverSuspension then
+            if isSinking then
+                -- Immediately rescue chassis from asphalt penetration trap
+                targetSeatY = desiredHoverY
+            else
+                -- Follow road contour elevation smoothly
+                targetSeatY = currentPos.Y + (yDiff * 0.16)
+            end
+        end
+
+        if headingAlignment < 0.25 or curPivot.UpVector.Y < 0.50 or isSinking then
+            local uprightPos = Vector3.new(currentPos.X, math.max(currentPos.Y, desiredHoverY), currentPos.Z)
             car:PivotTo(CFrame.lookAt(uprightPos, uprightPos + targetHeading))
             seat.AssemblyAngularVelocity = Vector3.zero
-            seat.AssemblyLinearVelocity = targetHeading * forwardSpeed
+            seat.AssemblyLinearVelocity = targetHeading * forwardSpeed + Vector3.new(0, 5, 0)
         else
-            -- Align rotation only (keep natural physical seat.Position intact!)
+            -- Align rotation & maintain silky smooth hover clearance (Zero vibration, zero sinking!)
             local steerFactor = math.clamp(Settings.SmoothSteerFactor or 0.22, 0.12, 0.40)
             local targetRot = CFrame.lookAt(Vector3.zero, targetHeading)
             local currentRot = seat.CFrame.Rotation
             local blendedRot = currentRot:Lerp(targetRot, steerFactor)
-            seat.CFrame = CFrame.new(seat.Position) * blendedRot
+            seat.CFrame = CFrame.new(currentPos.X, targetSeatY, currentPos.Z) * blendedRot
         end
 
         seat.Throttle = 1
@@ -3054,6 +3103,21 @@
         Name = "No Traffic Collision (ทะลุรถชาวบ้านไม่ชน)",
         Default = Settings.NoCollisionTraffic,
         Callback = function(Value) Settings.NoCollisionTraffic = Value end
+    })
+
+    TabVehicle:AddSection({ Name = "Hover Suspension & Anti-Sink (ระบบลอยตัวกันจม & กันสั่น)" })
+
+    TabVehicle:AddToggle({
+        Name = "Hover Suspension (ยกรถลอยเหนือถนน กันจม & ลดการสั่น 100%)",
+        Default = Settings.HoverSuspension,
+        Callback = function(Value) Settings.HoverSuspension = Value end
+    })
+
+    TabVehicle:AddSlider({
+        Name = "Ride Height Offset (ระดับความสูงลอยตัวเหนือถนน)",
+        Min = 1.8, Max = 4.5, Default = Settings.RideHeightOffset, Color = Color3.fromRGB(0, 240, 255),
+        Increment = 0.1, ValueName = "studs",
+        Callback = function(Value) Settings.RideHeightOffset = Value end
     })
 
     -- ─── Tab: Police & Defense ────────────────────────────────────────
@@ -3650,16 +3714,17 @@
                         zeroSpeedTicks = 0
                     end
 
-                    -- If stationary for >= 3.0 seconds while Auto Farm is ON, execute forced unfreeze
-                    if zeroSpeedTicks >= 2 then
+                    -- If stationary for >= 6.0 seconds while Auto Farm is ON, execute forced unfreeze
+                    if zeroSpeedTicks >= 4 then
                         zeroSpeedTicks = 0
                         FarmManager.UnfreezeVehicle()
                         local frame = findRoadFrame(seat.Position)
                         if frame then
-                            local safePt = frame.CenterPos + (frame.Normal * FarmManager.CurrentLaneOffset) + Vector3.new(0, 3.2, 0)
+                            local rideH = Settings.RideHeightOffset or 2.8
+                            local safePt = frame.CenterPos + (frame.Normal * FarmManager.CurrentLaneOffset) + Vector3.new(0, rideH + 0.6, 0)
                             local flatDir = Vector3.new(frame.Direction.X, 0, frame.Direction.Z).Unit
                             car:PivotTo(CFrame.lookAt(safePt, safePt + flatDir))
-                            seat.AssemblyLinearVelocity = flatDir * 140
+                            seat.AssemblyLinearVelocity = flatDir * 140 + Vector3.new(0, 8, 0)
                             seat.AssemblyAngularVelocity = Vector3.zero
                             seat.Throttle = 1
                             seat.ThrottleFloat = 1
