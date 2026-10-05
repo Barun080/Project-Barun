@@ -2495,16 +2495,35 @@
             end
         end
 
-        -- Fallback / Off-track & Anti-Void / Anti-Flip Recovery (True rollover only, no hill false triggers)
+        -- Fallback / Off-track & Anti-Void / Broken Wheel Auto-Respawn Recovery
         local distY = currentPos.Y - frame.CenterPos.Y
         local curPivot = car:GetPivot()
         local isFlipped = curPivot.UpVector.Y < 0.40 or seat.CFrame.UpVector.Y < 0.40
         local isFalling = distY < -20.0 or distY > 60.0
         local isOffTrack = frame.DistanceToCenter > 95.0
 
-        if isFlipped or isFalling or isOffTrack or FarmManager.StuckTicks >= 15 then
+        -- Check if any wheel detached from vehicle
+        local hasBrokenWheel = false
+        for _, part in ipairs(car:GetDescendants()) do
+            if part:IsA("BasePart") and (part.Name:lower():find("wheel") or part.Name:lower():find("tire")) then
+                if (part.Position - seat.Position).Magnitude > 20.0 then
+                    hasBrokenWheel = true
+                    break
+                end
+            end
+        end
+
+        if isFlipped or isFalling or isOffTrack or hasBrokenWheel or FarmManager.StuckTicks >= 15 then
             FarmManager.StuckTicks = 0
             FarmManager.UnfreezeVehicle()
+
+            -- If car has a detached/broken wheel, respawn fresh car immediately!
+            if hasBrokenWheel and Remote_SpawnCar then
+                Remote_SpawnCar:FireServer(Settings.SelectedCar or "Wulfbrecht RZ7")
+                task.wait(1.5)
+                return
+            end
+
             local safePt = frame.CenterPos + (frame.Normal * FarmManager.CurrentLaneOffset) + Vector3.new(0, 3.2, 0)
             if LocalPlayer.RequestStreamAroundAsync then
                 LocalPlayer:RequestStreamAroundAsync(safePt, 2)
@@ -2522,12 +2541,22 @@
         -- Unlock A-Chassis parking brakes & unanchor parts if vehicle was frozen
         FarmManager.UnfreezeVehicle()
 
-        -- Proactive Car Ghosting & Frictionless Anti-Shake Hover Mode (Wheels clear off ground)
+        -- Proactive Car Ghosting: Ghost body & bumpers 100%, PRESERVE WHEEL COLLISION so springs never snap!
         if Settings.GhostGodMode or Settings.AutoDriveFarm then
             for _, p in ipairs(car:GetDescendants()) do
                 if p:IsA("BasePart") then
-                    if p.CanCollide then p.CanCollide = false end
-                    if p.CanTouch then p.CanTouch = false end
+                    local pNameLower = p.Name:lower()
+                    local isWheelOrSeat = (p.Name == "DriveSeat") 
+                        or p:IsA("VehicleSeat")
+                        or pNameLower:find("wheel")
+                        or pNameLower:find("tire")
+                        or (p.Parent and p.Parent.Name:lower():find("wheel"))
+                    if not isWheelOrSeat then
+                        if p.CanCollide then p.CanCollide = false end
+                        if p.CanTouch then p.CanTouch = false end
+                    else
+                        if not p.CanCollide then p.CanCollide = true end
+                    end
                 end
             end
         end
@@ -2768,8 +2797,7 @@
         end
 
         local targetPathPos = frame.CenterPos + (frame.Direction * lookaheadDist) + (frame.Normal * aimLateral)
-        local HOVER_OFFSET = 2.4 -- Hover clearance: wheels cleanly float above asphalt, eliminating chassis vibration
-        local roadY = frame.CenterPos.Y + HOVER_OFFSET
+        local roadY = frame.CenterPos.Y + 1.6
 
         local rayOrigin = Vector3.new(targetPathPos.X, frame.CenterPos.Y + 16.0, targetPathPos.Z)
         local rayDir = Vector3.new(0, -32.0, 0)
@@ -2782,7 +2810,7 @@
 
         local rayResult = workspace:Raycast(rayOrigin, rayDir, rayParams)
         if rayResult and rayResult.Position then
-            roadY = rayResult.Position.Y + HOVER_OFFSET
+            roadY = rayResult.Position.Y + 1.6
         end
 
         targetPathPos = Vector3.new(targetPathPos.X, roadY, targetPathPos.Z)
@@ -2791,13 +2819,12 @@
         local flatMoveVec = Vector3.new(moveVec.X, 0, moveVec.Z)
         local moveDir = flatMoveVec.Magnitude > 0.01 and flatMoveVec.Unit or Vector3.new(frame.Direction.X, 0, frame.Direction.Z).Unit
 
-        -- Anti-Gravity Hover Propulsion: Locks vertical height smoothly to eliminate all wheel bounce & chassis shaking
-        local yDiff = roadY - currentPos.Y
-        local hoverYVel = math.clamp(yDiff * 12.0, -18.0, 22.0)
-        seat.AssemblyLinearVelocity = Vector3.new(moveDir.X * forwardSpeed, hoverYVel, moveDir.Z * forwardSpeed)
+        -- Smooth Physics Propulsion: Wheels stay on road with normal suspension, no position fighting
+        local curYVel = math.clamp(seat.AssemblyLinearVelocity.Y, -10, 10)
+        seat.AssemblyLinearVelocity = Vector3.new(moveDir.X * forwardSpeed, curYVel, moveDir.Z * forwardSpeed)
         seat.AssemblyAngularVelocity = Vector3.zero
 
-        -- Vehicle Heading & Smooth Steering
+        -- Vehicle Heading: Smooth Pure-Yaw Steering (Does NOT force CFrame.Position, eliminating chassis vibration 100%!)
         local curPivot = car:GetPivot()
         local flatLook = Vector3.new(curPivot.LookVector.X, 0, curPivot.LookVector.Z)
         local flatDir = Vector3.new(frame.Direction.X, 0, frame.Direction.Z)
@@ -2808,26 +2835,18 @@
         if targetHeading.Magnitude > 0.001 then targetHeading = targetHeading.Unit else targetHeading = flatDir end
         local headingAlignment = flatLook:Dot(targetHeading)
 
-        -- Only perform upright pivot if car has spun out (> 75 degrees off heading or flipped)
-        -- FIXED: Do NOT check (currentPos.Y - frame.CenterPos.Y > 8) so hills and bridges NEVER bounce!
         if headingAlignment < 0.25 or curPivot.UpVector.Y < 0.50 then
             local uprightPos = Vector3.new(currentPos.X, currentPos.Y + 1.5, currentPos.Z)
             car:PivotTo(CFrame.lookAt(uprightPos, uprightPos + targetHeading))
             seat.AssemblyAngularVelocity = Vector3.zero
             seat.AssemblyLinearVelocity = targetHeading * forwardSpeed
         else
-            local steerFactor = math.clamp(Settings.SmoothSteerFactor or 0.22, 0.12, 0.45)
-            local rollAngle = 0
-            if Settings.AdaptiveCornering and curveAngleDeg > 8 then
-                local currentDirFlat = Vector3.new(frame.Direction.X, 0, frame.Direction.Z).Unit
-                local aheadVec = Vector3.new(aheadPt[1] - frame.CenterPos.X, 0, aheadPt[3] - frame.CenterPos.Z).Unit
-                local cross = currentDirFlat:Cross(aheadVec)
-                local turnSide = (cross.Y > 0) and 1 or -1
-                rollAngle = math.clamp(math.rad(turnSide * (curveAngleDeg * 0.08)), math.rad(-3), math.rad(3))
-            end
-
-            local targetRot = CFrame.lookAt(seat.Position, seat.Position + targetHeading) * CFrame.Angles(0, 0, -rollAngle)
-            seat.CFrame = seat.CFrame:Lerp(targetRot, steerFactor)
+            -- Align rotation only (keep natural physical seat.Position intact!)
+            local steerFactor = math.clamp(Settings.SmoothSteerFactor or 0.22, 0.12, 0.40)
+            local targetRot = CFrame.lookAt(Vector3.zero, targetHeading)
+            local currentRot = seat.CFrame.Rotation
+            local blendedRot = currentRot:Lerp(targetRot, steerFactor)
+            seat.CFrame = CFrame.new(seat.Position) * blendedRot
         end
 
         seat.Throttle = 1
