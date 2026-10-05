@@ -185,24 +185,20 @@
             })
         })
 
-        local LogoBeacon = make("Frame", {
-            Size = UDim2.new(0, 10, 0, 10),
-            Position = UDim2.new(0, 20, 0, 24),
-            BackgroundColor3 = Theme.AccentCyan,
+        -- Official PROJECT BARUN Logo Icon
+        local PB_LOGO_ASSET = "rbxassetid://71495519688848"
+
+        local LogoIcon = make("ImageLabel", {
+            Name = "ProjectBarunLogo",
+            Size = UDim2.new(0, 36, 0, 36),
+            Position = UDim2.new(0, 14, 0, 11),
+            BackgroundTransparency = 1,
+            Image = PB_LOGO_ASSET,
+            ScaleType = Enum.ScaleType.Fit,
             Parent = TopBar
         }, {
-            make("UICorner", { CornerRadius = UDim.new(1, 0) }),
-            make("UIStroke", { Color = Theme.AccentPrimary, Thickness = 2, Transparency = 0.3 })
+            make("UICorner", { CornerRadius = UDim.new(0, 8) })
         })
-
-        task.spawn(function()
-            while ScreenGui.Parent do
-                tw(LogoBeacon, { BackgroundColor3 = Theme.AccentPrimary }, 1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-                task.wait(1.2)
-                tw(LogoBeacon, { BackgroundColor3 = Theme.AccentCyan }, 1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-                task.wait(1.2)
-            end
-        end)
 
         make("TextLabel", {
             Text = TitleText,
@@ -210,8 +206,8 @@
             TextSize = 16,
             TextColor3 = Theme.TextTitle,
             TextXAlignment = Enum.TextXAlignment.Left,
-            Position = UDim2.new(0, 38, 0, 12),
-            Size = UDim2.new(0, 280, 0, 18),
+            Position = UDim2.new(0, 56, 0, 12),
+            Size = UDim2.new(0, 260, 0, 18),
             BackgroundTransparency = 1,
             Parent = TopBar
         })
@@ -222,8 +218,8 @@
             TextSize = 9,
             TextColor3 = Theme.AccentCyan,
             TextXAlignment = Enum.TextXAlignment.Left,
-            Position = UDim2.new(0, 38, 0, 32),
-            Size = UDim2.new(0, 280, 0, 14),
+            Position = UDim2.new(0, 56, 0, 32),
+            Size = UDim2.new(0, 260, 0, 14),
             BackgroundTransparency = 1,
             Parent = TopBar
         })
@@ -337,7 +333,7 @@
 
         local FloatingBadge = make("ImageButton", {
             Name = "FloatingBadge",
-            Size = UDim2.new(0, 48, 0, 48),
+            Size = UDim2.new(0, 52, 0, 52),
             Position = UDim2.new(0, 24, 0, 120),
             BackgroundColor3 = Color3.fromRGB(15, 17, 26),
             AutoButtonColor = false,
@@ -345,23 +341,18 @@
             ZIndex = 100,
             Parent = ScreenGui
         }, {
-            make("UICorner", { CornerRadius = UDim.new(1, 0) }),
-            make("UIStroke", { Color = Theme.AccentCyan, Thickness = 2, Transparency = 0.2 }),
-            make("UIGradient", {
-                Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0.0, Color3.fromRGB(24, 28, 42)),
-                    ColorSequenceKeypoint.new(1.0, Color3.fromRGB(11, 13, 19))
-                }),
-                Rotation = 45
-            }),
-            make("TextLabel", {
-                Text = "PB",
-                Font = Theme.FontTitle,
-                TextSize = 16,
-                TextColor3 = Theme.AccentCyan,
-                Size = UDim2.new(1, 0, 1, 0),
+            make("UICorner", { CornerRadius = UDim.new(0, 14) }),
+            make("UIStroke", { Color = Theme.AccentCyan, Thickness = 2, Transparency = 0.1 }),
+            make("ImageLabel", {
+                Name = "BadgeLogo",
+                Size = UDim2.new(1, -6, 1, -6),
+                Position = UDim2.new(0, 3, 0, 3),
                 BackgroundTransparency = 1,
+                Image = PB_LOGO_ASSET,
+                ScaleType = Enum.ScaleType.Fit,
                 ZIndex = 101
+            }, {
+                make("UICorner", { CornerRadius = UDim.new(0, 12) })
             })
         })
 
@@ -402,7 +393,7 @@
                 ShadowBackdrop.Visible = false
                 FloatingBadge.Visible = true
                 FloatingBadge.Size = UDim2.new(0, 0, 0, 0)
-                tw(FloatingBadge, { Size = UDim2.new(0, 48, 0, 48) }, 0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                tw(FloatingBadge, { Size = UDim2.new(0, 52, 0, 52) }, 0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
             else
                 tw(FloatingBadge, { Size = UDim2.new(0, 0, 0, 0) }, 0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
                 task.wait(0.2)
@@ -725,6 +716,29 @@
                     end
                 end
                 return handle
+            end
+
+            -- Component: Image Banner
+            function TabObj:AddBanner(imageAsset, bannerHeight)
+                bannerHeight = bannerHeight or 120
+                local BannerCard = make("Frame", {
+                    Size = UDim2.new(1, 0, 0, bannerHeight),
+                    BackgroundColor3 = Theme.CardBg,
+                    ClipsDescendants = true,
+                    Parent = TabPage
+                }, {
+                    make("UICorner", { CornerRadius = UDim.new(0, 12) }),
+                    make("UIStroke", { Color = Theme.AccentCyan, Thickness = 1.2, Transparency = 0.3 }),
+                    make("ImageLabel", {
+                        Name = "BannerImage",
+                        Size = UDim2.new(1, 0, 1, 0),
+                        Position = UDim2.new(0, 0, 0, 0),
+                        BackgroundTransparency = 1,
+                        Image = tostring(imageAsset),
+                        ScaleType = Enum.ScaleType.Fit
+                    })
+                })
+                return BannerCard
             end
 
             -- Component: Toggle
@@ -1361,6 +1375,8 @@
     local TabConfig  = Window:MakeTab({ Name = "⚙️ Settings & Save", Icon = "rbxassetid://4483345998" })
 
     -- ─── Tab: Live Dashboard & Telemetry ──────────────────────────────
+    TabDash:AddBanner("rbxassetid://71495519688848", 130)
+
     TabDash:AddSection({ Name = "🚀 Real-time Telemetry & Farm Metrics" })
 
     local Dash_Speed    = TabDash:AddLabel("⚡ Current Speed: 0 MPH (0 km/h)")
