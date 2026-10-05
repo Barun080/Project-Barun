@@ -185,19 +185,58 @@
             })
         })
 
-        -- Official PROJECT BARUN Logo Icon
+        -- Official PROJECT BARUN Logo Asset Engine (GitHub Raw + Local Cache + Safe Fallback)
         local PB_LOGO_ASSET = "rbxassetid://71495519688848"
+        pcall(function()
+            local logoFileName = "ProjectBarun_Logo.png"
+            if getcustomasset and (isfile and isfile(logoFileName)) then
+                PB_LOGO_ASSET = getcustomasset(logoFileName)
+            elseif getcustomasset and writefile and game.HttpGet then
+                local rawUrl = "https://raw.githubusercontent.com/Barun080/Project-Barun/main/Gemini_Generated_Image_7m1xbd7m1xbd7m1x.jpg"
+                local imgBytes = game:HttpGet(rawUrl)
+                if imgBytes and #imgBytes > 0 then
+                    writefile(logoFileName, imgBytes)
+                    PB_LOGO_ASSET = getcustomasset(logoFileName)
+                end
+            end
+        end)
 
-        local LogoIcon = make("ImageLabel", {
-            Name = "ProjectBarunLogo",
+        local LogoIconHolder = make("Frame", {
+            Name = "LogoHolder",
             Size = UDim2.new(0, 36, 0, 36),
             Position = UDim2.new(0, 14, 0, 11),
-            BackgroundTransparency = 1,
-            Image = PB_LOGO_ASSET,
-            ScaleType = Enum.ScaleType.Fit,
+            BackgroundColor3 = Color3.fromRGB(18, 20, 32),
             Parent = TopBar
         }, {
-            make("UICorner", { CornerRadius = UDim.new(0, 8) })
+            make("UICorner", { CornerRadius = UDim.new(0, 8) }),
+            make("UIStroke", { Color = Theme.AccentCyan, Thickness = 1.2, Transparency = 0.2 }),
+            make("UIGradient", {
+                Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Color3.fromRGB(24, 28, 48)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 14, 24))
+                }),
+                Rotation = 45
+            }),
+            make("TextLabel", {
+                Name = "FallbackText",
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundTransparency = 1,
+                Text = "PB",
+                Font = Theme.FontTitle,
+                TextSize = 15,
+                TextColor3 = Theme.AccentCyan,
+                ZIndex = 1
+            }),
+            make("ImageLabel", {
+                Name = "ProjectBarunLogo",
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundTransparency = 1,
+                Image = PB_LOGO_ASSET,
+                ScaleType = Enum.ScaleType.Fit,
+                ZIndex = 2
+            }, {
+                make("UICorner", { CornerRadius = UDim.new(0, 8) })
+            })
         })
 
         make("TextLabel", {
@@ -343,6 +382,23 @@
         }, {
             make("UICorner", { CornerRadius = UDim.new(0, 14) }),
             make("UIStroke", { Color = Theme.AccentCyan, Thickness = 2, Transparency = 0.1 }),
+            make("UIGradient", {
+                Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Color3.fromRGB(24, 28, 48)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 12, 20))
+                }),
+                Rotation = 45
+            }),
+            make("TextLabel", {
+                Name = "BadgeFallback",
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundTransparency = 1,
+                Text = "PB",
+                Font = Theme.FontTitle,
+                TextSize = 20,
+                TextColor3 = Theme.AccentCyan,
+                ZIndex = 100
+            }),
             make("ImageLabel", {
                 Name = "BadgeLogo",
                 Size = UDim2.new(1, -6, 1, -6),
@@ -540,7 +596,9 @@
             tabConfig = tabConfig or {}
             local TabName = tabConfig.Name or "Category"
             local TabIcon = tabConfig.Icon or "✦"
-            if TabIcon:find("rbxassetid") then TabIcon = "⚡" end
+            if TabIcon == "" or TabIcon:find("rbxassetid") then
+                TabIcon = "⚡"
+            end
 
             local TabPage = make("ScrollingFrame", {
                 Name = "Page_" .. TabName,
@@ -578,6 +636,12 @@
                 Parent = TabScroll
             }, {
                 make("UICorner", { CornerRadius = UDim.new(0, 10) }),
+                make("UIStroke", {
+                    Name = "TabStroke",
+                    Color = Theme.CardBorder,
+                    Thickness = 1,
+                    Transparency = 1
+                }),
                 make("Frame", {
                     Name = "GlowIndicator",
                     Size = UDim2.new(0, 3, 0, 0),
@@ -622,12 +686,16 @@
                     tw(t.Button, { BackgroundTransparency = 1 }, 0.2)
                     t.Button.Label.TextColor3 = Theme.TextDim
                     t.Button.Icon.TextColor3 = Theme.TextDim
+                    local s = t.Button:FindFirstChild("TabStroke")
+                    if s then tw(s, { Transparency = 1 }, 0.2) end
                     tw(t.Button.GlowIndicator, { Size = UDim2.new(0, 3, 0, 0), Position = UDim2.new(0, 0, 0.5, 0) }, 0.2)
                 end
                 TabPage.Visible = true
                 tw(TabBtn, { BackgroundTransparency = 0, BackgroundColor3 = Theme.CardBg }, 0.25)
                 TabBtn.Label.TextColor3 = Theme.TextTitle
                 TabBtn.Icon.TextColor3 = Theme.AccentCyan
+                local activeStroke = TabBtn:FindFirstChild("TabStroke")
+                if activeStroke then tw(activeStroke, { Color = Theme.CardBorder, Transparency = 0.4 }, 0.25) end
                 tw(TabBtn.GlowIndicator, { Size = UDim2.new(0, 3, 0, 22), Position = UDim2.new(0, 0, 0.5, -11) }, 0.25)
                 WindowObj.CurrentTab = TabObj
             end
@@ -638,12 +706,16 @@
                 if WindowObj.CurrentTab ~= TabObj then
                     tw(TabBtn, { BackgroundTransparency = 0.5, BackgroundColor3 = Theme.CardHover }, 0.15)
                     TabBtn.Label.TextColor3 = Theme.TextBody
+                    local s = TabBtn:FindFirstChild("TabStroke")
+                    if s then tw(s, { Transparency = 0.6 }, 0.15) end
                 end
             end)
             TabBtn.MouseLeave:Connect(function()
                 if WindowObj.CurrentTab ~= TabObj then
                     tw(TabBtn, { BackgroundTransparency = 1 }, 0.15)
                     TabBtn.Label.TextColor3 = Theme.TextDim
+                    local s = TabBtn:FindFirstChild("TabStroke")
+                    if s then tw(s, { Transparency = 1 }, 0.15) end
                 end
             end)
 
@@ -658,24 +730,32 @@
                     secTitle = secTitle.Name
                 end
                 local SecFrame = make("Frame", {
-                    Size = UDim2.new(1, 0, 0, 30),
+                    Size = UDim2.new(1, 0, 0, 32),
                     BackgroundTransparency = 1,
                     Parent = TabPage
                 }, {
                     make("Frame", {
-                        Size = UDim2.new(1, 0, 0, 1),
-                        Position = UDim2.new(0, 0, 1, -1),
-                        BackgroundColor3 = Theme.CardBorder,
-                        BackgroundTransparency = 0.6
+                        Size = UDim2.new(0, 4, 0, 14),
+                        Position = UDim2.new(0, 0, 0.5, -7),
+                        BackgroundColor3 = Theme.AccentCyan
+                    }, {
+                        make("UICorner", { CornerRadius = UDim.new(1, 0) })
                     }),
                     make("TextLabel", {
                         Text = string.upper(tostring(secTitle)),
                         Font = Theme.FontTitle,
                         TextSize = 11,
-                        TextColor3 = Theme.AccentPrimary,
+                        TextColor3 = Theme.AccentCyan,
                         TextXAlignment = Enum.TextXAlignment.Left,
-                        Size = UDim2.new(1, 0, 1, -2),
+                        Position = UDim2.new(0, 12, 0, 0),
+                        Size = UDim2.new(1, -12, 1, 0),
                         BackgroundTransparency = 1
+                    }),
+                    make("Frame", {
+                        Size = UDim2.new(1, 0, 0, 1),
+                        Position = UDim2.new(0, 0, 1, -1),
+                        BackgroundColor3 = Theme.CardBorder,
+                        BackgroundTransparency = 0.65
                     })
                 })
                 return SecFrame
@@ -721,6 +801,11 @@
             -- Component: Image Banner
             function TabObj:AddBanner(imageAsset, bannerHeight)
                 bannerHeight = bannerHeight or 120
+                local targetAsset = imageAsset or PB_LOGO_ASSET
+                if tostring(targetAsset):find("71495519688848") and PB_LOGO_ASSET then
+                    targetAsset = PB_LOGO_ASSET
+                end
+
                 local BannerCard = make("Frame", {
                     Size = UDim2.new(1, 0, 0, bannerHeight),
                     BackgroundColor3 = Theme.CardBg,
@@ -728,14 +813,48 @@
                     Parent = TabPage
                 }, {
                     make("UICorner", { CornerRadius = UDim.new(0, 12) }),
-                    make("UIStroke", { Color = Theme.AccentCyan, Thickness = 1.2, Transparency = 0.3 }),
+                    make("UIStroke", { Color = Theme.AccentCyan, Thickness = 1.2, Transparency = 0.25 }),
+                    make("UIGradient", {
+                        Color = ColorSequence.new({
+                            ColorSequenceKeypoint.new(0, Color3.fromRGB(24, 28, 48)),
+                            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(16, 18, 30)),
+                            ColorSequenceKeypoint.new(1, Color3.fromRGB(28, 18, 46))
+                        }),
+                        Rotation = 25
+                    }),
+                    make("Frame", {
+                        Name = "BannerFallbackContainer",
+                        Size = UDim2.new(1, 0, 1, 0),
+                        BackgroundTransparency = 1,
+                        ZIndex = 1
+                    }, {
+                        make("TextLabel", {
+                            Text = "⚡ PROJECT BARUN ⚡",
+                            Font = Theme.FontTitle,
+                            TextSize = 18,
+                            TextColor3 = Theme.AccentCyan,
+                            Position = UDim2.new(0, 0, 0.35, -10),
+                            Size = UDim2.new(1, 0, 0, 24),
+                            BackgroundTransparency = 1
+                        }),
+                        make("TextLabel", {
+                            Text = "GHOST DRIVER ENGINE • ULTIMATE AUTO HIGHWAY",
+                            Font = Theme.FontBold,
+                            TextSize = 10,
+                            TextColor3 = Theme.AccentPrimary,
+                            Position = UDim2.new(0, 0, 0.58, 0),
+                            Size = UDim2.new(1, 0, 0, 16),
+                            BackgroundTransparency = 1
+                        })
+                    }),
                     make("ImageLabel", {
                         Name = "BannerImage",
                         Size = UDim2.new(1, 0, 1, 0),
                         Position = UDim2.new(0, 0, 0, 0),
                         BackgroundTransparency = 1,
-                        Image = tostring(imageAsset),
-                        ScaleType = Enum.ScaleType.Fit
+                        Image = tostring(targetAsset),
+                        ScaleType = Enum.ScaleType.Fit,
+                        ZIndex = 2
                     })
                 })
                 return BannerCard
@@ -1059,19 +1178,26 @@
                 local callback  = btnConfig.Callback or function() end
 
                 local Btn = make("TextButton", {
-                    Size = UDim2.new(1, 0, 0, 40),
+                    Size = UDim2.new(1, 0, 0, 42),
                     BackgroundColor3 = Theme.CardBg,
                     AutoButtonColor = false,
                     Text = "",
                     Parent = TabPage
                 }, {
                     make("UICorner", { CornerRadius = UDim.new(0, 10) }),
-                    make("UIStroke", { Name = "BtnStroke", Color = Theme.CardBorder, Thickness = 1.1, Transparency = 0.3 }),
+                    make("UIStroke", { Name = "BtnStroke", Color = Theme.CardBorder, Thickness = 1.1, Transparency = 0.25 }),
+                    make("UIGradient", {
+                        Color = ColorSequence.new({
+                            ColorSequenceKeypoint.new(0, Color3.fromRGB(26, 30, 46)),
+                            ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 22, 34))
+                        }),
+                        Rotation = 90
+                    }),
                     make("TextLabel", {
                         Text = "⚡",
                         Font = Theme.FontBold,
                         TextSize = 13,
-                        Position = UDim2.new(0, 16, 0.5, -10),
+                        Position = UDim2.new(0, 14, 0.5, -10),
                         Size = UDim2.new(0, 20, 0, 20),
                         TextColor3 = Theme.AccentCyan,
                         BackgroundTransparency = 1
@@ -1082,16 +1208,27 @@
                         TextSize = 12,
                         TextColor3 = Theme.TextTitle,
                         TextXAlignment = Enum.TextXAlignment.Left,
-                        Position = UDim2.new(0, 42, 0, 0),
-                        Size = UDim2.new(1, -50, 1, 0),
+                        Position = UDim2.new(0, 38, 0, 0),
+                        Size = UDim2.new(1, -46, 1, 0),
                         BackgroundTransparency = 1
                     })
                 })
 
+                local btnStroke = Btn:FindFirstChild("BtnStroke")
+                Btn.MouseEnter:Connect(function()
+                    tw(Btn, { BackgroundColor3 = Theme.CardHover }, 0.15)
+                    if btnStroke then tw(btnStroke, { Color = Theme.AccentCyan, Transparency = 0 }, 0.15) end
+                end)
+
+                Btn.MouseLeave:Connect(function()
+                    tw(Btn, { BackgroundColor3 = Theme.CardBg }, 0.15)
+                    if btnStroke then tw(btnStroke, { Color = Theme.CardBorder, Transparency = 0.25 }, 0.15) end
+                end)
+
                 Btn.MouseButton1Click:Connect(function()
-                    tw(Btn, { BackgroundColor3 = Theme.CardHover }, 0.1)
+                    tw(Btn, { Size = UDim2.new(1, -4, 0, 40) }, 0.08)
                     task.wait(0.08)
-                    tw(Btn, { BackgroundColor3 = Theme.CardBg }, 0.18)
+                    tw(Btn, { Size = UDim2.new(1, 0, 0, 42) }, 0.12)
                     task.spawn(callback)
                 end)
             end
@@ -1367,12 +1504,12 @@
         ConfigFolder = "ProjectBarunHub"
     })
 
-    local TabDash    = Window:MakeTab({ Name = "📊 Live Dashboard", Icon = "rbxassetid://4483345998" })
-    local TabVehicle = Window:MakeTab({ Name = "Vehicle & Tune",  Icon = "rbxassetid://4483345998" })
-    local TabPolice  = Window:MakeTab({ Name = "Police & Defense", Icon = "rbxassetid://4483345998" })
-    local TabFarm    = Window:MakeTab({ Name = "Farm & Economy",   Icon = "rbxassetid://4483345998" })
-    local TabTP      = Window:MakeTab({ Name = "Teleports",        Icon = "rbxassetid://4483345998" })
-    local TabConfig  = Window:MakeTab({ Name = "⚙️ Settings & Save", Icon = "rbxassetid://4483345998" })
+    local TabDash    = Window:MakeTab({ Name = "Live Dashboard",  Icon = "📊" })
+    local TabVehicle = Window:MakeTab({ Name = "Vehicle & Tune",  Icon = "🏎️" })
+    local TabPolice  = Window:MakeTab({ Name = "Police & Defense", Icon = "🚨" })
+    local TabFarm    = Window:MakeTab({ Name = "Farm & Economy",   Icon = "💰" })
+    local TabTP      = Window:MakeTab({ Name = "Teleports",        Icon = "🌐" })
+    local TabConfig  = Window:MakeTab({ Name = "Settings & Save",  Icon = "⚙️" })
 
     -- ─── Tab: Live Dashboard & Telemetry ──────────────────────────────
     TabDash:AddBanner("rbxassetid://71495519688848", 130)
