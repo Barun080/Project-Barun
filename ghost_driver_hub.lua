@@ -2618,8 +2618,8 @@
             end
         end
 
-        -- Scan AI Traffic Folders (Exact game folders from police evasion era)
-        for _, folderName in ipairs({"TrafficFolder", "TrafficBoxes", "more tarffic", "PoliceWalls", "Cars"}) do
+        -- Scan AI Traffic Folders (Exact game folders + dynamic fallbacks)
+        for _, folderName in ipairs({"TrafficFolder", "TrafficBoxes", "more tarffic", "PoliceWalls", "Cars", "Traffic", "AITraffic", "TrafficAI", "LocalTraffic"}) do
             local f = workspace:FindFirstChild(folderName)
             if f then
                 for _, inst in ipairs(f:GetChildren()) do
@@ -2632,7 +2632,8 @@
         local pName = LocalPlayer.Name
         for _, m in ipairs(workspace:GetChildren()) do
             if m:IsA("Model") and not m.Name:find(pName) then
-                if m:FindFirstChildWhichIsA("VehicleSeat", true) or m.Name:find("_") or m.Name:lower():find("police") then
+                local mNameLower = m.Name:lower()
+                if m:FindFirstChildWhichIsA("VehicleSeat", true) or m.Name:find("_") or mNameLower:find("police") or mNameLower:find("traffic") then
                     checkObstacle(m)
                 end
             end
@@ -2684,16 +2685,25 @@
             end
         end
 
-        -- Decisive Lateral Pull: Swift & Crisp Evasion
+        -- Decisive Lateral Pull: Speed-Scaled Dynamic Evasion (Tuned for up to 320 MPH)
         local offsetDiff = targetLaneOffset - FarmManager.CurrentLaneOffset
-        local isDodging = (math.abs(offsetDiff) > 0.8) or (currentLaneObstacleDist < 350)
+        local isDodging = (math.abs(offsetDiff) > 0.8) or (currentLaneObstacleDist < 380)
         if math.abs(offsetDiff) > 0.03 then
-            local pullUrgency = 0.28
-            local maxStep = 2.0
-            if currentLaneObstacleDist < 300 or math.abs(offsetDiff) > 4.0 then
-                pullUrgency = 0.50
-                maxStep = 3.8
+            local pullUrgency = 0.30
+            local maxStep = 2.2
+
+            local speedRatio = math.clamp((forwardSpeed or 250) / 250, 1.0, 1.5)
+
+            if currentLaneObstacleDist < 180 or math.abs(offsetDiff) > 5.0 then
+                -- Close-quarter emergency evasion: Crisp, immediate lane switch
+                pullUrgency = 0.65
+                maxStep = 4.8 * speedRatio
+            elseif currentLaneObstacleDist < 320 or math.abs(offsetDiff) > 3.0 then
+                -- Proactive lane transition
+                pullUrgency = 0.48
+                maxStep = 3.6 * speedRatio
             end
+
             local step = math.clamp(offsetDiff * pullUrgency, -maxStep, maxStep)
             FarmManager.CurrentLaneOffset = FarmManager.CurrentLaneOffset + step
         end
@@ -2761,10 +2771,10 @@
 
         local dynamicLead = Settings.LookaheadLead or 38
         local baseLookahead = math.clamp(forwardSpeed * 0.18, dynamicLead * 0.7, dynamicLead * 1.4)
-        local lookaheadDist = isDodging and math.clamp(baseLookahead * 0.55, 14, 26) or baseLookahead
+        local lookaheadDist = isDodging and math.clamp(baseLookahead * 0.50, 12, 22) or baseLookahead
         local aimLateral = FarmManager.CurrentLaneOffset
         if isDodging then
-            aimLateral = (FarmManager.CurrentLaneOffset * 0.35) + (targetLaneOffset * 0.65)
+            aimLateral = (FarmManager.CurrentLaneOffset * 0.22) + (targetLaneOffset * 0.78)
         end
 
         local targetPathPos = frame.CenterPos + (frame.Direction * lookaheadDist) + (frame.Normal * aimLateral)
