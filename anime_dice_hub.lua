@@ -1931,6 +1931,7 @@ local Network = ReplicatedStorage:WaitForChild("Network", 10) or ReplicatedStora
 local RollNet = Network and Network:WaitForChild("RollService", 10)
 local TowersNet = Network and Network:WaitForChild("Towers", 10)
 local PlotNet = Network and Network:WaitForChild("PlotService", 10)
+local BoostNet = Network and Network:WaitForChild("BoostService", 10)
 local DailyNet = Network and Network:FindFirstChild("DailyRewardService")
 local OfflineNet = Network and Network:FindFirstChild("OfflineEarningsService")
 local GroupNet = Network and Network:FindFirstChild("GroupRewardService")
@@ -1938,6 +1939,16 @@ local GroupNet = Network and Network:FindFirstChild("GroupRewardService")
 -- Framework Modules
 local Framework = ReplicatedStorage:WaitForChild("Framework", 10) or ReplicatedStorage:FindFirstChild("Framework")
 local Features = Framework and Framework:WaitForChild("Features", 10)
+
+local BoostController = nil
+pcall(function()
+    if Features and Features:FindFirstChild("Inventory") then
+        local kinds = Features.Inventory:FindFirstChild("Kinds")
+        if kinds and kinds:FindFirstChild("Boost") then
+            BoostController = require(kinds.Boost.BoostController)
+        end
+    end
+end)
 
 -- Available Towers List
 local TowerList = {
@@ -1948,6 +1959,49 @@ local TowerList = {
     "Dragon Tower",
     "Slayer Tower",
     "Cursed Tower"
+}
+
+-- Available Potions List
+local AllPotionsList = {
+    "Luck IV",
+    "Luck III",
+    "Luck II",
+    "Luck I",
+    "Income IV",
+    "Income III",
+    "Income II",
+    "Income I",
+    "Damage IV",
+    "Damage III",
+    "Damage II",
+    "Damage I",
+    "Shadow Speed IV",
+    "Shadow Speed III",
+    "Shadow Speed II",
+    "Shadow Speed I",
+    "Shadow Luck IV",
+    "Shadow Luck III",
+    "Shadow Luck II",
+    "Shadow Luck I",
+    "Shadow Income IV",
+    "Shadow Income III",
+    "Shadow Income II",
+    "Shadow Income I",
+    "Dragon Luck III",
+    "Dragon Damage III",
+    "Dragon Income III",
+    "Slayer Luck III",
+    "Slayer Damage III",
+    "Slayer Income III",
+    "Leaf Luck III",
+    "Leaf Damage III",
+    "Leaf Income III",
+    "Pirate Luck III",
+    "Pirate Damage III",
+    "Pirate Income III",
+    "Cursed Luck III",
+    "Cursed Damage III",
+    "Cursed Income III",
 }
 
 -- Configuration & State
@@ -1964,6 +2018,31 @@ local Config = {
     AutoUpgradeSlots = false,    -- อัปเกรดเลเวลสล็อต
     TargetSlotLevel = 25,
 
+    -- Potions & Boosts
+    AutoUsePotions = false,
+    PotionInterval = 10,
+    SelectedCustomPotion = "Luck IV",
+    ActivePotions = {
+        ["Luck IV"] = true,
+        ["Luck III"] = true,
+        ["Luck II"] = false,
+        ["Luck I"] = false,
+        ["Income IV"] = true,
+        ["Income III"] = true,
+        ["Income II"] = false,
+        ["Income I"] = false,
+        ["Damage IV"] = true,
+        ["Damage III"] = true,
+        ["Damage II"] = false,
+        ["Damage I"] = false,
+        ["Shadow Speed IV"] = false,
+        ["Shadow Luck IV"] = false,
+        ["Shadow Income IV"] = false,
+        ["Dragon Luck III"] = false,
+        ["Slayer Luck III"] = false,
+        ["Cursed Luck III"] = false,
+    },
+
     -- Towers
     AutoTowers = false,
     SelectedTower = TowerList[1],
@@ -1977,6 +2056,7 @@ local Config = {
 local State = {
     TotalRollsSession = 0,
     TotalChestCollected = 0,
+    TotalPotionsUsedSession = 0,
     FloorsClearedSession = 0,
     CurrentTowerStatus = "Standby",
     SlotLevels = {}
@@ -2109,7 +2189,7 @@ end
 -- 2. PRECISION MONEY COLLECTOR (Direct Slot Balance Remotes & Hitbox)
 -- ═════════════════════════════════════════════════════════════════════
 local function CollectAllMoney()
-    -- 1. Firing CollectBalance per slot ID (1..24) — This is the proven mechanic
+    -- 1. Firing CollectBalance per slot ID (1..24) — Proven mechanic
     if PlotNet and PlotNet:FindFirstChild("RE") and PlotNet.RE:FindFirstChild("CollectBalance") then
         for slotId = 1, 24 do
             pcall(function()
@@ -2151,7 +2231,44 @@ local function CollectAllMoney()
 end
 
 -- ═════════════════════════════════════════════════════════════════════
--- 3. AUTO ROLL ENGINE
+-- 3. POTION CONSUMER ENGINE
+-- ═════════════════════════════════════════════════════════════════════
+local function UsePotion(potionName)
+    if not potionName then return false end
+    local success = false
+    pcall(function()
+        if BoostNet and BoostNet:FindFirstChild("RE") and BoostNet.RE:FindFirstChild("Use") then
+            BoostNet.RE.Use:FireServer(potionName)
+            success = true
+        elseif BoostController and BoostController.UseBoost then
+            BoostController.UseBoost(potionName)
+            success = true
+        end
+    end)
+    if success then
+        State.TotalPotionsUsedSession = State.TotalPotionsUsedSession + 1
+    end
+    return success
+end
+
+task.spawn(function()
+    while Running and _G.AnimeDiceActiveToken == myToken do
+        if Config.AutoUsePotions then
+            for potionName, enabled in pairs(Config.ActivePotions) do
+                if enabled and Running and _G.AnimeDiceActiveToken == myToken then
+                    UsePotion(potionName)
+                    task.wait(0.08)
+                end
+            end
+            task.wait(Config.PotionInterval)
+        else
+            task.wait(1)
+        end
+    end
+end)
+
+-- ═════════════════════════════════════════════════════════════════════
+-- 4. AUTO ROLL ENGINE
 -- ═════════════════════════════════════════════════════════════════════
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
@@ -2170,7 +2287,7 @@ task.spawn(function()
 end)
 
 -- ═════════════════════════════════════════════════════════════════════
--- 4. AUTO FARM PLOT ENGINE (Slot Balance Suction & Equip Best)
+-- 5. AUTO FARM PLOT ENGINE (Slot Balance Suction & Equip Best)
 -- ═════════════════════════════════════════════════════════════════════
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
@@ -2208,7 +2325,7 @@ task.spawn(function()
 end)
 
 -- ═════════════════════════════════════════════════════════════════════
--- 5. AUTO TOWERS ENGINE
+-- 6. AUTO TOWERS ENGINE
 -- ═════════════════════════════════════════════════════════════════════
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
@@ -2258,7 +2375,7 @@ task.spawn(function()
 end)
 
 -- ═════════════════════════════════════════════════════════════════════
--- 6. AUTO CLAIM REWARDS (Safe: Daily & Offline only, No Group Spam)
+-- 7. AUTO CLAIM REWARDS (Safe: Daily & Offline only, No Group Spam)
 -- ═════════════════════════════════════════════════════════════════════
 local function ClaimAllRewards()
     pcall(function()
@@ -2283,7 +2400,7 @@ task.spawn(function()
 end)
 
 -- ═════════════════════════════════════════════════════════════════════
--- 7. BUILD UI INTERFACE (AURORA EDITION v3.0)
+-- 8. BUILD UI INTERFACE (AURORA EDITION v3.0)
 -- ═════════════════════════════════════════════════════════════════════
 local Window = UI:CreateWindow({
     Title = "PROJECT BARUN",
@@ -2314,6 +2431,13 @@ local StatCash = TabDash:AddStatCard({
     Value = "0",
     Subtext = "Cash in wallet",
     Progress = 0.5,
+})
+
+local StatPotions = TabDash:AddStatCard({
+    Title = "Potions Consumed",
+    Value = "0",
+    Subtext = "Auto consumed this session",
+    Progress = 0,
 })
 
 local StatFloors = TabDash:AddStatCard({
@@ -2354,6 +2478,20 @@ TabDash:AddToggle({
         Window:Notify({
             Title = "Auto Farm Plot",
             Content = v and "Started plot money suction!" or "Paused plot farming.",
+            Type = v and "success" or "warning"
+        })
+    end,
+})
+
+TabDash:AddToggle({
+    Name = "Auto Potions (ใช้น้ำยาอัตโนมัติ)",
+    Desc = "เปิดใช้งานน้ำยาที่เลือกไว้ในแท่น้ำยาอัตโนมัติ",
+    Default = Config.AutoUsePotions,
+    Callback = function(v)
+        Config.AutoUsePotions = v
+        Window:Notify({
+            Title = "Auto Potions",
+            Content = v and "Potion automation active!" or "Potion automation paused.",
             Type = v and "success" or "warning"
         })
     end,
@@ -2587,7 +2725,130 @@ TabPlot:AddButton({
     end,
 })
 
--- TAB 4: ROLLING
+-- TAB 4: POTIONS / BOOSTS
+local TabPotions = Window:CreateTab({
+    Name = "Potions / Boosts",
+    Icon = "🧪",
+    Subtitle = "Auto Potion Consumption & Buff Engine",
+})
+
+TabPotions:AddSection("AUTO POTION ENGINE")
+
+TabPotions:AddToggle({
+    Name = "Auto Consume Potions (เปิดระบบใช้น้ำยาอัตโนมัติ)",
+    Desc = "กดใช้น้ำยาทุกชนิดที่เลือกไว้ในลิสต์ตามรอบเวลา",
+    Default = Config.AutoUsePotions,
+    Callback = function(v)
+        Config.AutoUsePotions = v
+        Window:Notify({
+            Title = "Auto Potions",
+            Content = v and "Started auto consuming potions!" or "Paused auto potions.",
+            Type = v and "success" or "warning"
+        })
+    end,
+})
+
+TabPotions:AddSlider({
+    Name = "Usage Interval (ความถี่ในการกดใช้)",
+    Min = 2,
+    Max = 60,
+    Default = Config.PotionInterval,
+    Increment = 1,
+    Format = "%d วินาที",
+    Callback = function(v)
+        Config.PotionInterval = v
+    end,
+})
+
+TabPotions:AddSection("LUCK POTIONS (น้ำยาโชค / ทอยได้ตัวดี)")
+
+for _, pName in ipairs({"Luck IV", "Luck III", "Luck II", "Luck I"}) do
+    TabPotions:AddToggle({
+        Name = "Use " .. pName,
+        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
+        Default = Config.ActivePotions[pName] or false,
+        Callback = function(v)
+            Config.ActivePotions[pName] = v
+        end,
+    })
+end
+
+TabPotions:AddSection("INCOME POTIONS (น้ำยาคูณเงิน / ผลิตเงินเกาะ)")
+
+for _, pName in ipairs({"Income IV", "Income III", "Income II", "Income I"}) do
+    TabPotions:AddToggle({
+        Name = "Use " .. pName,
+        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
+        Default = Config.ActivePotions[pName] or false,
+        Callback = function(v)
+            Config.ActivePotions[pName] = v
+        end,
+    })
+end
+
+TabPotions:AddSection("DAMAGE POTIONS (น้ำยาพลังดาเมจ / เคลียร์หอคอยแรง)")
+
+for _, pName in ipairs({"Damage IV", "Damage III", "Damage II", "Damage I"}) do
+    TabPotions:AddToggle({
+        Name = "Use " .. pName,
+        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
+        Default = Config.ActivePotions[pName] or false,
+        Callback = function(v)
+            Config.ActivePotions[pName] = v
+        end,
+    })
+end
+
+TabPotions:AddSection("SPECIAL & WORLD BOOSTS (น้ำยาโลก / ความเร็ว)")
+
+for _, pName in ipairs({"Shadow Speed IV", "Shadow Luck IV", "Shadow Income IV", "Dragon Luck III", "Slayer Luck III", "Cursed Luck III"}) do
+    TabPotions:AddToggle({
+        Name = "Use " .. pName,
+        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
+        Default = Config.ActivePotions[pName] or false,
+        Callback = function(v)
+            Config.ActivePotions[pName] = v
+        end,
+    })
+end
+
+TabPotions:AddSection("MANUAL POTION CONSUMPTION")
+
+TabPotions:AddDropdown({
+    Name = "Choose Potion (เลือกน้ำยาเจาะจง)",
+    Options = AllPotionsList,
+    Default = Config.SelectedCustomPotion,
+    Callback = function(v)
+        Config.SelectedCustomPotion = v
+    end,
+})
+
+TabPotions:AddButton({
+    Name = "Consume Selected Potion 1x (กดใช้น้ำยานี้ทันที)",
+    Icon = "🧪",
+    Callback = function()
+        UsePotion(Config.SelectedCustomPotion)
+        Window:Notify({ Title = "Potion Used", Content = "Consumed 1x " .. tostring(Config.SelectedCustomPotion), Type = "info" })
+    end,
+})
+
+TabPotions:AddButton({
+    Name = "Consume All Enabled Potions Now (กดใช้ทุกตัวที่ติ๊ก)",
+    Icon = "⚡",
+    Callback = function()
+        local count = 0
+        for pName, enabled in pairs(Config.ActivePotions) do
+            if enabled then
+                UsePotion(pName)
+                count = count + 1
+                task.wait(0.05)
+            end
+        end
+        Window:Notify({ Title = "Potions Consumed", Content = string.format("Consumed %d active potion types!", count), Type = "success" })
+    end,
+})
+
+-- TAB 5: ROLLING
 local TabRolling = Window:CreateTab({
     Name = "Rolling",
     Icon = "⚡",
@@ -2648,7 +2909,7 @@ TabRolling:AddButton({
     end,
 })
 
--- TAB 5: TELEPORTS
+-- TAB 6: TELEPORTS
 local TabTeleports = Window:CreateTab({
     Name = "Teleports",
     Icon = "🌐",
@@ -2687,7 +2948,7 @@ for _, zone in ipairs(ZonesList) do
     })
 end
 
--- TAB 6: MISC & REWARDS
+-- TAB 7: MISC & REWARDS
 local TabMisc = Window:CreateTab({
     Name = "Misc & Gifts",
     Icon = "🎁",
@@ -2746,6 +3007,7 @@ task.spawn(function()
 
             StatRolls:Set(tostring(rolls), nil, string.format("+%d this session", State.TotalRollsSession))
             StatCash:Set(money, Color3.fromRGB(250, 204, 21), "Cash in wallet")
+            StatPotions:Set(tostring(State.TotalPotionsUsedSession), Theme.AccentCyan, "Consumed potions")
             StatFloors:Set(tostring(State.FloorsClearedSession), nil, "Cleared floors")
             StatTowerStatus:Set(State.CurrentTowerStatus, Theme.AccentCyan, Config.SelectedTower)
         end)
