@@ -1990,10 +1990,96 @@ pcall(function() DiceModule        = require(Features.Rolling.Dice) end)
 pcall(function() GroupRewardConfig = require(Features.Rewards.GroupRewardConfig) end)
 pcall(function() BoostController   = require(Features.Inventory.Kinds.Boost.BoostController) end)
 pcall(function() BoostConfig       = require(Features.Inventory.Kinds.Boost.BoostConfig) end)
+local BuffController   = nil
+pcall(function() BuffController   = require(Features.Buffs.BuffController) end)
 pcall(function() TowerController   = require(Features.Towers.TowerController) end)
 pcall(function() UIReferences      = require(Features.UI.UIReferences) end)
 
 -- Upgrade Categories
+-- ── 2.1 2K SMART BOOSTS & BUFF HELPERS ─────────────────────────────────
+local function getAllBoostNames()
+    local names = {}
+    pcall(function()
+        if BoostConfig and BoostConfig.entries then
+            for name, _ in pairs(BoostConfig.entries) do
+                table.insert(names, name)
+            end
+        end
+    end)
+    table.sort(names)
+    if #names == 0 then
+        names = {
+            "Cursed Damage I", "Cursed Damage II", "Cursed Damage III",
+            "Cursed Income I", "Cursed Income II", "Cursed Income III",
+            "Cursed Luck I", "Cursed Luck II", "Cursed Luck III",
+            "Damage I", "Damage II", "Damage III", "Damage IV",
+            "Dragon Damage I", "Dragon Damage II", "Dragon Damage III",
+            "Dragon Income I", "Dragon Income II", "Dragon Income III",
+            "Dragon Luck I", "Dragon Luck II", "Dragon Luck III",
+            "Income I", "Income II", "Income III", "Income IV",
+            "Leaf Damage I", "Leaf Damage II", "Leaf Damage III",
+            "Leaf Income I", "Leaf Income II", "Leaf Income III",
+            "Leaf Luck I", "Leaf Luck II", "Leaf Luck III",
+            "Luck I", "Luck II", "Luck III", "Luck IV",
+            "Pirate Damage I", "Pirate Damage II", "Pirate Damage III",
+            "Pirate Income I", "Pirate Income II", "Pirate Income III",
+            "Pirate Luck I", "Pirate Luck II", "Pirate Luck III",
+            "Shadow Income I", "Shadow Income II", "Shadow Income III", "Shadow Income IV",
+            "Shadow Luck I", "Shadow Luck II", "Shadow Luck III", "Shadow Luck IV",
+            "Shadow Speed I", "Shadow Speed II", "Shadow Speed III", "Shadow Speed IV",
+            "Slayer Damage III", "Slayer Income III", "Slayer Luck III",
+            "Speed I", "Speed II", "Speed III", "Speed IV"
+        }
+    end
+    return names
+end
+
+local function getActiveBuffsSummary()
+    local activeList = {}
+    pcall(function()
+        local bb = LP.PlayerGui:FindFirstChild("BuffBar", true)
+        if bb then
+            for _, child in ipairs(bb:GetChildren()) do
+                if child.Name:sub(1, 6) == "Boost_" then
+                    local bName = child.Name:sub(7)
+                    local lbl = child:FindFirstChildOfClass("TextLabel")
+                    local timer = (lbl and lbl.Text ~= "" and lbl.Text) or "Active"
+                    table.insert(activeList, string.format("%s (%s)", bName, timer))
+                end
+            end
+        end
+    end)
+    if #activeList == 0 then
+        return "No active boosts"
+    end
+    return table.concat(activeList, " • ")
+end
+
+-- Sliding window rate calculator
+local moneyHistory = {}
+local currentMoneyPerSec = 0
+
+local function updateMoneyRate()
+    pcall(function()
+        local now = os.clock()
+        local curMoney = (LP:FindFirstChild("leaderstats") and LP.leaderstats:FindFirstChild("Money") and LP.leaderstats.Money.Value) or (DataController and DataController.Money and DataController.Money()) or 0
+        table.insert(moneyHistory, { time = now, total = tonumber(curMoney) or 0 })
+
+        while #moneyHistory > 0 and (now - moneyHistory[1].time) > 3.5 do
+            table.remove(moneyHistory, 1)
+        end
+
+        if #moneyHistory >= 2 then
+            local oldest = moneyHistory[1]
+            local dt = now - oldest.time
+            local dWealth = (tonumber(curMoney) or 0) - oldest.total
+            if dt > 0.3 and dWealth >= 0 then
+                currentMoneyPerSec = dWealth / dt
+            end
+        end
+    end)
+end
+
 local UpgradeCategories = {
     ["Luck & Fortune"]  = {"Luck", "Fortune"},
     ["Roll Speed"]       = {"Roll Speed"},
@@ -2480,7 +2566,7 @@ task.spawn(function()
     end
 end)
 
--- ── 8. SMART POTIONS ENGINE (BUFFBAR DETECTION) ───────────────────────
+-- ── 8. SMART POTIONS ENGINE (2K ADVANCED INVENTORY & BUFFBAR RADAR) ─
 local function isBoostActive(boostName)
     local active = false
     pcall(function()
@@ -2510,23 +2596,76 @@ local function UsePotion(potionName)
     return success
 end
 
-task.spawn(function()
-    while Running and _G.AnimeDiceActiveToken == myToken do
-        if Config.AutoUsePotions then
-            for potionName, enabled in pairs(Config.ActivePotions) do
-                if enabled and Running and _G.AnimeDiceActiveToken == myToken then
-                    local shouldConsume = true
-                    if Config.ItemUseCondition == "When Expired" and isBoostActive(potionName) then
-                        shouldConsume = false
-                    end
+local function selectOwnedPotions()
+    local count = 0
+    pcall(function()
+        local inv = DataController and DataController.Inventory and DataController.Inventory()
+        if type(inv) ~= "table" then return end
+        for id, item in pairs(inv) do
+            if type(item) == "table" and item.name and tonumber(item.amount) and tonumber(item.amount) > 0 then
+                local cfg = EntryRegistry and EntryRegistry.getEntryConfig and EntryRegistry.getEntryConfig(item.name)
+                if cfg and cfg.kind == "Boost" then
+                    Config.ActivePotions[item.name] = true
+                    count = count + 1
+                end
+            end
+        end
+    end)
+    return count
+end
 
-                    if shouldConsume then
-                        UsePotion(potionName)
+local function useSelectedItemsNow()
+    local count = 0
+    pcall(function()
+        local inv = DataController and DataController.Inventory and DataController.Inventory()
+        if type(inv) ~= "table" then return end
+        for itemName, isSelected in pairs(Config.ActivePotions) do
+            if isSelected then
+                local itemData = inv[itemName]
+                local amount = itemData and tonumber(itemData.amount) or 0
+                if amount > 0 then
+                    local ok = UsePotion(itemName)
+                    if ok then
+                        count = count + 1
                         task.wait(0.12)
                     end
                 end
             end
-            task.wait(Config.PotionInterval)
+        end
+    end)
+    return count
+end
+
+task.spawn(function()
+    while Running and _G.AnimeDiceActiveToken == myToken do
+        if Config.AutoUsePotions then
+            pcall(function()
+                local inv = DataController and DataController.Inventory and DataController.Inventory()
+                if type(inv) ~= "table" then return end
+
+                for potionName, enabled in pairs(Config.ActivePotions) do
+                    if enabled and Running and _G.AnimeDiceActiveToken == myToken then
+                        local itemData = inv[potionName]
+                        local amount = itemData and tonumber(itemData.amount) or 0
+                        if amount > 0 then
+                            local shouldConsume = false
+                            if Config.ItemUseCondition == "Always" or Config.ItemUseCondition == "Always (กดใช้ทันที / ซ้อนเวลา)" then
+                                shouldConsume = true
+                            else
+                                if not isBoostActive(potionName) then
+                                    shouldConsume = true
+                                end
+                            end
+
+                            if shouldConsume then
+                                UsePotion(potionName)
+                                task.wait(0.15)
+                            end
+                        end
+                    end
+                end
+            end)
+            task.wait(math.max(1, Config.PotionInterval))
         else
             task.wait(1)
         end
@@ -2641,17 +2780,27 @@ task.spawn(function()
     end
 end)
 
--- ── 11. AUTO ROLL ENGINE ──────────────────────────────────────────────
+-- ── 11. AUTO ROLL ENGINE (2K DYNAMIC BUFF DURATION SYNC) ──────────────
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
         if Config.AutoRoll and RollService and RollService:FindFirstChild("RF") and RollService.RF:FindFirstChild("RollDice") then
+            local duration = Config.RollSpeedDelay or 0.05
+            pcall(function()
+                if BuffController and BuffController.GetBuff then
+                    local d = BuffController.GetBuff("Roll Duration")
+                    if type(d) == "number" and d > 0 then
+                        duration = math.min(duration, d)
+                    end
+                end
+            end)
+
             local success = pcall(function()
                 RollService.RF.RollDice:InvokeServer()
             end)
             if success then
                 State.TotalRollsSession = State.TotalRollsSession + 1
             end
-            task.wait(Config.RollSpeedDelay)
+            task.wait(duration)
         else
             task.wait(0.3)
         end
@@ -2778,6 +2927,7 @@ local TabMain = Window:CreateTab({
 TabMain:AddSection("LIVE TELEMETRY")
 local StatRolls = TabMain:AddStatCard({ Title = "Total Rolls", Value = "0", Subtext = "Dice rolled this session", Progress = 0 })
 local StatCash = TabMain:AddStatCard({ Title = "Player Wallet", Value = "0", Subtext = "Cash in wallet", Progress = 0.5 })
+local StatRate = TabMain:AddStatCard({ Title = "Money Rate", Value = "+$0/s", Subtext = "Calculated earnings rate", Progress = 0.8 })
 local StatRebirth = TabMain:AddStatCard({ Title = "Rebirths", Value = "0", Subtext = "Rebirth session count", Progress = 0 })
 local StatPotions = TabMain:AddStatCard({ Title = "Potions Used", Value = "0", Subtext = "Auto consumed this session", Progress = 0 })
 local StatTowerStatus = TabMain:AddStatCard({ Title = "Tower Status", Value = "Standby", Subtext = "Selected: Dragon Tower" })
@@ -2950,27 +3100,73 @@ TabEconomy:AddButton({
     end,
 })
 
-TabEconomy:AddSection("SMART POTION ENGINE (ยาน้ำ & บัฟอัตโนมัติ)")
+TabEconomy:AddSection("SMART POTIONS & BUFFS ENGINE")
 TabEconomy:AddToggle({
     Name = "Auto Consume Potions (เปิดระบบใช้น้ำยาอัตโนมัติ)",
-    Desc = "กดใช้น้ำยาทุกชนิดที่เลือกไว้ในลิสต์ตามรอบเวลา",
+    Desc = "ตรวจสอบจำนวนในคลังและกดใช้น้ำยาที่เลือกตามเงื่อนไข ปลอดภัย",
     Default = Config.AutoUsePotions,
-    Callback = function(v) Config.AutoUsePotions = v end,
+    Callback = function(v)
+        Config.AutoUsePotions = v
+        Window:Notify({ Title = "Potions", Content = v and "Smart Potions Engine Active!" or "Paused.", Type = v and "success" or "warning" })
+    end,
 })
 TabEconomy:AddDropdown({
-    Name = "Usage Condition (เงื่อนไขการใช้)",
-    Options = {"When Expired", "Always"},
+    Name = "Usage Condition (เงื่อนไขการดื่มยา)",
+    Options = {"When Expired (ใช้เมื่อบัฟหมด)", "Always (กดใช้ทันที / ซ้อนเวลา)"},
     Default = Config.ItemUseCondition,
-    Callback = function(v) Config.ItemUseCondition = v end,
+    Callback = function(v)
+        Config.ItemUseCondition = v
+    end,
 })
 TabEconomy:AddSlider({
-    Name = "Usage Interval (ความถี่ในการกดใช้)",
-    Min = 2,
-    Max = 60,
+    Name = "Check Interval (ความถี่ในการตรวจสอบ)",
+    Min = 1,
+    Max = 30,
     Default = Config.PotionInterval,
     Increment = 1,
     Format = "%d วินาที",
     Callback = function(v) Config.PotionInterval = v end,
+})
+
+TabEconomy:AddSection("QUICK ACTIONS (เครื่องมือด่วนแบบ 2K)")
+TabEconomy:AddButton({
+    Name = "Select Owned Potions (เลือกเฉพาะยาที่มีในคลัง)",
+    Icon = "🎒",
+    Callback = function()
+        local count = selectOwnedPotions()
+        Window:Notify({
+            Title = "Potions",
+            Content = string.format("สแกนคลังและเลือกยาสำเร็จ %d ชนิด!", count),
+            Type = "success"
+        })
+    end,
+})
+TabEconomy:AddButton({
+    Name = "Clear All Selections (ล้างการเลือกทั้งหมด)",
+    Icon = "🧹",
+    Callback = function()
+        table.clear(Config.ActivePotions)
+        Window:Notify({ Title = "Potions", Content = "ล้างการเลือกน้ำยาทั้งหมดแล้ว", Type = "info" })
+    end,
+})
+TabEconomy:AddButton({
+    Name = "Consume Selected Now (กดใช้ที่เลือกทันที 1 ครั้ง)",
+    Icon = "🧪",
+    Callback = function()
+        local count = useSelectedItemsNow()
+        Window:Notify({
+            Title = "Potions",
+            Content = count > 0 and string.format("ดื่มยาสำเร็จ %d ชนิด!", count) or "ไม่มียาที่เลือกอยู่ในคลัง",
+            Type = count > 0 and "success" or "warning"
+        })
+    end,
+})
+
+TabEconomy:AddSection("ACTIVE BUFFS LIVE MONITOR")
+local StatBuffMonitor = TabEconomy:AddStatCard({
+    Title = "Active Buffs",
+    Value = "Scanning...",
+    Subtext = "Live in-game buffs & remaining timers",
 })
 
 TabEconomy:AddSection("LUCK POTIONS")
@@ -3003,8 +3199,12 @@ for _, pName in ipairs({"Damage IV", "Damage III", "Damage II", "Damage I"}) do
     })
 end
 
-TabEconomy:AddSection("SPECIAL BOOSTS")
-for _, pName in ipairs({"Shadow Speed IV", "Shadow Luck IV", "Shadow Income IV", "Dragon Luck III", "Slayer Luck III"}) do
+TabEconomy:AddSection("SPEED & SPECIAL WORLD BOOSTS")
+for _, pName in ipairs({
+    "Shadow Speed IV", "Shadow Luck IV", "Shadow Income IV",
+    "Dragon Luck III", "Slayer Luck III", "Leaf Luck III",
+    "Pirate Luck III", "Cursed Luck III", "Speed IV"
+}) do
     TabEconomy:AddToggle({
         Name = "Use " .. pName,
         Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
@@ -3016,7 +3216,7 @@ end
 TabEconomy:AddSection("MANUAL POTION TESTING")
 TabEconomy:AddDropdown({
     Name = "Choose Potion",
-    Options = AllPotionsList,
+    Options = getAllBoostNames(),
     Default = Config.SelectedCustomPotion,
     Callback = function(v) Config.SelectedCustomPotion = v end,
 })
@@ -3279,15 +3479,26 @@ TabSettings:AddButton({
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
         pcall(function()
+            updateMoneyRate()
+
             local rolls = (LP:FindFirstChild("leaderstats") and LP.leaderstats:FindFirstChild("Rolls") and LP.leaderstats.Rolls.Value) or State.TotalRollsSession
             local money = (LP:FindFirstChild("leaderstats") and LP.leaderstats:FindFirstChild("Money") and tostring(LP.leaderstats.Money.Value)) or "0"
             local rebirth = (LP:FindFirstChild("leaderstats") and LP.leaderstats:FindFirstChild("Rebirth") and tostring(LP.leaderstats.Rebirth.Value)) or "0"
+            local rateFormatted = string.format("+$%s/s", tostring(math.floor(currentMoneyPerSec)))
 
             StatRolls:Set(tostring(rolls), nil, string.format("+%d this session", State.TotalRollsSession))
             StatCash:Set(money, Color3.fromRGB(250, 204, 21), "Cash in wallet")
+            if StatRate and StatRate.Set then
+                StatRate:Set(rateFormatted, Color3.fromRGB(34, 211, 238), "Live rate velocity")
+            end
             StatRebirth:Set("Rebirth " .. rebirth, Theme.AccentPrimary, string.format("+%d this session", State.TotalRebirthsSession))
             StatPotions:Set(tostring(State.TotalPotionsUsedSession), Theme.AccentCyan, "Consumed potions")
             StatTowerStatus:Set(State.CurrentTowerStatus, Theme.AccentCyan, Config.SelectedTower)
+
+            if StatBuffMonitor and StatBuffMonitor.Set then
+                local buffsText = getActiveBuffsSummary()
+                StatBuffMonitor:Set("Active", Color3.fromRGB(52, 211, 153), buffsText)
+            end
         end)
         task.wait(0.7)
     end
