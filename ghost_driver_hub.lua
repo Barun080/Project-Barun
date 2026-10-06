@@ -2743,7 +2743,6 @@
                     end
                 end
             end
-        end
 
         -- Scan AI Traffic Folders (Exact game folders + dynamic fallbacks)
         for _, folderName in ipairs({"TrafficFolder", "TrafficBoxes", "more tarffic", "PoliceWalls", "Cars", "Traffic", "AITraffic", "TrafficAI", "LocalTraffic"}) do
