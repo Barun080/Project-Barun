@@ -2942,9 +2942,6 @@
             targetYVel = math.clamp(seat.AssemblyLinearVelocity.Y, -10, 10)
         end
 
-        seat.AssemblyLinearVelocity = Vector3.new(moveDir.X * forwardSpeed, targetYVel, moveDir.Z * forwardSpeed)
-        seat.AssemblyAngularVelocity = Vector3.zero
-
         -- Vehicle Heading: Smooth Pure-Yaw Steering (Locks hover altitude, eliminates road jitter 100%)
         local curPivot = car:GetPivot()
         local flatLook = Vector3.new(curPivot.LookVector.X, 0, curPivot.LookVector.Z)
@@ -2979,6 +2976,9 @@
             local currentRot = seat.CFrame.Rotation
             local blendedRot = currentRot:Lerp(targetRot, steerFactor)
             seat.CFrame = CFrame.new(currentPos.X, targetSeatY, currentPos.Z) * blendedRot
+            -- Crucial: Apply linear velocity AFTER seat.CFrame so Roblox physics doesn't wipe velocity to 0!
+            seat.AssemblyLinearVelocity = Vector3.new(moveDir.X * forwardSpeed, targetYVel, moveDir.Z * forwardSpeed)
+            seat.AssemblyAngularVelocity = Vector3.zero
         end
 
         seat.Throttle = 1
