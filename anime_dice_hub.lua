@@ -1669,25 +1669,56 @@ function UI:CreateWindow(config)
         end
 
         -- ─────────────────────────────────────────────────────────────
-        -- 6. ACCORDION DROPDOWN
+        -- 6. ACCORDION DROPDOWN (MULTI-SELECT + SMOOTH SCROLLING 2K ENGINE)
         -- ─────────────────────────────────────────────────────────────
         function TabObj:AddDropdown(dropConfig)
             dropConfig = dropConfig or {}
-            local name     = dropConfig.Name or "Dropdown Selection"
-            local options  = dropConfig.Options or {}
-            local default  = dropConfig.Default or options[1]
+            local name     = dropConfig.Name or dropConfig.Title or "Dropdown Selection"
+            local desc     = dropConfig.Desc or dropConfig.Description or ""
+            local options  = dropConfig.Options or dropConfig.Values or {}
+            local isMulti  = dropConfig.Multi or false
+            local default  = dropConfig.Default or (isMulti and {} or options[1])
             local callback = dropConfig.Callback or function() end
 
             local isExpanded = false
             local selected = default
-            local expandedH = 58 + (#options * 32)
+            if isMulti then
+                if type(selected) ~= "table" then
+                    selected = {}
+                else
+                    selected = table.clone(selected)
+                end
+            end
 
-            local DropCard = makeCard(TabPage, 46, false)
+            local function getSelectedSummary()
+                if isMulti then
+                    local count = 0
+                    for k, v in pairs(selected) do
+                        if v == true or (type(k) == "number" and type(v) == "string") then
+                            count = count + 1
+                        end
+                    end
+                    if count == 0 then
+                        return "เลือก 0 ชนิด"
+                    else
+                        return string.format("(เลือก %d ชนิด)", count)
+                    end
+                else
+                    return tostring(selected or options[1] or "None")
+                end
+            end
+
+            local cardHeight = desc ~= "" and 56 or 46
+            local maxScrollH = math.min(#options * 32, 220)
+            local expandedH = cardHeight + 8 + maxScrollH
+
+            local DropCard = makeCard(TabPage, cardHeight, false)
             DropCard.ClipsDescendants = true
+            hoverable(DropCard)
 
             local Header = make("TextButton", {
                 Name = "Header",
-                Size = UDim2.new(1, 0, 0, 46),
+                Size = UDim2.new(1, 0, 0, cardHeight),
                 BackgroundTransparency = 1,
                 Text = "",
                 AutoButtonColor = false,
@@ -1698,19 +1729,26 @@ function UI:CreateWindow(config)
                     Font = Theme.FontSemi,
                     TextSize = 12,
                     TextColor3 = Theme.TextTitle,
-                    Position = UDim2.new(0, 16, 0, 0),
-                    Size = UDim2.new(0.5, 0, 1, 0),
+                    Position = UDim2.new(0, 16, 0, desc ~= "" and 10 or 0),
+                    Size = UDim2.new(0.55, 0, 0, desc ~= "" and 18 or cardHeight),
                 }),
+                desc ~= "" and txt({
+                    Text = desc,
+                    TextSize = 10,
+                    TextColor3 = Theme.TextDim,
+                    Position = UDim2.new(0, 16, 0, 29),
+                    Size = UDim2.new(0.55, 0, 0, 16),
+                }) or nil,
                 txt({
                     Name = "SelectedText",
-                    Text = tostring(selected),
+                    Text = getSelectedSummary(),
                     Font = Theme.FontBold,
                     TextSize = 11,
                     TextColor3 = Theme.AccentCyan,
                     TextXAlignment = Enum.TextXAlignment.Right,
                     TextTruncate = Enum.TextTruncate.AtEnd,
-                    Position = UDim2.new(0.4, 0, 0, 0),
-                    Size = UDim2.new(0.6, -40, 1, 0),
+                    Position = UDim2.new(0.5, 0, 0, 0),
+                    Size = UDim2.new(0.5, -42, 1, 0),
                 }),
                 txt({
                     Name = "Arrow",
@@ -1736,16 +1774,22 @@ function UI:CreateWindow(config)
 
             make("Frame", { -- divider
                 Size = UDim2.new(1, -24, 0, 1),
-                Position = UDim2.new(0, 12, 0, 46),
+                Position = UDim2.new(0, 12, 0, cardHeight),
                 BackgroundColor3 = Theme.CardBorderGlow,
                 BackgroundTransparency = 0.7,
                 Parent = DropCard,
             })
 
-            local OptionsContainer = make("Frame", {
-                Size = UDim2.new(1, -24, 0, math.max(#options * 32 - 4, 0)),
-                Position = UDim2.new(0, 12, 0, 54),
+            local OptionsContainer = make("ScrollingFrame", {
+                Size = UDim2.new(1, -24, 0, maxScrollH),
+                Position = UDim2.new(0, 12, 0, cardHeight + 6),
                 BackgroundTransparency = 1,
+                ScrollBarThickness = 4,
+                ScrollBarImageColor3 = Theme.AccentCyan,
+                ScrollBarImageTransparency = 0.2,
+                CanvasSize = UDim2.new(0, 0, 0, #options * 32),
+                BorderSizePixel = 0,
+                ClipsDescendants = true,
                 Parent = DropCard,
             }, {
                 make("UIListLayout", {
@@ -1757,10 +1801,16 @@ function UI:CreateWindow(config)
             local optionButtons = {}
             local function paintOptions()
                 for opt, b in pairs(optionButtons) do
-                    local active = (opt == selected)
+                    local active = false
+                    if isMulti then
+                        active = (selected[opt] == true)
+                    else
+                        active = (opt == selected)
+                    end
+
                     tw(b, {
                         BackgroundColor3 = active and Theme.AccentPrimary or Color3.fromRGB(30, 34, 50),
-                        BackgroundTransparency = active and 0.7 or 0.2,
+                        BackgroundTransparency = active and 0.6 or 0.2,
                         TextColor3 = active and WHITE or Theme.TextBody,
                     }, 0.15)
                     b.Check.Visible = active
@@ -1769,19 +1819,20 @@ function UI:CreateWindow(config)
 
             local function setExpanded(state)
                 isExpanded = state
-                tw(DropCard, { Size = UDim2.new(1, 0, 0, state and expandedH or 46) }, state and 0.3 or 0.24, Enum.EasingStyle.Quart)
+                tw(DropCard, { Size = UDim2.new(1, 0, 0, state and expandedH or cardHeight) }, state and 0.3 or 0.24, Enum.EasingStyle.Quart)
                 tw(Header.Arrow, { Rotation = state and 180 or 0, TextColor3 = state and Theme.AccentCyan or Theme.TextDim }, 0.25)
             end
 
             for i, opt in ipairs(options) do
                 local OptBtn = make("TextButton", {
-                    Size = UDim2.new(1, 0, 0, 28),
+                    Size = UDim2.new(1, -8, 0, 28),
                     BackgroundColor3 = Color3.fromRGB(30, 34, 50),
                     BackgroundTransparency = 0.2,
-                    Text = tostring(opt),
+                    Text = "  " .. tostring(opt),
                     Font = Theme.FontRegular,
                     TextSize = 11,
                     TextColor3 = Theme.TextBody,
+                    TextXAlignment = Enum.TextXAlignment.Left,
                     AutoButtonColor = false,
                     LayoutOrder = i,
                     Parent = OptionsContainer,
@@ -1802,19 +1853,28 @@ function UI:CreateWindow(config)
                 optionButtons[opt] = OptBtn
 
                 OptBtn.MouseButton1Click:Connect(function()
-                    selected = opt
-                    Header.SelectedText.Text = tostring(opt)
-                    paintOptions()
-                    setExpanded(false)
-                    task.spawn(callback, selected)
+                    if isMulti then
+                        selected[opt] = not selected[opt]
+                        Header.SelectedText.Text = getSelectedSummary()
+                        paintOptions()
+                        task.spawn(callback, selected)
+                    else
+                        selected = opt
+                        Header.SelectedText.Text = tostring(opt)
+                        paintOptions()
+                        setExpanded(false)
+                        task.spawn(callback, selected)
+                    end
                 end)
                 OptBtn.MouseEnter:Connect(function()
-                    if opt ~= selected then
+                    local active = isMulti and (selected[opt] == true) or (opt == selected)
+                    if not active then
                         tw(OptBtn, { BackgroundColor3 = Theme.AccentPrimary, BackgroundTransparency = 0.55, TextColor3 = WHITE }, 0.12)
                     end
                 end)
                 OptBtn.MouseLeave:Connect(function()
-                    if opt ~= selected then
+                    local active = isMulti and (selected[opt] == true) or (opt == selected)
+                    if not active then
                         tw(OptBtn, { BackgroundColor3 = Color3.fromRGB(30, 34, 50), BackgroundTransparency = 0.2, TextColor3 = Theme.TextBody }, 0.12)
                     end
                 end)
@@ -1826,12 +1886,23 @@ function UI:CreateWindow(config)
             end)
 
             local DropHandle = {}
-            function DropHandle:Set(opt)
-                if optionButtons[opt] then
-                    selected = opt
-                    Header.SelectedText.Text = tostring(opt)
+            function DropHandle:Set(newVal)
+                if isMulti then
+                    if type(newVal) == "table" then
+                        selected = table.clone(newVal)
+                    else
+                        selected = {}
+                    end
+                    Header.SelectedText.Text = getSelectedSummary()
                     paintOptions()
                     task.spawn(callback, selected)
+                else
+                    if optionButtons[newVal] then
+                        selected = newVal
+                        Header.SelectedText.Text = tostring(newVal)
+                        paintOptions()
+                        task.spawn(callback, selected)
+                    end
                 end
             end
             function DropHandle:Get()
@@ -3100,63 +3171,98 @@ TabEconomy:AddButton({
     end,
 })
 
-TabEconomy:AddSection("SMART POTIONS & BUFFS ENGINE")
+TabEconomy:AddSection("ระบบใช้ไอเทมอัตโนมัติ (Auto Use Items)")
 TabEconomy:AddToggle({
-    Name = "Auto Consume Potions (เปิดระบบใช้น้ำยาอัตโนมัติ)",
-    Desc = "ตรวจสอบจำนวนในคลังและกดใช้น้ำยาที่เลือกตามเงื่อนไข ปลอดภัย",
+    Name = "ใช้ไอเทมอัตโนมัติ (Auto Use Items)",
+    Desc = "กดใช้ไอเทมและบัฟที่เลือกจากในคลัง",
     Default = Config.AutoUsePotions,
     Callback = function(v)
         Config.AutoUsePotions = v
-        Window:Notify({ Title = "Potions", Content = v and "Smart Potions Engine Active!" or "Paused.", Type = v and "success" or "warning" })
+        Window:Notify({
+            Title = "2K Auto Boost",
+            Content = v and "เปิดระบบใช้ไอเทมอัตโนมัติแล้ว" or "ปิดระบบใช้ไอเทมอัตโนมัติ",
+            Type = v and "success" or "warning"
+        })
     end,
 })
+
+local allBoostList = getAllBoostNames()
+local PotionDropdownHandle
+PotionDropdownHandle = TabEconomy:AddDropdown({
+    Name = "เลือกไอเทม / บัฟ (Select Items)",
+    Desc = "เลือกไอเทมที่ต้องการกดใช้ (เลือกได้มากกว่า 1 ชนิด)",
+    Options = allBoostList,
+    Multi = true,
+    Default = Config.ActivePotions,
+    Callback = function(val)
+        Config.ActivePotions = val
+    end,
+})
+
 TabEconomy:AddDropdown({
-    Name = "Usage Condition (เงื่อนไขการดื่มยา)",
-    Options = {"When Expired (ใช้เมื่อบัฟหมด)", "Always (กดใช้ทันที / ซ้อนเวลา)"},
-    Default = Config.ItemUseCondition,
+    Name = "เงื่อนไขการใช้ (Condition)",
+    Desc = "กำหนดจังหวะการกดใช้ไอเทม",
+    Options = {
+        "ใช้เมื่อบัฟหมด (When Expired)",
+        "กดใช้ทันที / ซ้อนเวลา (Always Use)"
+    },
+    Default = Config.ItemUseCondition or "ใช้เมื่อบัฟหมด (When Expired)",
     Callback = function(v)
         Config.ItemUseCondition = v
     end,
 })
+
 TabEconomy:AddSlider({
-    Name = "Check Interval (ความถี่ในการตรวจสอบ)",
+    Name = "ความถี่ตรวจสอบ (วินาที)",
+    Desc = "ระยะเวลาระหว่างการตรวจเช็คไอเทม",
     Min = 1,
-    Max = 30,
-    Default = Config.PotionInterval,
+    Max = 10,
+    Default = Config.PotionInterval or 2,
     Increment = 1,
     Format = "%d วินาที",
     Callback = function(v) Config.PotionInterval = v end,
 })
 
-TabEconomy:AddSection("QUICK ACTIONS (เครื่องมือด่วนแบบ 2K)")
+TabEconomy:AddSection("เครื่องมือด่วน (Quick Actions)")
 TabEconomy:AddButton({
-    Name = "Select Owned Potions (เลือกเฉพาะยาที่มีในคลัง)",
+    Name = "เลือกเฉพาะไอเทมที่มีในคลัง (Select Owned)",
+    Desc = "ติ๊กเลือกไอเทมทั้งหมดที่มีจำนวนมากกว่า 0 ในคลัง",
     Icon = "🎒",
     Callback = function()
         local count = selectOwnedPotions()
+        if PotionDropdownHandle and PotionDropdownHandle.Set then
+            PotionDropdownHandle:Set(Config.ActivePotions)
+        end
         Window:Notify({
-            Title = "Potions",
-            Content = string.format("สแกนคลังและเลือกยาสำเร็จ %d ชนิด!", count),
+            Title = "2K Script",
+            Content = string.format("เลือกไอเทมที่มีในกระเป๋า %d ชนิดเรียบร้อย", count),
             Type = "success"
         })
     end,
 })
+
 TabEconomy:AddButton({
-    Name = "Clear All Selections (ล้างการเลือกทั้งหมด)",
+    Name = "ยกเลิกที่เลือกทั้งหมด (Clear All)",
+    Desc = "ยกเลิกการเลือกไอเทมทั้งหมด",
     Icon = "🧹",
     Callback = function()
         table.clear(Config.ActivePotions)
-        Window:Notify({ Title = "Potions", Content = "ล้างการเลือกน้ำยาทั้งหมดแล้ว", Type = "info" })
+        if PotionDropdownHandle and PotionDropdownHandle.Set then
+            PotionDropdownHandle:Set({})
+        end
+        Window:Notify({ Title = "2K Script", Content = "ล้างรายการไอเทมที่เลือกทั้งหมดแล้ว", Type = "info" })
     end,
 })
+
 TabEconomy:AddButton({
-    Name = "Consume Selected Now (กดใช้ที่เลือกทันที 1 ครั้ง)",
+    Name = "กดใช้ที่เลือกทันที 1 ครั้ง (Use Now)",
+    Desc = "กดใช้ไอเทมที่เลือกไว้ทั้งหมด 1 ครั้งทันที",
     Icon = "🧪",
     Callback = function()
         local count = useSelectedItemsNow()
         Window:Notify({
-            Title = "Potions",
-            Content = count > 0 and string.format("ดื่มยาสำเร็จ %d ชนิด!", count) or "ไม่มียาที่เลือกอยู่ในคลัง",
+            Title = "2K Script",
+            Content = count > 0 and string.format("กดใช้ไอเทมสำเร็จ %d ชนิด", count) or "ไม่มีไอเทมที่เลือกในคลัง",
             Type = count > 0 and "success" or "warning"
         })
     end,
@@ -3167,66 +3273,6 @@ local StatBuffMonitor = TabEconomy:AddStatCard({
     Title = "Active Buffs",
     Value = "Scanning...",
     Subtext = "Live in-game buffs & remaining timers",
-})
-
-TabEconomy:AddSection("LUCK POTIONS")
-for _, pName in ipairs({"Luck IV", "Luck III", "Luck II", "Luck I"}) do
-    TabEconomy:AddToggle({
-        Name = "Use " .. pName,
-        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
-        Default = Config.ActivePotions[pName] or false,
-        Callback = function(v) Config.ActivePotions[pName] = v end,
-    })
-end
-
-TabEconomy:AddSection("INCOME POTIONS")
-for _, pName in ipairs({"Income IV", "Income III", "Income II", "Income I"}) do
-    TabEconomy:AddToggle({
-        Name = "Use " .. pName,
-        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
-        Default = Config.ActivePotions[pName] or false,
-        Callback = function(v) Config.ActivePotions[pName] = v end,
-    })
-end
-
-TabEconomy:AddSection("DAMAGE POTIONS")
-for _, pName in ipairs({"Damage IV", "Damage III", "Damage II", "Damage I"}) do
-    TabEconomy:AddToggle({
-        Name = "Use " .. pName,
-        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
-        Default = Config.ActivePotions[pName] or false,
-        Callback = function(v) Config.ActivePotions[pName] = v end,
-    })
-end
-
-TabEconomy:AddSection("SPEED & SPECIAL WORLD BOOSTS")
-for _, pName in ipairs({
-    "Shadow Speed IV", "Shadow Luck IV", "Shadow Income IV",
-    "Dragon Luck III", "Slayer Luck III", "Leaf Luck III",
-    "Pirate Luck III", "Cursed Luck III", "Speed IV"
-}) do
-    TabEconomy:AddToggle({
-        Name = "Use " .. pName,
-        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
-        Default = Config.ActivePotions[pName] or false,
-        Callback = function(v) Config.ActivePotions[pName] = v end,
-    })
-end
-
-TabEconomy:AddSection("MANUAL POTION TESTING")
-TabEconomy:AddDropdown({
-    Name = "Choose Potion",
-    Options = getAllBoostNames(),
-    Default = Config.SelectedCustomPotion,
-    Callback = function(v) Config.SelectedCustomPotion = v end,
-})
-TabEconomy:AddButton({
-    Name = "Consume Selected Potion 1x (ทดลองกดยา 1 ครั้ง)",
-    Icon = "🧪",
-    Callback = function()
-        UsePotion(Config.SelectedCustomPotion)
-        Window:Notify({ Title = "Potion Used", Content = "Consumed " .. tostring(Config.SelectedCustomPotion), Type = "info" })
-    end,
 })
 
 -- ─────────────────────────────────────────────────────────────────────
