@@ -2032,7 +2032,8 @@ local HttpService = game:GetService("HttpService")
 
         -- Auto Farming & Economy (Grand Loop 96,000+ studs / 26.8 km!)
         AutoDriveFarm        = false,     -- Default ON: ฟาร์มอัตโนมัติทันทีที่รันสคริป
-        FarmDriveSpeed       = 240,      -- High-speed stable farm speed
+        FarmDriveSpeed       = 320,      -- High-speed stable farm speed (รองรับสูงสุด 600 MPH!)
+        HyperDriveMode       = false,    -- โหมดความเร็วทะลุมิติ 500+ MPH (ปลดล็อกความเร็วขีดสุด)
         FarmPercent          = 1.0,      -- Full loop or custom route percent
         FarmLane             = "Lane 2 (Center)",
         LoopMode             = "Infinite Loop (วิ่งวนลูปไฮเวย์รอบโลกต่อเนื่อง)",
@@ -2075,6 +2076,7 @@ local HttpService = game:GetService("HttpService")
                     AutoEscapePolice = Settings.AutoEscapePolice,
                     PoliceTargetCash = Settings.PoliceTargetCash,
                     FarmDriveSpeed = Settings.FarmDriveSpeed,
+                    HyperDriveMode = Settings.HyperDriveMode,
                     FarmLane = Settings.FarmLane,
                     LoopMode = Settings.LoopMode,
                     AutoBankCombo = Settings.AutoBankCombo,
@@ -2651,10 +2653,13 @@ local HttpService = game:GetService("HttpService")
 
         FarmManager.CurrentWaypointIdx = frame.Index
 
-        -- Proactive World Streaming Ahead
-        if LocalPlayer.RequestStreamAroundAsync and math.abs(frame.Index - FarmManager.LastStreamIdx) >= 4 then
+        -- Proactive World Streaming Ahead (Adaptive for Ultra-High Speeds)
+        local curSpeedMPH = tonumber(Settings.FarmDriveSpeed) or 320
+        local streamInterval = curSpeedMPH > 350 and 2 or 4
+        if LocalPlayer.RequestStreamAroundAsync and math.abs(frame.Index - FarmManager.LastStreamIdx) >= streamInterval then
             FarmManager.LastStreamIdx = frame.Index
-            local streamAheadIdx = ((frame.Index + 5) % RoadData.TotalPoints) + 1
+            local aheadOffset = curSpeedMPH > 400 and 9 or 5
+            local streamAheadIdx = ((frame.Index + aheadOffset) % RoadData.TotalPoints) + 1
             local aheadPt = RoadData.Lanes[2][streamAheadIdx]
             if aheadPt then
                 task.spawn(function()
@@ -2937,19 +2942,15 @@ local HttpService = game:GetService("HttpService")
             return
         end
 
-        -- 6. Precision Navigation & High-Speed Pure Pursuit Propulsion
-        local maxAllowedStuds = 320
-        if CarSpeedLimitsModule then
-            local okL, limits = pcall(require, CarSpeedLimitsModule)
-            if okL and type(limits) == "table" and limits.ceilingFor then
-                local okC, ceil = pcall(limits.ceilingFor, car)
-                if okC and type(ceil) == "number" and ceil > 50 then
-                    maxAllowedStuds = ceil * 0.85
-                end
-            end
+        -- 6. Precision Navigation & High-Speed Pure Pursuit Propulsion (Uncapped 120-600+ MPH)
+        local targetMPH = tonumber(Settings.FarmDriveSpeed) or 320
+        if Settings.HyperDriveMode then
+            targetMPH = math.max(targetMPH, 500)
         end
-        local speedMPH = math.clamp(Settings.FarmDriveSpeed or 170, 80, 320)
-        local forwardSpeed = math.min(speedMPH * 1.467, maxAllowedStuds)
+        local speedMPH = math.clamp(targetMPH, 80, 650)
+        
+        -- 1 MPH = 1.467 studs/s (Real Uncapped Velocity)
+        local forwardSpeed = speedMPH * 1.467
 
         -- Anti-Plow Speed Cushioning during urgent lateral swerve
         if currentLaneObstacleDist < 200 and math.abs(offsetDiff) > 0.8 then
@@ -2968,13 +2969,16 @@ local HttpService = game:GetService("HttpService")
         end
 
         if Settings.CornerSlowdown and curveAngleDeg > 22 then
-            local slowdownFactor = math.clamp(1.0 - ((curveAngleDeg - 22) / 60), 0.55, 0.95)
+            local minSlowdown = (Settings.HyperDriveMode or speedMPH > 380) and 0.78 or 0.60
+            local slowdownFactor = math.clamp(1.0 - ((curveAngleDeg - 22) / 60), minSlowdown, 0.96)
             forwardSpeed = forwardSpeed * slowdownFactor
         end
 
+        -- High-Speed Adaptive Lookahead & Curvature Steering
         local dynamicLead = Settings.LookaheadLead or 38
-        local baseLookahead = math.clamp(forwardSpeed * 0.18, dynamicLead * 0.7, dynamicLead * 1.4)
-        local lookaheadDist = isDodging and math.clamp(baseLookahead * 0.50, 12, 22) or baseLookahead
+        local speedRatio = math.clamp(forwardSpeed / 300, 1.0, 2.5)
+        local baseLookahead = math.clamp(forwardSpeed * 0.17, dynamicLead * 0.8, dynamicLead * speedRatio)
+        local lookaheadDist = isDodging and math.clamp(baseLookahead * 0.50, 14, 26) or baseLookahead
         local aimLateral = FarmManager.CurrentLaneOffset
         if isDodging then
             aimLateral = (FarmManager.CurrentLaneOffset * 0.22) + (targetLaneOffset * 0.78)
@@ -3028,7 +3032,9 @@ local HttpService = game:GetService("HttpService")
 
         local targetRot = CFrame.lookAt(Vector3.zero, targetHeading, Vector3.yAxis)
         local curRot = curPivot.Rotation
-        local steerFactor = math.clamp(Settings.SmoothSteerFactor or 0.22, 0.15, 0.35)
+        local baseSteer = Settings.SmoothSteerFactor or 0.22
+        if speedMPH > 350 then baseSteer = baseSteer * 1.35 end
+        local steerFactor = math.clamp(baseSteer, 0.18, 0.48)
         local blendedRot = (headingAlignment < 0.65 or curPivot.UpVector.Y < 0.60) and targetRot or curRot:Lerp(targetRot, steerFactor)
 
         -- Smoothly update vehicle position & orientation as a unified whole
@@ -3269,9 +3275,9 @@ local HttpService = game:GetService("HttpService")
     })
 
     TabVehicle:AddSlider({
-        Name = "Boost Power Multiplier",
-        Min = 1.0, Max = 4.0, Default = Settings.BoostMultiplier, Color = Color3.fromRGB(0, 200, 255),
-        Increment = 0.1, ValueName = "x",
+        Name = "Boost Power Multiplier (พลังเร่งเครื่องคูณ 1.0x - 8.0x)",
+        Min = 1.0, Max = 8.0, Default = Settings.BoostMultiplier, Color = Color3.fromRGB(0, 200, 255),
+        Increment = 0.2, ValueName = "x",
         Callback = function(Value) Settings.BoostMultiplier = Value end
     })
 
@@ -3332,9 +3338,25 @@ local HttpService = game:GetService("HttpService")
         end
     })
 
+    TabFarm:AddToggle({
+        Name = "⚡ HYPER OVERDRIVE MODE (โหมดความเร็วทะลุมิติ 500+ MPH)",
+        Default = Settings.HyperDriveMode,
+        Callback = function(Value)
+            Settings.HyperDriveMode = Value
+            if Value then
+                OrionLib:MakeNotification({
+                    Name = "🚀 Hyper Overdrive Active!",
+                    Content = "ปลดล็อกความเร็ว 500+ MPH! รถจะเร่งทะลุมิติข้ามเซกเตอร์อย่างรวดเร็ว",
+                    Image = "rbxassetid://4483345998",
+                    Time = 4
+                })
+            end
+        end
+    })
+
     TabFarm:AddSlider({
-        Name = "Farm Drive Speed (ความเร็วขับฟาร์ม)",
-        Min = 120, Max = 320, Default = Settings.FarmDriveSpeed, Color = Color3.fromRGB(0, 255, 150),
+        Name = "Farm Drive Speed (ความเร็วขับฟาร์ม 120 - 600 MPH)",
+        Min = 120, Max = 600, Default = Settings.FarmDriveSpeed, Color = Color3.fromRGB(0, 255, 150),
         Increment = 10, ValueName = "MPH",
         Callback = function(Value) Settings.FarmDriveSpeed = Value end
     })
@@ -3455,17 +3477,8 @@ local HttpService = game:GetService("HttpService")
                                 local boost = (Settings.BoostMultiplier or 1.3) - 1.0
                                 if boost > 0 then
                                     local forward = seat.CFrame.LookVector
-                                    local maxStuds = 300
-                                    if CarSpeedLimitsModule then
-                                        local okL, limits = pcall(require, CarSpeedLimitsModule)
-                                        if okL and type(limits) == "table" and limits.ceilingFor then
-                                            local okC, ceil = pcall(limits.ceilingFor, car)
-                                            if okC and type(ceil) == "number" and ceil > 50 then
-                                                maxStuds = ceil * 0.82
-                                            end
-                                        end
-                                    end
-                                    local newVel = seat.AssemblyLinearVelocity + (forward * (boost * 2.5))
+                                    local maxStuds = 850 -- Unlocked ~580 MPH Manual Rocket Boost
+                                    local newVel = seat.AssemblyLinearVelocity + (forward * (boost * 4.0))
                                     if newVel.Magnitude > maxStuds then
                                         newVel = newVel.Unit * maxStuds
                                     end
