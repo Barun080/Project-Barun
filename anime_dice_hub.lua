@@ -2999,6 +2999,7 @@ end)
 -- ═════════════════════════════════════════════════════════════════════
 -- 15. 2K BULLETPROOF CONFIGURATION ENGINE (ROOT FILE NO-FOLDER SAFE)
 -- ═════════════════════════════════════════════════════════════════════
+local Window = nil
 local UIHandles = {}
 
 local DefaultCleanConfig = {
@@ -3114,13 +3115,37 @@ local function saveConfig(profileName, silent)
         writefile(fileName, encoded)
     end)
     if writeOk then
-        if not silent and Window and Window.Notify then
-            Window:Notify({ Title = "PB Config", Content = "บันทึกการตั้งค่าลงเครื่องเรียบร้อย! (" .. fileName .. ")", Type = "success" })
+        if not silent then
+            pcall(function()
+                if Window and Window.Notify then
+                    Window:Notify({ Title = "PB Config", Content = "บันทึกการตั้งค่าลงเครื่องเรียบร้อย! (" .. fileName .. ")", Type = "success" })
+                end
+            end)
+            pcall(function()
+                game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = "PB Config",
+                    Text = "บันทึกการตั้งค่าลงเครื่องเรียบร้อย! (" .. fileName .. ")",
+                    Duration = 3.5
+                })
+            end)
+            print("[PB Config] Saved config to " .. fileName)
         end
         return true
     else
-        if not silent and Window and Window.Notify then
-            Window:Notify({ Title = "PB Config", Content = "บันทึกไฟล์ล้มเหลว: " .. tostring(writeErr), Type = "error" })
+        if not silent then
+            pcall(function()
+                if Window and Window.Notify then
+                    Window:Notify({ Title = "PB Config", Content = "บันทึกไฟล์ล้มเหลว: " .. tostring(writeErr), Type = "error" })
+                end
+            end)
+            pcall(function()
+                game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = "PB Config Error",
+                    Text = "บันทึกไฟล์ล้มเหลว: " .. tostring(writeErr),
+                    Duration = 4
+                })
+            end)
+            warn("[PB Config] Save error: " .. tostring(writeErr))
         end
         return false
     end
@@ -3129,8 +3154,20 @@ end
 local function loadConfig(profileName, silent)
     local fileName = getCleanConfigFilename(profileName)
     if not (readfile and isfile and isfile(fileName)) then
-        if not silent and Window and Window.Notify then
-            Window:Notify({ Title = "PB Config", Content = "ไม่พบไฟล์คอนฟิกบนเครื่อง (" .. fileName .. ")", Type = "warning" })
+        if not silent then
+            pcall(function()
+                if Window and Window.Notify then
+                    Window:Notify({ Title = "PB Config", Content = "ไม่พบไฟล์คอนฟิกบนเครื่อง (" .. fileName .. ")", Type = "warning" })
+                end
+            end)
+            pcall(function()
+                game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = "PB Config",
+                    Text = "ไม่พบไฟล์คอนฟิกบนเครื่อง (" .. fileName .. ")",
+                    Duration = 3.5
+                })
+            end)
+            warn("[PB Config] Config file not found: " .. fileName)
         end
         return false
     end
@@ -3187,8 +3224,20 @@ local function loadConfig(profileName, silent)
         if UIHandles.UpgrMoney then pcall(function() UIHandles.UpgrMoney:Set(Config.SelectedUpgradeCategories["Money"] == true) end) end
     end
 
-    if not silent and Window and Window.Notify then
-        Window:Notify({ Title = "PB Config", Content = "โหลดการตั้งค่าสำเร็จ! (" .. fileName .. ")", Type = "success" })
+    if not silent then
+        pcall(function()
+            if Window and Window.Notify then
+                Window:Notify({ Title = "PB Config", Content = "โหลดการตั้งค่าสำเร็จ! (" .. fileName .. ")", Type = "success" })
+            end
+        end)
+        pcall(function()
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "PB Config",
+                Text = "โหลดการตั้งค่าสำเร็จ! (" .. fileName .. ")",
+                Duration = 3.5
+            })
+        end)
+        print("[PB Config] Loaded config from " .. fileName)
     end
     return true
 end
@@ -3211,7 +3260,7 @@ local function resetConfig()
     end
 end
 
-local Window = UI:CreateWindow({
+Window = UI:CreateWindow({
     Title = "PROJECT BARUN",
     Subtitle = "ANIME DICE • MASTER HUB v3.5",
     DefaultTab = "Main Farm",
