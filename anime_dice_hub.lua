@@ -1910,9 +1910,7 @@ function UI:CreateWindow(config)
     end)
 
     return WindowObj
-end
-
-
+end\n\n
 -- ═════════════════════════════════════════════════════════════════════
 -- 💎 PROJECT BARUN — ANIME DICE [UPD 7] GOD SCRIPT ENGINE
 -- ═════════════════════════════════════════════════════════════════════
@@ -1955,11 +1953,11 @@ local Config = {
     SkipCutscene = true,
     RollSpeedDelay = 0.05,
 
-    -- Plot & Slots
-    AutoFarmPlot = false,
-    AutoCollectChest = true,
-    AutoEquipBestPlot = true,
-    AutoUpgradeSlots = false,
+    -- Plot & Slots Money Engine
+    AutoFarmPlot = true,        -- เปิดฟาร์มเกาะและเก็บเงินทันที
+    AutoCollectChest = true,     -- ดูดเงินจากทุกสล็อตและหีบอัตโนมัติ
+    AutoEquipBestPlot = true,    -- สวมใส่อนิเมะตัวแรงสุดลงแท่นอัตโนมัติเพื่อผลิตเงิน
+    AutoUpgradeSlots = false,    -- อัปเกรดสล็อต
     TargetSlotLevel = 25,
 
     -- Towers
@@ -2082,7 +2080,58 @@ local function TeleportToPlot()
 end
 
 -- ═════════════════════════════════════════════════════════════════════
--- 2. AUTO ROLL ENGINE
+-- 2. UNIVERSAL MONEY COLLECTOR (Slot Hitboxes + Prompts + Remote)
+-- ═════════════════════════════════════════════════════════════════════
+local function CollectAllMoney()
+    -- Method A: Remote Call
+    pcall(function()
+        if PlotNet and PlotNet.RE:FindFirstChild("CollectBalance") then
+            PlotNet.RE.CollectBalance:FireServer()
+        end
+    end)
+
+    -- Method B: Touch / Vacuum All Slot Balance Hitboxes
+    pcall(function()
+        local plotCtrl = Features and Features:FindFirstChild("Plot") and require(Features.Plot.PlotController)
+        local p = plotCtrl and plotCtrl.plot
+        local lp = LocalPlayer
+        local char = lp and lp.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+        if p and p:FindFirstChild("Slots") and hrp then
+            for _, slot in ipairs(p.Slots:GetChildren()) do
+                -- Vacuum Money Hitbox on this slot
+                local bal = slot:FindFirstChild("Balance")
+                local hitbox = bal and bal:FindFirstChild("Hitbox")
+                if hitbox then
+                    if firetouchinterest then
+                        firetouchinterest(hrp, hitbox, 0)
+                        firetouchinterest(hrp, hitbox, 1)
+                    end
+                end
+
+                -- Trigger any slot prompt
+                local prompt = slot:FindFirstChildWhichIsA("ProximityPrompt", true)
+                if prompt and prompt.Enabled and fireproximityprompt then
+                    fireproximityprompt(prompt)
+                end
+            end
+        end
+
+        -- Method C: Group Chest ProximityPrompt on Island
+        if p and p:FindFirstChild("Chest") and fireproximityprompt then
+            local chestPrompt = p.Chest:FindFirstChildWhichIsA("ProximityPrompt", true)
+            if chestPrompt and chestPrompt.Enabled then
+                fireproximityprompt(chestPrompt)
+            end
+        end
+    end)
+
+    State.TotalChestCollected = State.TotalChestCollected + 1
+end
+
+-- ═════════════════════════════════════════════════════════════════════
+-- 3. AUTO ROLL ENGINE
 -- ═════════════════════════════════════════════════════════════════════
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
@@ -2101,28 +2150,25 @@ task.spawn(function()
 end)
 
 -- ═════════════════════════════════════════════════════════════════════
--- 3. AUTO FARM PLOT ENGINE
+-- 4. AUTO FARM PLOT ENGINE (Chest, Slots Vacuum, Equip Best)
 -- ═════════════════════════════════════════════════════════════════════
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
-        if Config.AutoFarmPlot and PlotNet and PlotNet:FindFirstChild("RE") then
-            -- Collect Chest Balance
-            if Config.AutoCollectChest and PlotNet.RE:FindFirstChild("CollectBalance") then
-                pcall(function()
-                    PlotNet.RE.CollectBalance:FireServer()
-                    State.TotalChestCollected = State.TotalChestCollected + 1
-                end)
+        if Config.AutoFarmPlot then
+            -- Collect Balance from All Slots & Island Chest
+            if Config.AutoCollectChest then
+                CollectAllMoney()
             end
 
-            -- Equip Best Unit to Island
-            if Config.AutoEquipBestPlot and PlotNet.RE:FindFirstChild("EquipBest") then
+            -- Keep Strongest Units Equipped to maximize income
+            if Config.AutoEquipBestPlot and PlotNet and PlotNet:FindFirstChild("RE") and PlotNet.RE:FindFirstChild("EquipBest") then
                 pcall(function()
                     PlotNet.RE.EquipBest:FireServer()
                 end)
             end
 
             -- Auto Level Up Island Slots up to TargetSlotLevel
-            if Config.AutoUpgradeSlots and PlotNet.RE:FindFirstChild("LevelUpSlot") then
+            if Config.AutoUpgradeSlots and PlotNet and PlotNet:FindFirstChild("RE") and PlotNet.RE:FindFirstChild("LevelUpSlot") then
                 for slotId = 1, 24 do
                     local curLvl = GetSlotCurrentLevel(slotId)
                     if curLvl < Config.TargetSlotLevel then
@@ -2134,7 +2180,7 @@ task.spawn(function()
                 end
             end
 
-            task.wait(2)
+            task.wait(1.5)
         else
             task.wait(0.5)
         end
@@ -2142,7 +2188,7 @@ task.spawn(function()
 end)
 
 -- ═════════════════════════════════════════════════════════════════════
--- 4. AUTO TOWERS ENGINE
+-- 5. AUTO TOWERS ENGINE
 -- ═════════════════════════════════════════════════════════════════════
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
@@ -2192,7 +2238,7 @@ task.spawn(function()
 end)
 
 -- ═════════════════════════════════════════════════════════════════════
--- 5. AUTO CLAIM REWARDS
+-- 6. AUTO CLAIM REWARDS
 -- ═════════════════════════════════════════════════════════════════════
 local function ClaimAllRewards()
     pcall(function()
@@ -2220,7 +2266,7 @@ task.spawn(function()
 end)
 
 -- ═════════════════════════════════════════════════════════════════════
--- 6. BUILD UI INTERFACE (AURORA EDITION v3.0)
+-- 7. BUILD UI INTERFACE (AURORA EDITION v3.0)
 -- ═════════════════════════════════════════════════════════════════════
 local Window = UI:CreateWindow({
     Title = "PROJECT BARUN",
@@ -2269,15 +2315,11 @@ local StatTowerStatus = TabDash:AddStatCard({
 TabDash:AddSection("QUICK ACTIONS")
 
 TabDash:AddButton({
-    Name = "💰 Collect Island Chest Now",
+    Name = "💰 Collect All Money Now (ดูดเงินทันที)",
     Icon = "💰",
     Callback = function()
-        pcall(function()
-            if PlotNet and PlotNet.RE:FindFirstChild("CollectBalance") then
-                PlotNet.RE.CollectBalance:FireServer()
-            end
-        end)
-        Window:Notify({ Title = "Island Chest", Content = "Collected Island Chest balance!", Type = "success" })
+        CollectAllMoney()
+        Window:Notify({ Title = "Money Vacuum", Content = "Collected all island & slot balances!", Type = "success" })
     end,
 })
 
@@ -2399,7 +2441,7 @@ TabPlot:AddSection("ISLAND AUTOMATION")
 
 TabPlot:AddToggle({
     Name = "Auto Farm Plot",
-    Desc = "ทำงานอัตโนมัติบนเกาะ (เก็บเงินหีบ + ใส่อนิเมะตัวแรงสุด)",
+    Desc = "เปิดระบบทำงานบนเกาะ (เก็บเงินทุกสล็อต + สวมใส่ตัวแรงสุด)",
     Default = Config.AutoFarmPlot,
     Callback = function(v)
         Config.AutoFarmPlot = v
@@ -2412,8 +2454,8 @@ TabPlot:AddToggle({
 })
 
 TabPlot:AddToggle({
-    Name = "Auto Collect Chest",
-    Desc = "ดึงเงินสะสมจากหีบเข้าตัวอัตโนมัติ",
+    Name = "Auto Collect Money (ดูดเงินจากสล็อต & หีบ)",
+    Desc = "ดูดเงินสะสมจากทุกช่องสล็อต (Balance Hitbox) และหีบเข้าตัว",
     Default = Config.AutoCollectChest,
     Callback = function(v)
         Config.AutoCollectChest = v
@@ -2460,15 +2502,11 @@ TabPlot:AddSlider({
 TabPlot:AddSection("MANUAL PLOT ACTIONS")
 
 TabPlot:AddButton({
-    Name = "Force Collect Chest Now",
+    Name = "Force Collect All Money Now",
     Icon = "💰",
     Callback = function()
-        pcall(function()
-            if PlotNet and PlotNet.RE:FindFirstChild("CollectBalance") then
-                PlotNet.RE.CollectBalance:FireServer()
-            end
-        end)
-        Window:Notify({ Title = "Chest", Content = "Island balance collected!", Type = "success" })
+        CollectAllMoney()
+        Window:Notify({ Title = "Collect Money", Content = "Sucked money from all slots & chest!", Type = "success" })
     end,
 })
 
