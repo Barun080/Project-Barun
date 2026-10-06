@@ -1723,44 +1723,53 @@ function UI:CreateWindow(config)
                 Text = "",
                 AutoButtonColor = false,
                 Parent = DropCard,
-            }, {
+            })
+
+            txt({
+                Text = name,
+                Font = Theme.FontSemi,
+                TextSize = 12,
+                TextColor3 = Theme.TextTitle,
+                Position = UDim2.new(0, 16, 0, desc ~= "" and 10 or 0),
+                Size = UDim2.new(0.55, 0, 0, desc ~= "" and 18 or cardHeight),
+                Parent = Header,
+            })
+
+            if desc ~= "" then
                 txt({
-                    Text = name,
-                    Font = Theme.FontSemi,
-                    TextSize = 12,
-                    TextColor3 = Theme.TextTitle,
-                    Position = UDim2.new(0, 16, 0, desc ~= "" and 10 or 0),
-                    Size = UDim2.new(0.55, 0, 0, desc ~= "" and 18 or cardHeight),
-                }),
-                desc ~= "" and txt({
                     Text = desc,
                     TextSize = 10,
                     TextColor3 = Theme.TextDim,
                     Position = UDim2.new(0, 16, 0, 29),
                     Size = UDim2.new(0.55, 0, 0, 16),
-                }) or nil,
-                txt({
-                    Name = "SelectedText",
-                    Text = getSelectedSummary(),
-                    Font = Theme.FontBold,
-                    TextSize = 11,
-                    TextColor3 = Theme.AccentCyan,
-                    TextXAlignment = Enum.TextXAlignment.Right,
-                    TextTruncate = Enum.TextTruncate.AtEnd,
-                    Position = UDim2.new(0.5, 0, 0, 0),
-                    Size = UDim2.new(0.5, -42, 1, 0),
-                }),
-                txt({
-                    Name = "Arrow",
-                    Text = "▾",
-                    Font = Theme.FontBold,
-                    TextSize = 13,
-                    TextColor3 = Theme.TextDim,
-                    TextXAlignment = Enum.TextXAlignment.Center,
-                    AnchorPoint = Vector2.new(0.5, 0.5),
-                    Position = UDim2.new(1, -20, 0.5, 0),
-                    Size = UDim2.new(0, 18, 0, 18),
-                }),
+                    Parent = Header,
+                })
+            end
+
+            local SelectedLabel = txt({
+                Name = "SelectedText",
+                Text = getSelectedSummary(),
+                Font = Theme.FontBold,
+                TextSize = 11,
+                TextColor3 = Theme.AccentCyan,
+                TextXAlignment = Enum.TextXAlignment.Right,
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                Position = UDim2.new(0.5, 0, 0, 0),
+                Size = UDim2.new(0.5, -42, 1, 0),
+                Parent = Header,
+            })
+
+            local ArrowLabel = txt({
+                Name = "Arrow",
+                Text = "▾",
+                Font = Theme.FontBold,
+                TextSize = 13,
+                TextColor3 = Theme.TextDim,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.new(1, -20, 0.5, 0),
+                Size = UDim2.new(0, 18, 0, 18),
+                Parent = Header,
             })
 
             Header.MouseEnter:Connect(function()
@@ -1820,7 +1829,7 @@ function UI:CreateWindow(config)
             local function setExpanded(state)
                 isExpanded = state
                 tw(DropCard, { Size = UDim2.new(1, 0, 0, state and expandedH or cardHeight) }, state and 0.3 or 0.24, Enum.EasingStyle.Quart)
-                tw(Header.Arrow, { Rotation = state and 180 or 0, TextColor3 = state and Theme.AccentCyan or Theme.TextDim }, 0.25)
+                tw(ArrowLabel, { Rotation = state and 180 or 0, TextColor3 = state and Theme.AccentCyan or Theme.TextDim }, 0.25)
             end
 
             for i, opt in ipairs(options) do
@@ -1855,7 +1864,7 @@ function UI:CreateWindow(config)
                 OptBtn.MouseButton1Click:Connect(function()
                     if isMulti then
                         selected[opt] = not selected[opt]
-                        Header.SelectedText.Text = getSelectedSummary()
+                        SelectedLabel.Text = getSelectedSummary()
                         paintOptions()
                         task.spawn(callback, selected)
                     else
@@ -1893,7 +1902,7 @@ function UI:CreateWindow(config)
                     else
                         selected = {}
                     end
-                    Header.SelectedText.Text = getSelectedSummary()
+                    SelectedLabel.Text = getSelectedSummary()
                     paintOptions()
                     task.spawn(callback, selected)
                 else
