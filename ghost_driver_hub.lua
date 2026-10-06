@@ -2054,9 +2054,9 @@ local HttpService = game:GetService("HttpService")
         CornerSlowdown       = true,     -- ชะลอความเร็วเล็กน้อยตอนเจอโค้งหักศอก
         SmoothSteerFactor    = 0.22,     -- ความนุ่มนวลของการหักเลี้ยว (0.15 - 0.40)
         LookaheadLead        = 38,       -- ระยะคำนวณถนนล่วงหน้า (studs)
-        HoverSuspension      = true,     -- ระบบยกตัวลอยเหนือถนน กันจม & ลดแรงสั่นสะเทือน 100% (เปิดถาวร)
+        HoverSuspension      = false,    -- ระบบยกตัวลอยเหนือถนน (เปิดเฉพาะตอนเปิด Auto Farm)
         RideHeightOffset     = 2.3,      -- ความสูงลอยเหนือถนน 2.3 studs ตายตัว
-        RigidChassisLock     = true,     -- ล็อกโมเดลและล้อทั้งคันให้แข็งเป็นแผงเดียว สไลด์พร้อมกันไม่ย้วย
+        RigidChassisLock     = false,    -- ล็อกโมเดลและล้อทั้งคัน (เปิดเฉพาะตอนเปิด Auto Farm เพื่อไม่ให้ขัดขวางการขับปกติ)
     }
     _G.GhostDriverSettings = Settings
 
@@ -2109,6 +2109,16 @@ local HttpService = game:GetService("HttpService")
                             Settings[k] = v
                         end
                     end
+                    -- MANDATORY: Always keep active automations and physics locks disabled upon load
+                    Settings.AutoDriveFarm       = false
+                    Settings.AutoEscapePolice     = false
+                    Settings.RigidChassisLock     = false
+                    Settings.HoverSuspension      = false
+                    Settings.GhostGodMode         = false
+                    Settings.NoCollisionTraffic   = false
+                    Settings.AntiBusted           = false
+                    Settings.VehicleSpeedBoost    = false
+                    Settings.InfiniteNitrous      = false
                     return true
                 end
             end
@@ -2467,9 +2477,13 @@ local HttpService = game:GetService("HttpService")
         if not car then return end
         if not enable then
             for _, p in ipairs(car:GetDescendants()) do
-                if p:IsA("BasePart") then
-                    local w = p:FindFirstChild("GD_RigidWeld")
-                    if w then pcall(function() w:Destroy() end) end
+                if p:IsA("BasePart") or p:IsA("WeldConstraint") or p:IsA("Weld") then
+                    if p.Name == "GD_RigidWeld" then
+                        pcall(function() p:Destroy() end)
+                    else
+                        local w = p:FindFirstChild("GD_RigidWeld")
+                        if w then pcall(function() w:Destroy() end) end
+                    end
                 end
             end
             return
@@ -2502,25 +2516,38 @@ local HttpService = game:GetService("HttpService")
     function FarmManager.Stop()
         Settings.AutoDriveFarm = false
         Settings.AutoEscapePolice = false
+        Settings.RigidChassisLock = false
+        Settings.HoverSuspension = false
         FarmManager.WasDriving = false
 
         safe(function()
             local seat = getDriveSeat()
             local car = getPlayerCar()
+            -- 1. Remove all rigid welds so wheels and steering can rotate normally
             FarmManager.SetRigidLock(car, seat, false)
-            if seat then
-                seat.AssemblyLinearVelocity = Vector3.zero
-                seat.AssemblyAngularVelocity = Vector3.zero
-                seat.Throttle = 0
-                seat.ThrottleFloat = 0
-                seat.SteerFloat = 0
-            end
+            
+            -- 2. Unlock vehicle brakes completely for seamless manual driving
             if car then
+                if car:GetAttribute("Handbrake") then car:SetAttribute("Handbrake", false) end
                 local vals = car:FindFirstChild("Values")
                 if vals then
                     local pb = vals:FindFirstChild("PBrake") or vals:FindFirstChild("Handbrake")
-                    if pb and pb:IsA("BoolValue") then pb.Value = true end
+                    if pb and pb:IsA("BoolValue") then pb.Value = false end
+                    local brk = vals:FindFirstChild("Brake")
+                    if brk and brk:IsA("NumberValue") then brk.Value = 0 end
                 end
+                for _, p in ipairs(car:GetDescendants()) do
+                    if p:IsA("BasePart") then
+                        if p.Anchored then p.Anchored = false end
+                        local w = p:FindFirstChild("GD_RigidWeld")
+                        if w then pcall(function() w:Destroy() end) end
+                    end
+                end
+            end
+            if seat then
+                if seat:GetAttribute("Handbrake") then seat:SetAttribute("Handbrake", false) end
+                -- Clear forced automated inputs to allow player's WASD to take full control
+                seat.AssemblyAngularVelocity = Vector3.zero
             end
         end)
     end
@@ -3176,6 +3203,51 @@ local HttpService = game:GetService("HttpService")
     })
 
     TabVehicle:AddButton({
+        Name = "🔓 Unlock Car & Fix Normal Drive (ปลดล็อกเบรคมือ & คืนค่าการขับขี่ปกติ)",
+        Callback = function()
+            safe(function()
+                FarmManager.Stop()
+                local car = getPlayerCar()
+                local seat = getDriveSeat()
+                if car then
+                    FarmManager.SetRigidLock(car, seat, false)
+                    if car:GetAttribute("Handbrake") then car:SetAttribute("Handbrake", false) end
+                    if seat and seat:GetAttribute("Handbrake") then seat:SetAttribute("Handbrake", false) end
+                    local vals = car:FindFirstChild("Values")
+                    if vals then
+                        local pb = vals:FindFirstChild("PBrake") or vals:FindFirstChild("Handbrake")
+                        if pb and pb:IsA("BoolValue") then pb.Value = false end
+                        local brk = vals:FindFirstChild("Brake")
+                        if brk and brk:IsA("NumberValue") then brk.Value = 0 end
+                        local ign = vals:FindFirstChild("Ignition")
+                        if ign and ign:IsA("BoolValue") then ign.Value = true end
+                    end
+                    for _, p in ipairs(car:GetDescendants()) do
+                        if p:IsA("BasePart") then
+                            if p.Anchored then p.Anchored = false end
+                            local w = p:FindFirstChild("GD_RigidWeld")
+                            if w then pcall(function() w:Destroy() end) end
+                        end
+                    end
+                    OrionLib:MakeNotification({
+                        Name = "🚗 Car Unlocked",
+                        Content = "ปลดล็อกเบรคมือและคืนค่าระบบเลี้ยว/ล้อให้ขับขี่ได้ปกติแล้ว!",
+                        Image = "rbxassetid://4483345998",
+                        Time = 3
+                    })
+                else
+                    OrionLib:MakeNotification({
+                        Name = "⚠️ No Car Found",
+                        Content = "ไม่พบรถของผู้เล่นในขณะนี้ กรุณาเสกรถออกมาก่อน",
+                        Image = "rbxassetid://4483345998",
+                        Time = 3
+                    })
+                end
+            end)
+        end
+    })
+
+    TabVehicle:AddButton({
         Name = "Enter Driver Seat (วาปขึ้นเบาะคนขับทันที)",
         Callback = function()
             safe(function()
@@ -3588,6 +3660,34 @@ local HttpService = game:GetService("HttpService")
 
             task.wait(2.0)
         end
+    end)
+
+    -- Ensure current vehicle is completely unlocked for normal driving on script start
+    task.spawn(function()
+        task.wait(0.3)
+        safe(function()
+            local car = getPlayerCar()
+            local seat = getDriveSeat()
+            if car then
+                FarmManager.SetRigidLock(car, seat, false)
+                if car:GetAttribute("Handbrake") then car:SetAttribute("Handbrake", false) end
+                if seat and seat:GetAttribute("Handbrake") then seat:SetAttribute("Handbrake", false) end
+                local vals = car:FindFirstChild("Values")
+                if vals then
+                    local pb = vals:FindFirstChild("PBrake") or vals:FindFirstChild("Handbrake")
+                    if pb and pb:IsA("BoolValue") then pb.Value = false end
+                    local brk = vals:FindFirstChild("Brake")
+                    if brk and brk:IsA("NumberValue") then brk.Value = 0 end
+                end
+                for _, p in ipairs(car:GetDescendants()) do
+                    if p:IsA("BasePart") then
+                        if p.Anchored then p.Anchored = false end
+                        local w = p:FindFirstChild("GD_RigidWeld")
+                        if w then pcall(function() w:Destroy() end) end
+                    end
+                end
+            end
+        end)
     end)
 
     -- ═══════════════════════════════════════════════════════════════════
