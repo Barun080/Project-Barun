@@ -2688,22 +2688,12 @@
         -- Unlock A-Chassis parking brakes & unanchor parts if vehicle was frozen
         FarmManager.UnfreezeVehicle()
 
-        -- Proactive Car Ghosting: Ghost body & bumpers 100%, PRESERVE WHEEL COLLISION so springs never snap!
+        -- Proactive Car Ghosting: Ghost entire car 100% while hovering for frictionless 320 MPH glide
         if Settings.GhostGodMode or Settings.AutoDriveFarm then
             for _, p in ipairs(car:GetDescendants()) do
                 if p:IsA("BasePart") then
-                    local pNameLower = p.Name:lower()
-                    local isWheelOrSeat = (p.Name == "DriveSeat") 
-                        or p:IsA("VehicleSeat")
-                        or pNameLower:find("wheel")
-                        or pNameLower:find("tire")
-                        or (p.Parent and p.Parent.Name:lower():find("wheel"))
-                    if not isWheelOrSeat then
-                        if p.CanCollide then p.CanCollide = false end
-                        if p.CanTouch then p.CanTouch = false end
-                    else
-                        if not p.CanCollide then p.CanCollide = true end
-                    end
+                    if p.CanCollide then p.CanCollide = false end
+                    if p.CanTouch then p.CanTouch = false end
                 end
             end
         end
@@ -2987,58 +2977,39 @@
         end
         targetPathPos = Vector3.new(targetPathPos.X, roadAheadY, targetPathPos.Z)
 
-        local moveVec = targetPathPos - currentPos
-        local flatMoveVec = Vector3.new(moveVec.X, 0, moveVec.Z)
-        local moveDir = flatMoveVec.Magnitude > 0.01 and flatMoveVec.Unit or Vector3.new(frame.Direction.X, 0, frame.Direction.Z).Unit
+        -- Road Forward Direction and Lateral Alignment (Pure-Yaw Highway Steering)
+        local roadDir = Vector3.new(frame.Direction.X, 0, frame.Direction.Z).Unit
+        local roadNormal = Vector3.new(-roadDir.Z, 0, roadDir.X)
 
-        -- Vertical velocity & Hover suspension: Active height hold keeps wheels 0.5-1.0 studs clear of the road
-        local yDiff = desiredHoverY - currentPos.Y
-        local isSinking = currentPos.Y < (groundY + 1.2)
-        local targetYVel = 0
-        if Settings.HoverSuspension then
-            targetYVel = math.clamp(yDiff * 20, -12, 26)
-        else
-            targetYVel = math.clamp(seat.AssemblyLinearVelocity.Y, -10, 10)
-        end
+        -- Gentle lateral steering correction towards target lane (clamped to max ±8 degrees)
+        local carFromCenter = currentPos - frame.CenterPos
+        local currentRoadOffset = carFromCenter:Dot(roadNormal)
+        local lateralDiff = aimLateral - currentRoadOffset
+        local steerCorrection = math.clamp(lateralDiff * 0.025, -0.14, 0.14)
 
-        -- Vehicle Heading: Smooth Pure-Yaw Steering (Locks hover altitude, eliminates road jitter 100%)
+        -- Target Heading: Strictly follows road tangent with subtle lane drift
+        local targetHeading = (roadDir + (roadNormal * steerCorrection)).Unit
+
+        -- Hover Altitude: Hold exact 2.3 studs clearance above road surface
+        local targetHoverAltitude = groundY + targetRideHeight
+
+        -- Orient Entire Vehicle Body Solidly with Road
         local curPivot = car:GetPivot()
-        local flatLook = Vector3.new(curPivot.LookVector.X, 0, curPivot.LookVector.Z)
-        local flatDir = Vector3.new(frame.Direction.X, 0, frame.Direction.Z)
-        if flatLook.Magnitude > 0.001 then flatLook = flatLook.Unit else flatLook = Vector3.new(0, 0, -1) end
-        if flatDir.Magnitude > 0.001 then flatDir = flatDir.Unit else flatDir = Vector3.new(0, 0, -1) end
+        local currentLook = Vector3.new(curPivot.LookVector.X, 0, curPivot.LookVector.Z).Unit
+        local headingAlignment = currentLook:Dot(targetHeading)
 
-        local targetHeading = Vector3.new(moveDir.X, 0, moveDir.Z)
-        if targetHeading.Magnitude > 0.001 then targetHeading = targetHeading.Unit else targetHeading = flatDir end
-        local headingAlignment = flatLook:Dot(targetHeading)
+        local targetRot = CFrame.lookAt(Vector3.zero, targetHeading, Vector3.yAxis)
+        local curRot = curPivot.Rotation
+        local steerFactor = math.clamp(Settings.SmoothSteerFactor or 0.22, 0.15, 0.35)
+        local blendedRot = (headingAlignment < 0.65 or curPivot.UpVector.Y < 0.60) and targetRot or curRot:Lerp(targetRot, steerFactor)
 
-        local targetSeatY = currentPos.Y
-        if Settings.HoverSuspension then
-            if isSinking then
-                -- Immediately rescue chassis from asphalt penetration trap
-                targetSeatY = desiredHoverY
-            else
-                -- Follow road contour elevation smoothly
-                targetSeatY = currentPos.Y + (yDiff * 0.16)
-            end
-        end
+        -- Smoothly update vehicle position & orientation as a unified whole
+        local targetCFrame = CFrame.new(currentPos.X, targetHoverAltitude, currentPos.Z) * blendedRot
+        car:PivotTo(targetCFrame)
 
-        if headingAlignment < 0.25 or curPivot.UpVector.Y < 0.50 or isSinking then
-            local uprightPos = Vector3.new(currentPos.X, math.max(currentPos.Y, desiredHoverY), currentPos.Z)
-            car:PivotTo(CFrame.lookAt(uprightPos, uprightPos + targetHeading))
-            seat.AssemblyAngularVelocity = Vector3.zero
-            seat.AssemblyLinearVelocity = targetHeading * forwardSpeed + Vector3.new(0, 5, 0)
-        else
-            -- Align rotation & maintain silky smooth hover clearance (Zero vibration, zero sinking!)
-            local steerFactor = math.clamp(Settings.SmoothSteerFactor or 0.22, 0.12, 0.40)
-            local targetRot = CFrame.lookAt(Vector3.zero, targetHeading, Vector3.new(0, 1, 0))
-            local currentRot = seat.CFrame.Rotation
-            local blendedRot = currentRot:Lerp(targetRot, steerFactor)
-            seat.CFrame = CFrame.new(currentPos.X, targetSeatY, currentPos.Z) * blendedRot
-            -- Crucial: Apply linear velocity AFTER seat.CFrame so Roblox physics doesn't wipe velocity to 0!
-            seat.AssemblyLinearVelocity = Vector3.new(moveDir.X * forwardSpeed, targetYVel, moveDir.Z * forwardSpeed)
-            seat.AssemblyAngularVelocity = Vector3.zero
-        end
+        -- Apply linear velocity AFTER PivotTo along targetHeading
+        seat.AssemblyLinearVelocity = targetHeading * forwardSpeed
+        seat.AssemblyAngularVelocity = Vector3.zero
 
         seat.Throttle = 1
         seat.ThrottleFloat = 1
