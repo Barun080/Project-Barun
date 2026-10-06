@@ -7,10 +7,25 @@ local LoaderUrl = "https://raw.githubusercontent.com/Barun080/Project-Barun/main
 
 local function loadHub()
     local code = nil
-    if isfile and isfile("anime_dice_hub.lua") then
-        code = readfile("anime_dice_hub.lua")
-    else
-        code = game:HttpGet(LoaderUrl, true)
+
+    -- 1. เช็คไฟล์ในเครื่องก่อน (Local Workspace)
+    pcall(function()
+        if isfile and isfile("anime_dice_hub.lua") then
+            code = readfile("anime_dice_hub.lua")
+        end
+    end)
+
+    -- 2. ดึงจาก GitHub แบบไม่แคช (Cache-Busting Query)
+    if not code or #code < 500 then
+        local freshUrl = LoaderUrl .. "?t=" .. tostring(tick())
+        local okHttp, res = pcall(function()
+            return game:HttpGet(freshUrl)
+        end)
+        if okHttp and res and #res > 500 then
+            code = res
+        else
+            code = game:HttpGet(LoaderUrl)
+        end
     end
 
     if not code or #code < 500 then
