@@ -1673,43 +1673,39 @@ TabMisc:AddToggle({
 -- ═════════════════════════════════════════════════════════════════════
 -- TAB: SETTINGS & CONFIGURATION PROFILES (SAVE & LOAD)
 -- ═════════════════════════════════════════════════════════════════════
+local CONFIG_FILE = "PB_LootToForge_Config.json"
+
 local ConfigManager = {}
 do
-    local BASE_DIR = "ProjectBarun"
-    local GAME_DIR = "ProjectBarun/LootToForge"
-    local DEFAULT_NAME = "default"
-
-    local function ensureFolders()
-        pcall(function()
-            if makefolder then
-                if not (isfolder and isfolder(BASE_DIR)) then makefolder(BASE_DIR) end
-                if not (isfolder and isfolder(GAME_DIR)) then makefolder(GAME_DIR) end
+    local function getCleanFilename(name)
+        if name and name ~= "" and name ~= "default" then
+            local sanitized = name:gsub("[^%w_%-]", "")
+            if sanitized ~= "" then
+                return "PB_LootToForge_" .. sanitized .. ".json"
             end
-        end)
-    end
-
-    local function getPath(name)
-        name = (name and name ~= "") and name or DEFAULT_NAME
-        name = name:gsub("[^%w_%-]", "")
-        if name == "" then name = DEFAULT_NAME end
-        return GAME_DIR .. "/" .. name .. ".json"
+        end
+        return CONFIG_FILE
     end
 
     function ConfigManager.Save(name)
-        ensureFolders()
-        if not writefile then return false, "No writefile" end
-        local path = getPath(name)
-        local ok, encoded = pcall(function() return HttpService:JSONEncode(Settings) end)
+        if not writefile then return false, "Executor lacks writefile" end
+        local path = getCleanFilename(name)
+        local clean = {}
+        for k, v in pairs(Settings) do
+            local t = type(v)
+            if t == "boolean" or t == "number" or t == "string" or t == "table" then
+                clean[k] = v
+            end
+        end
+        local ok, encoded = pcall(function() return HttpService:JSONEncode(clean) end)
         if not ok or not encoded then return false, "JSON Encode failed" end
         local wOk, wErr = pcall(function() writefile(path, encoded) end)
         return wOk, wOk and path or tostring(wErr)
     end
 
     function ConfigManager.Load(name)
-        ensureFolders()
-        if not (isfile and readfile) then return false, "No isfile/readfile" end
-        local path = getPath(name)
-        if not isfile(path) then return false, "File not found" end
+        local path = getCleanFilename(name)
+        if not (isfile and readfile and isfile(path)) then return false, "File not found" end
         local rOk, content = pcall(function() return readfile(path) end)
         if not rOk or not content or content == "" then return false, "Read failed" end
         local dOk, decoded = pcall(function() return HttpService:JSONDecode(content) end)
