@@ -1192,7 +1192,7 @@ function UI:CreateWindow(config)
             cardConfig = cardConfig or {}
             local title    = cardConfig.Title or "Telemetry Metric"
             local initial  = cardConfig.Value or "0"
-            local subtitle = cardConfig.Subtext or "Live Feed"
+            local subtitle = cardConfig.Subtext or cardConfig.Desc or "Live Feed"
             local progress = cardConfig.Progress
 
             local card = makeCard(TabPage, progress ~= nil and 62 or 54, false)
@@ -1267,6 +1267,8 @@ function UI:CreateWindow(config)
             end
             return CardHandle
         end
+
+        TabObj.AddStat = TabObj.AddStatCard
 
         -- ─────────────────────────────────────────────────────────────
         -- 3. TOGGLE
@@ -2300,36 +2302,31 @@ local TabDash = Window:CreateTab({
 
 TabDash:AddSection("LIVE TELEMETRY")
 
-local StatRolls = TabDash:AddStat({
+local StatRolls = TabDash:AddStatCard({
     Title = "Total Rolls",
     Value = "0",
-    Desc = "Dice rolled this session",
-    Icon = "🎲",
-    Accent = Theme.AccentCyan,
+    Subtext = "Dice rolled this session",
+    Progress = 0,
 })
 
-local StatCash = TabDash:AddStat({
+local StatCash = TabDash:AddStatCard({
     Title = "Player Wallet",
     Value = "0",
-    Desc = "Current cash balance",
-    Icon = "💰",
-    Accent = Color3.fromRGB(250, 204, 21),
+    Subtext = "Cash in wallet",
+    Progress = 0.5,
 })
 
-local StatFloors = TabDash:AddStat({
+local StatFloors = TabDash:AddStatCard({
     Title = "Tower Floors",
     Value = "0",
-    Desc = "Cleared floors this session",
-    Icon = "🏰",
-    Accent = Theme.AccentPurple,
+    Subtext = "Cleared floors this session",
+    Progress = 0,
 })
 
-local StatTowerStatus = TabDash:AddStat({
+local StatTowerStatus = TabDash:AddStatCard({
     Title = "Tower Status",
     Value = "Standby",
-    Desc = "Selected: Hidden Leaf Tower",
-    Icon = "⚡",
-    Accent = Theme.AccentCyan,
+    Subtext = "Selected: Hidden Leaf Tower",
 })
 
 TabDash:AddSection("QUICK TOGGLES")

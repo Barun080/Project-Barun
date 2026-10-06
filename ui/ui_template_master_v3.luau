@@ -1192,7 +1192,7 @@ function UI:CreateWindow(config)
             cardConfig = cardConfig or {}
             local title    = cardConfig.Title or "Telemetry Metric"
             local initial  = cardConfig.Value or "0"
-            local subtitle = cardConfig.Subtext or "Live Feed"
+            local subtitle = cardConfig.Subtext or cardConfig.Desc or "Live Feed"
             local progress = cardConfig.Progress
 
             local card = makeCard(TabPage, progress ~= nil and 62 or 54, false)
@@ -1267,6 +1267,8 @@ function UI:CreateWindow(config)
             end
             return CardHandle
         end
+
+        TabObj.AddStat = TabObj.AddStatCard
 
         -- ─────────────────────────────────────────────────────────────
         -- 3. TOGGLE
