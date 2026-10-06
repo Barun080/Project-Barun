@@ -2017,14 +2017,14 @@
         -- Vehicle Tuning & Speed
         VehicleSpeedBoost    = false,
         BoostMultiplier      = 1.3,
-        InfiniteNitrous      = false,
+        InfiniteNitrous      = true,     -- Default ON: ไนตรัสไม่จำกัด
         VehicleFly           = false,
         FlySpeed             = 120,
 
         -- Anti-Police & Godmode
-        AntiBusted           = false,
-        NoCollisionTraffic   = true,      -- All AI traffic & vehicles pass through without collision
-        GhostGodMode         = true,      -- Car body parts ghosted (pass through all walls & cars 100%)
+        AntiBusted           = true,     -- Default ON: กันตำรวจจับ 100%
+        NoCollisionTraffic   = true,     -- Default ON: ทะลุรถ AI & ผู้เล่น
+        GhostGodMode         = true,     -- Default ON: ตัวถังรถเป็นผี ทะลุกำแพง/สิ่งกีดขวาง
         AutoEscapePolice     = false,     -- Auto Escape Police Pursuit mode
         PoliceTargetCash     = 50000,     -- Target cash goal before activating 100% Anti-Busted
         PoliceBustedActivated= false,     -- Flag indicating target cash reached and 100% protection active
@@ -2035,10 +2035,10 @@
         FarmPercent          = 1.0,      -- Full loop or custom route percent
         FarmLane             = "Lane 2 (Center)",
         LoopMode             = "Infinite Loop (วิ่งวนลูปไฮเวย์รอบโลกต่อเนื่อง)",
-        AutoBankCombo        = true,
+        AutoBankCombo        = true,     -- Default ON: บันทึกแต้มเงินอัตโนมัติ
         AutoKeepCombo        = false,    -- Do not spam combo remotes by default
         AutoSwerveCloseCall  = false,    -- Disabled to prevent server-side spam kicks
-        AutoRespawnCar       = false,
+        AutoRespawnCar       = true,     -- Default ON: เสกและขึ้นรถใหม่อัตโนมัติถ้ารถหาย/พัง
         AutoClaimDaily       = false,
         AutoClaimFreeCar     = false,
         AutoAFKBonus         = false,    -- Safe default: off
@@ -2055,6 +2055,7 @@
         LookaheadLead        = 38,       -- ระยะคำนวณถนนล่วงหน้า (studs)
         HoverSuspension      = true,     -- ระบบยกตัวลอยเหนือถนน กันจม & ลดแรงสั่นสะเทือน 100%
         RideHeightOffset     = 2.8,      -- ความสูงลอยเหนือถนน (studs) ดึงล้อพ้นพื้นนิดหน่อย
+        RigidChassisLock     = true,     -- ล็อกโมเดลและล้อทั้งคันให้แข็งเป็นแผงเดียว สไลด์พร้อมกันไม่ย้วย
     }
     _G.GhostDriverSettings = Settings
 
@@ -2086,7 +2087,8 @@
                     SmoothSteerFactor = Settings.SmoothSteerFactor,
                     LookaheadLead = Settings.LookaheadLead,
                     HoverSuspension = Settings.HoverSuspension,
-                    RideHeightOffset = Settings.RideHeightOffset
+                    RideHeightOffset = Settings.RideHeightOffset,
+                    RigidChassisLock = Settings.RigidChassisLock
                 }
                 writefile(CONFIG_FILE, HttpService:JSONEncode(dataToSave))
             end)
@@ -2384,6 +2386,42 @@
         end
     end
 
+    function FarmManager.SetRigidLock(car, seat, enable)
+        if not car then return end
+        if not enable then
+            for _, p in ipairs(car:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    local w = p:FindFirstChild("GD_RigidWeld")
+                    if w then pcall(function() w:Destroy() end) end
+                end
+            end
+            return
+        end
+
+        if not seat then return end
+        for _, part in ipairs(car:GetDescendants()) do
+            if part:IsA("BasePart") and part ~= seat then
+                local name = part.Name:lower()
+                local parentName = part.Parent and part.Parent.Name:lower() or ""
+                local isWheelOrSuspension = name:find("wheel") or name:find("tire") or name:find("rim") 
+                    or name:find("hub") or name:find("steer") or name:find("spindle") or name:find("caliper")
+                    or parentName:find("wheel") or parentName:find("suspension")
+
+                if isWheelOrSuspension then
+                    local weldTag = part:FindFirstChild("GD_RigidWeld")
+                    if not weldTag or not weldTag:IsA("WeldConstraint") or weldTag.Part0 ~= seat or weldTag.Part1 ~= part then
+                        if weldTag then pcall(function() weldTag:Destroy() end) end
+                        local weld = Instance.new("WeldConstraint")
+                        weld.Name = "GD_RigidWeld"
+                        weld.Part0 = seat
+                        weld.Part1 = part
+                        weld.Parent = part
+                    end
+                end
+            end
+        end
+    end
+
     function FarmManager.Stop()
         Settings.AutoDriveFarm = false
         Settings.AutoEscapePolice = false
@@ -2391,6 +2429,8 @@
 
         safe(function()
             local seat = getDriveSeat()
+            local car = getPlayerCar()
+            FarmManager.SetRigidLock(car, seat, false)
             if seat then
                 seat.AssemblyLinearVelocity = Vector3.zero
                 seat.AssemblyAngularVelocity = Vector3.zero
@@ -2398,7 +2438,6 @@
                 seat.ThrottleFloat = 0
                 seat.SteerFloat = 0
             end
-            local car = getPlayerCar()
             if car then
                 local vals = car:FindFirstChild("Values")
                 if vals then
@@ -2410,12 +2449,27 @@
     end
 
     function FarmManager.Start()
-        Settings.AutoDriveFarm = true
+        Settings.AutoDriveFarm     = true
         Settings.NoCollisionTraffic = true
-        Settings.GhostGodMode = true
-        FarmManager.StuckTicks = 0
-        FarmManager.LastPos = nil
+        Settings.GhostGodMode      = true
+        Settings.HoverSuspension   = true
+        Settings.RigidChassisLock  = true
+        Settings.AntiBusted        = true
+        Settings.InfiniteNitrous   = true
+        Settings.AutoBankCombo     = true
+        Settings.AutoRespawnCar    = true
+        Settings.AntiAFK           = true
+        Settings.AdaptiveCornering = true
+        Settings.CornerSlowdown    = true
+        FarmManager.StuckTicks     = 0
+        FarmManager.LastPos        = nil
         FarmManager.UnfreezeVehicle()
+
+        local initCar = getPlayerCar()
+        local initSeat = getDriveSeat()
+        if Settings.RigidChassisLock then
+            FarmManager.SetRigidLock(initCar, initSeat, true)
+        end
 
         task.spawn(function()
             local car = getPlayerCar()
@@ -2433,6 +2487,9 @@
                 seat:Sit(hum)
             end
             FarmManager.UnfreezeVehicle()
+            if Settings.RigidChassisLock then
+                FarmManager.SetRigidLock(car, seat, true)
+            end
         end)
 
         if not FarmManager.WorkerThread or coroutine.status(FarmManager.WorkerThread) == "dead" then
@@ -2464,6 +2521,11 @@
             seat:Sit(hum)
             task.wait(0.2)
             return
+        end
+
+        -- Ensure rigid chassis lock is active on current vehicle
+        if Settings.RigidChassisLock then
+            FarmManager.SetRigidLock(car, seat, true)
         end
 
         local currentPos = seat.Position
@@ -2892,7 +2954,7 @@
         else
             -- Align rotation & maintain silky smooth hover clearance (Zero vibration, zero sinking!)
             local steerFactor = math.clamp(Settings.SmoothSteerFactor or 0.22, 0.12, 0.40)
-            local targetRot = CFrame.lookAt(Vector3.zero, targetHeading)
+            local targetRot = CFrame.lookAt(Vector3.zero, targetHeading, Vector3.new(0, 1, 0))
             local currentRot = seat.CFrame.Rotation
             local blendedRot = currentRot:Lerp(targetRot, steerFactor)
             seat.CFrame = CFrame.new(currentPos.X, targetSeatY, currentPos.Z) * blendedRot
@@ -2981,6 +3043,20 @@
 
     -- ─── Tab: Live Dashboard & Telemetry ──────────────────────────────
     TabDash:AddBanner("rbxassetid://71495519688848", 130)
+
+    TabDash:AddSection({ Name = "⚡ Quick Control (ปุ่มเดียวเปิดครบทุกระบบ)" })
+
+    TabDash:AddToggle({
+        Name = "⚡ MASTER AUTO FARM (เปิดครบจบในปุ่มเดียว)",
+        Default = Settings.AutoDriveFarm,
+        Callback = function(Value)
+            if Value then
+                FarmManager.Start()
+            else
+                FarmManager.Stop()
+            end
+        end
+    })
 
     TabDash:AddSection({ Name = "🚀 Real-time Telemetry & Farm Metrics" })
 
@@ -3120,6 +3196,17 @@
         Callback = function(Value) Settings.RideHeightOffset = Value end
     })
 
+    TabVehicle:AddToggle({
+        Name = "Rigid Chassis Lock (ล็อกโครงสร้างรถแข็งเป็นแผงเดียว ล้อไม่ย้วย)",
+        Default = Settings.RigidChassisLock,
+        Callback = function(Value)
+            Settings.RigidChassisLock = Value
+            local car = getPlayerCar()
+            local seat = getDriveSeat()
+            FarmManager.SetRigidLock(car, seat, Value)
+        end
+    })
+
     -- ─── Tab: Police & Defense ────────────────────────────────────────
     TabPolice:AddSection({ Name = "🚨 Auto Escape Police (หนีตำรวจ & ล็อคเงินเป้าหมาย)" })
 
@@ -3181,10 +3268,10 @@
     })
 
     -- ─── Tab: Farm & Economy ──────────────────────────────────────────
-    TabFarm:AddSection({ Name = "Grand Loop Highway Auto Farm (ขับฟาร์ม 96,000 Studs / 26.8 KM)" })
+    TabFarm:AddSection({ Name = "⚡ All-in-One Master Auto Farm (เปิดครบจบในปุ่มเดียว)" })
 
     TabFarm:AddToggle({
-        Name = "Auto Drive Farm (เปิดระบบขับฟาร์มเงินอัตโนมัติ)",
+        Name = "⚡ MASTER AUTO FARM (เปิดครบจบในปุ่มเดียว)",
         Default = Settings.AutoDriveFarm,
         Callback = function(Value)
             if Value then
@@ -3194,6 +3281,8 @@
             end
         end
     })
+
+    TabFarm:AddLabel("💡 รวมให้อัตโนมัติ: ล็อกรถแข็งแผงเดียว + ลอยพ้นถนน + ทะลุรถ AI + กันตำรวจ 100% + ไนตรัส + เก็บเงินคอมโบ")
 
     TabFarm:AddSlider({
         Name = "Farm Drive Speed (ความเร็วขับฟาร์ม)",
