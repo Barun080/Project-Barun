@@ -3,11 +3,34 @@
     GitHub: https://github.com/Barun080/Project-Barun
 --]]
 
--- แบบสั้นบรรทัดเดียว (One-Liner):
--- loadstring(game:HttpGet("https://raw.githubusercontent.com/Barun080/Project-Barun/main/anime_dice_hub.lua"))()
+-- แบบสั้นบรรทัดเดียว (One-Liner พร้อม Cache Buster):
+-- loadstring(game:HttpGet("https://raw.githubusercontent.com/Barun080/Project-Barun/main/anime_dice_hub.lua?v=" .. tick()))()
 
--- แบบป้องกันเน็ตหลุด & ตรวจสอบข้อผิดพลาดในการโหลดแบบละเอียด:
-local LoaderUrl = "https://raw.githubusercontent.com/Barun080/Project-Barun/main/anime_dice_hub.lua"
+-- ลบ UI เก่าที่เปิดค้างอยู่ทันทีก่อนโหลดใหม่
+pcall(function()
+    if _G.AnimeDice_Cleanup then
+        pcall(_G.AnimeDice_Cleanup)
+    end
+    local h = gethui and gethui() or game:GetService("CoreGui")
+    for _, g in ipairs(h:GetChildren()) do
+        if g.Name == "BarunHub_Main" or g.Name == "ApexScriptHub" or g.Name == "ProjectBarun_AnimeDice" then
+            g:Destroy()
+        end
+    end
+    local lp = game:GetService("Players").LocalPlayer
+    local pg = lp and lp:FindFirstChild("PlayerGui")
+    if pg then
+        for _, g in ipairs(pg:GetChildren()) do
+            if g.Name == "BarunHub_Main" or g.Name == "ApexScriptHub" or g.Name == "ProjectBarun_AnimeDice" then
+                g:Destroy()
+            end
+        end
+    end
+end)
+
+-- โหลดสคริปต์เวอร์ชันล่าสุด 100% ป้องกันแคชเก่าค้าง
+local BaseUrl = "https://raw.githubusercontent.com/Barun080/Project-Barun/main/anime_dice_hub.lua"
+local LoaderUrl = BaseUrl .. "?v=" .. tostring(os.time())
 
 local success, err = pcall(function()
     local rawCode = game:HttpGet(LoaderUrl, true)

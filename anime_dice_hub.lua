@@ -2325,8 +2325,16 @@ _G.AnimeDice_Cleanup = function()
     pcall(function()
         local h = gethui and gethui() or CoreGui
         for _, g in ipairs(h:GetChildren()) do
-            if g.Name == "ProjectBarun_AnimeDice" then
+            if g.Name == "ProjectBarun_AnimeDice" or g.Name == "BarunHub_Main" or g.Name == "ApexScriptHub" then
                 g:Destroy()
+            end
+        end
+        local pg = LP and LP:FindFirstChild("PlayerGui")
+        if pg then
+            for _, g in ipairs(pg:GetChildren()) do
+                if g.Name == "ProjectBarun_AnimeDice" or g.Name == "BarunHub_Main" or g.Name == "ApexScriptHub" then
+                    g:Destroy()
+                end
             end
         end
     end)
