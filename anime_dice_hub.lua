@@ -3218,7 +3218,7 @@ local StatPotions = TabMain:AddStatCard({ Title = "Potions Used", Value = "0", S
 local StatTowerStatus = TabMain:AddStatCard({ Title = "Tower Status", Value = "Standby", Subtext = "Selected: Dragon Tower" })
 
 TabMain:AddSection("DICE ROLLING (ทอยเต๋าอัตโนมัติ)")
-UIHandles.AutoRoll = UIHandles.AutoRoll = TabMain:AddToggle({
+UIHandles.AutoRoll = TabMain:AddToggle({
     Name = "Auto Roll (เปิดทอยลูกเต๋าอัตโนมัติ)",
     Desc = "ทอยต่อเนื่องความเร็วสูงด้วยแพ็กเก็ตปลอดภัย",
     Default = Config.AutoRoll,
@@ -3227,7 +3227,7 @@ UIHandles.AutoRoll = UIHandles.AutoRoll = TabMain:AddToggle({
         Window:Notify({ Title = "Auto Roll", Content = v and "Started auto rolling!" or "Paused.", Type = v and "success" or "warning" })
     end,
 })
-UIHandles.SkipCutscene = UIHandles.SkipCutscene = TabMain:AddToggle({
+UIHandles.SkipCutscene = TabMain:AddToggle({
     Name = "Skip Cutscene & Screen Shakes",
     Desc = "ตัดแอนิเมชันลูกเต๋า 100% หน้าจอไม่สั่นเวียนหัว",
     Default = Config.SkipCutscene,
@@ -3237,7 +3237,7 @@ UIHandles.SkipCutscene = UIHandles.SkipCutscene = TabMain:AddToggle({
         Window:Notify({ Title = "Cutscene Bypass", Content = v and "Cutscenes disabled!" or "Restored.", Type = "info" })
     end,
 })
-UIHandles.RollSpeedDelay = UIHandles.RollSpeedDelay = TabMain:AddSlider({
+UIHandles.RollSpeedDelay = TabMain:AddSlider({
     Name = "Roll Speed Delay (ความเร็วในการทอย)",
     Min = 0.01,
     Max = 0.5,
@@ -3258,7 +3258,7 @@ TabMain:AddButton({
 })
 
 TabMain:AddSection("ISLAND & PLOT BALANCE (เกาะ & สล็อตดูดเงิน)")
-UIHandles.AutoFarmPlot = UIHandles.AutoFarmPlot = TabMain:AddToggle({
+UIHandles.AutoFarmPlot = TabMain:AddToggle({
     Name = "Auto Farm Plot (เปิดระบบทำงานบนเกาะ)",
     Desc = "เปิดระบบดูดเงินทุกสล็อตบนเกาะ + สวมใส่ตัวผลิตเงินสูงสุด",
     Default = Config.AutoFarmPlot,
@@ -3267,13 +3267,13 @@ UIHandles.AutoFarmPlot = UIHandles.AutoFarmPlot = TabMain:AddToggle({
         Window:Notify({ Title = "Auto Farm Plot", Content = v and "Plot farming active!" or "Paused.", Type = v and "success" or "warning" })
     end,
 })
-UIHandles.AutoCollectChest = UIHandles.AutoCollectChest = TabMain:AddToggle({
+UIHandles.AutoCollectChest = TabMain:AddToggle({
     Name = "Auto Collect Money (ดูดเงิน 24 สล็อต)",
     Desc = "ส่งคำสั่ง CollectBalance ดูดเงินเข้าตัวทุกสล็อต ปลอดภัย ไม่เด้งป๊อปอัป",
     Default = Config.AutoCollectChest,
     Callback = function(v) Config.AutoCollectChest = v end,
 })
-UIHandles.AutoEquipBestPlot = UIHandles.AutoEquipBestPlot = TabMain:AddToggle({
+UIHandles.AutoEquipBestPlot = TabMain:AddToggle({
     Name = "Auto Equip Best Plot Units",
     Desc = "คัดสรรและสวมใส่อนิเมะตัวที่ผลิตเงินสูงสุดลงแท่นอัตโนมัติ",
     Default = Config.AutoEquipBestPlot,
@@ -3331,46 +3331,46 @@ local TabEconomy = Window:CreateTab({
 })
 
 TabEconomy:AddSection("AUTO SELL UNITS ENGINE")
-UIHandles.AutoSellUnits = UIHandles.AutoSellUnits = TabEconomy:AddToggle({
+UIHandles.AutoSellUnits = TabEconomy:AddToggle({
     Name = "Auto Sell Units (เปิดระบบขายตัวละครอัตโนมัติ)",
     Desc = "ขายตัวละครตามระดับ Rarity ที่เลือกเป็นชุดละ 50 ตัว ปลอดภัย",
     Default = Config.AutoSellUnits,
     Callback = function(v) Config.AutoSellUnits = v end,
 })
-UIHandles.SellCommon = UIHandles.SellCommon = TabEconomy:AddToggle({
+UIHandles.SellCommon = TabEconomy:AddToggle({
     Name = "Sell Common (ขายระดับปกติ)",
     Default = Config.SelectedSellRarities["Common"],
     Callback = function(v) Config.SelectedSellRarities["Common"] = v end,
 })
-UIHandles.SellUncommon = UIHandles.SellUncommon = TabEconomy:AddToggle({
+UIHandles.SellUncommon = TabEconomy:AddToggle({
     Name = "Sell Uncommon (ขายระดับไม่ธรรมดา)",
     Default = Config.SelectedSellRarities["Uncommon"],
     Callback = function(v) Config.SelectedSellRarities["Uncommon"] = v end,
 })
-UIHandles.SellRare = UIHandles.SellRare = TabEconomy:AddToggle({
+UIHandles.SellRare = TabEconomy:AddToggle({
     Name = "Sell Rare (ขายระดับหายาก)",
     Default = Config.SelectedSellRarities["Rare"],
     Callback = function(v) Config.SelectedSellRarities["Rare"] = v end,
 })
-UIHandles.ProtectPlottedUnits = UIHandles.ProtectPlottedUnits = TabEconomy:AddToggle({
+UIHandles.ProtectPlottedUnits = TabEconomy:AddToggle({
     Name = "Safety: Protect Plotted Units (ห้ามขายตัวบนเกาะ)",
     Desc = "ปลอดภัย 100% ตัวที่วางบนเกาะจะไม่ถูกขายเด็ดขาด",
     Default = Config.ProtectPlottedUnits,
     Callback = function(v) Config.ProtectPlottedUnits = v end,
 })
-UIHandles.ProtectTowerTeam = UIHandles.ProtectTowerTeam = TabEconomy:AddToggle({
+UIHandles.ProtectTowerTeam = TabEconomy:AddToggle({
     Name = "Safety: Protect Tower Team (ห้ามขายทีมหอคอย)",
     Desc = "ตัวที่อยู่ในทีมหอคอยจะไม่ถูกขายเด็ดขาด",
     Default = Config.ProtectTowerTeam,
     Callback = function(v) Config.ProtectTowerTeam = v end,
 })
-UIHandles.ProtectLockedUnits = UIHandles.ProtectLockedUnits = TabEconomy:AddToggle({
+UIHandles.ProtectLockedUnits = TabEconomy:AddToggle({
     Name = "Safety: Protect Locked Units (ห้ามขายตัวที่ล็อคไว้)",
     Desc = "ตัวที่กดปุ่มล็อคแม่กุญแจไว้จะไม่ถูกขาย",
     Default = Config.ProtectLockedUnits,
     Callback = function(v) Config.ProtectLockedUnits = v end,
 })
-UIHandles.ProtectGradeSPlus = UIHandles.ProtectGradeSPlus = TabEconomy:AddToggle({
+UIHandles.ProtectGradeSPlus = TabEconomy:AddToggle({
     Name = "Safety: Protect Grade S+ Units (ห้ามขายเกรด S ขึ้นไป)",
     Desc = "ตัวที่มีเกรด S, S+, Z, 神 จะปลอดภัยเสมอ",
     Default = Config.ProtectGradeSPlus,
@@ -3386,7 +3386,7 @@ TabEconomy:AddButton({
 })
 
 TabEconomy:AddSection("ระบบใช้ไอเทมอัตโนมัติ (Auto Use Items)")
-UIHandles.AutoUsePotions = UIHandles.AutoUsePotions = TabEconomy:AddToggle({
+UIHandles.AutoUsePotions = TabEconomy:AddToggle({
     Name = "ใช้ไอเทมอัตโนมัติ (Auto Use Items)",
     Desc = "กดใช้ไอเทมและบัฟที่เลือกจากในคลัง",
     Default = Config.AutoUsePotions,
@@ -3413,7 +3413,7 @@ UIHandles.ActivePotions = TabEconomy:AddDropdown({
     end,
 })
 
-UIHandles.ItemUseCondition = UIHandles.ItemUseCondition = TabEconomy:AddDropdown({
+UIHandles.ItemUseCondition = TabEconomy:AddDropdown({
     Name = "เงื่อนไขการใช้ (Condition)",
     Desc = "กำหนดจังหวะการกดใช้ไอเทม",
     Options = {
@@ -3426,7 +3426,7 @@ UIHandles.ItemUseCondition = UIHandles.ItemUseCondition = TabEconomy:AddDropdown
     end,
 })
 
-UIHandles.PotionInterval = UIHandles.PotionInterval = TabEconomy:AddSlider({
+UIHandles.PotionInterval = TabEconomy:AddSlider({
     Name = "ความถี่ตรวจสอบ (วินาที)",
     Desc = "ระยะเวลาระหว่างการตรวจเช็คไอเทม",
     Min = 1,
@@ -3505,7 +3505,7 @@ TabContent:AddToggle({
     Default = Config.AutoTowers,
     Callback = function(v) Config.AutoTowers = v end,
 })
-UIHandles.SelectedTower = UIHandles.SelectedTower = TabContent:AddDropdown({
+UIHandles.SelectedTower = TabContent:AddDropdown({
     Name = "Select Tower (เลือกระดับหอคอย)",
     Options = TowerList,
     Default = Config.SelectedTower,
@@ -3556,13 +3556,13 @@ TabContent:AddButton({
 })
 
 TabContent:AddSection("GRADE REROLL ENGINE")
-UIHandles.AutoRerollGrade = UIHandles.AutoRerollGrade = TabContent:AddToggle({
+UIHandles.AutoRerollGrade = TabContent:AddToggle({
     Name = "Auto Reroll Grade (สุ่มเกรดอัตโนมัติ)",
     Desc = "สุ่มเกรดตัวละครด้วย Gem จนกว่าจะถึงเกรดเป้าหมาย",
     Default = Config.AutoRerollGrade,
     Callback = function(v) Config.AutoRerollGrade = v end,
 })
-UIHandles.TargetGrade = UIHandles.TargetGrade = TabContent:AddDropdown({
+UIHandles.TargetGrade = TabContent:AddDropdown({
     Name = "Target Grade (เกรดเป้าหมาย)",
     Options = {"S", "S+", "Z", "Z+", "神"},
     Default = Config.TargetGrade,
@@ -3585,7 +3585,7 @@ local TabProgression = Window:CreateTab({
 })
 
 TabProgression:AddSection("AUTO REBIRTH ENGINE")
-UIHandles.AutoRebirth = UIHandles.AutoRebirth = TabProgression:AddToggle({
+UIHandles.AutoRebirth = TabProgression:AddToggle({
     Name = "Auto Rebirth (จุติอัตโนมัติ)",
     Desc = "ตรวจสอบเงินและจุติอัตโนมัติทันทีที่ถึงราคา",
     Default = Config.AutoRebirth,
@@ -3653,7 +3653,7 @@ TabProgression:AddToggle({
     Default = Config.AutoUpgradeSlots,
     Callback = function(v) Config.AutoUpgradeSlots = v end,
 })
-UIHandles.TargetSlotLevel = UIHandles.TargetSlotLevel = TabProgression:AddSlider({
+UIHandles.TargetSlotLevel = TabProgression:AddSlider({
     Name = "Target Slot Level (อัปถึงเลเวลเป้าหมาย)",
     Min = 1,
     Max = 100,
@@ -3673,7 +3673,7 @@ local TabSettings = Window:CreateTab({
 })
 
 TabSettings:AddSection("ANTI-DISCONNECT DEFENSE")
-UIHandles.AntiAFK = UIHandles.AntiAFK = TabSettings:AddToggle({
+UIHandles.AntiAFK = TabSettings:AddToggle({
     Name = "Triple-Layer Anti-AFK (ป้องกันหลุด 24 ชม.)",
     Desc = "ทำลายสคริปต์เตะ 19 นาทีของเกม + บล็อก Idled 20 นาที 100%",
     Default = Config.AntiAFK,
@@ -3681,7 +3681,7 @@ UIHandles.AntiAFK = UIHandles.AntiAFK = TabSettings:AddToggle({
 })
 
 TabSettings:AddSection("FREE REWARDS")
-UIHandles.AutoClaimRewards = UIHandles.AutoClaimRewards = TabSettings:AddToggle({
+UIHandles.AutoClaimRewards = TabSettings:AddToggle({
     Name = "Auto Claim Free Rewards (Daily, Offline, Spins)",
     Desc = "กดรับ Daily Reward, Offline Earnings, และหมุนวงล้อฟรีอัตโนมัติ",
     Default = Config.AutoClaimRewards,
