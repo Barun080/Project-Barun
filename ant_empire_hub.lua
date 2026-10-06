@@ -1887,7 +1887,7 @@ function UI:CreateWindow(config)
 end
 
 -- ═════════════════════════════════════════════════════════════════════
--- 🐜 BUILD AN ANT EMPIRE — ENTERPRISE AUTOMATION ENGINE
+-- 🐜 BUILD AN ANT EMPIRE — ENTERPRISE AUTOMATION ENGINE (v2.0)
 -- ═════════════════════════════════════════════════════════════════════
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -1909,6 +1909,16 @@ local Config = {
     AutoUpgradeNests = false,
     AutoCompost = false,
     AutoBuyEquipSlots = false,
+    
+    -- Auto Events (NEW)
+    AutoClaimOnlineReward = false,
+    AutoClaimDailyReward = false,
+    AutoSpinTurntable = false,
+    AutoStrawberryKing = false,
+    AutoStarCollector = false,
+    AutoClaimFreeGifts = false,
+    AutoBlackMarketCheck = false,
+    AutoDungeonEggClaim = false,
     
     -- Utilities & Safety
     AutoRebirth = false,
@@ -1937,7 +1947,6 @@ local function getPlayerRoom()
     local myDisplay = LocalPlayer.DisplayName
     
     for _, room in ipairs(rooms:GetChildren()) do
-        -- Check PlayerMessage Billboard
         local pMsg = room:FindFirstChild("PlayerMessage")
         if pMsg then
             local bb = pMsg:FindFirstChildOfClass("BillboardGui")
@@ -1950,13 +1959,11 @@ local function getPlayerRoom()
                 end
             end
         end
-        -- Check _RollRuntime presence (only current player's room creates _RollRuntime client-side)
         if room:FindFirstChild("_RollRuntime") and room:FindFirstChild("_SummonPreview") then
             cachedRoom = room
             return room
         end
     end
-    -- Fallback default Room 2 if matched
     if rooms:FindFirstChild("2") then
         cachedRoom = rooms["2"]
         return cachedRoom
@@ -1981,7 +1988,7 @@ end
 
 -- ─── Safe Button Activation in PlayerGui ─────────────────────────────
 local function safeClickButton(btn)
-    if not btn or not btn.Visible then return false end
+    if not btn then return false end
     pcall(function()
         if typeof(firesignal) == "function" then
             firesignal(btn.MouseButton1Click)
@@ -2007,24 +2014,32 @@ end
 
 local function serializeConfig()
     return {
-        AutoCollectFood   = Config.AutoCollectFood == true,
-        FoodCollectDelay  = tonumber(Config.FoodCollectDelay) or 0.5,
-        AutoRollAnt       = Config.AutoRollAnt == true,
-        RollAntDelay      = tonumber(Config.RollAntDelay) or 0.3,
-        AutoSellFood      = Config.AutoSellFood == true,
-        AutoDiscardTrash  = Config.AutoDiscardTrash == true,
-        AutoUnlockSlots   = Config.AutoUnlockSlots == true,
-        AutoUpgradeNests  = Config.AutoUpgradeNests == true,
-        AutoCompost       = Config.AutoCompost == true,
-        AutoBuyEquipSlots = Config.AutoBuyEquipSlots == true,
-        AutoRebirth       = Config.AutoRebirth == true,
-        FastCollectMode   = Config.FastCollectMode == true,
-        AutoEquipBest     = Config.AutoEquipBest == true,
-        AntiAFK           = Config.AntiAFK == true,
-        WalkSpeed         = tonumber(Config.WalkSpeed) or 16,
-        JumpPower         = tonumber(Config.JumpPower) or 50,
-        InfJump           = Config.InfJump == true,
-        NoClip            = Config.NoClip == true,
+        AutoCollectFood       = Config.AutoCollectFood == true,
+        FoodCollectDelay      = tonumber(Config.FoodCollectDelay) or 0.5,
+        AutoRollAnt           = Config.AutoRollAnt == true,
+        RollAntDelay          = tonumber(Config.RollAntDelay) or 0.3,
+        AutoSellFood          = Config.AutoSellFood == true,
+        AutoDiscardTrash      = Config.AutoDiscardTrash == true,
+        AutoUnlockSlots       = Config.AutoUnlockSlots == true,
+        AutoUpgradeNests      = Config.AutoUpgradeNests == true,
+        AutoCompost           = Config.AutoCompost == true,
+        AutoBuyEquipSlots     = Config.AutoBuyEquipSlots == true,
+        AutoClaimOnlineReward = Config.AutoClaimOnlineReward == true,
+        AutoClaimDailyReward  = Config.AutoClaimDailyReward == true,
+        AutoSpinTurntable     = Config.AutoSpinTurntable == true,
+        AutoStrawberryKing    = Config.AutoStrawberryKing == true,
+        AutoStarCollector     = Config.AutoStarCollector == true,
+        AutoClaimFreeGifts    = Config.AutoClaimFreeGifts == true,
+        AutoBlackMarketCheck  = Config.AutoBlackMarketCheck == true,
+        AutoDungeonEggClaim   = Config.AutoDungeonEggClaim == true,
+        AutoRebirth           = Config.AutoRebirth == true,
+        FastCollectMode       = Config.FastCollectMode == true,
+        AutoEquipBest         = Config.AutoEquipBest == true,
+        AntiAFK               = Config.AntiAFK == true,
+        WalkSpeed             = tonumber(Config.WalkSpeed) or 16,
+        JumpPower             = tonumber(Config.JumpPower) or 50,
+        InfJump               = Config.InfJump == true,
+        NoClip                = Config.NoClip == true,
     }
 end
 
@@ -2111,6 +2126,14 @@ local function loadConfig(profileName, silent)
     if UIHandles.AutoUpgradeNests then pcall(function() UIHandles.AutoUpgradeNests:Set(Config.AutoUpgradeNests) end) end
     if UIHandles.AutoCompost then pcall(function() UIHandles.AutoCompost:Set(Config.AutoCompost) end) end
     if UIHandles.AutoBuyEquipSlots then pcall(function() UIHandles.AutoBuyEquipSlots:Set(Config.AutoBuyEquipSlots) end) end
+    if UIHandles.AutoClaimOnlineReward then pcall(function() UIHandles.AutoClaimOnlineReward:Set(Config.AutoClaimOnlineReward) end) end
+    if UIHandles.AutoClaimDailyReward then pcall(function() UIHandles.AutoClaimDailyReward:Set(Config.AutoClaimDailyReward) end) end
+    if UIHandles.AutoSpinTurntable then pcall(function() UIHandles.AutoSpinTurntable:Set(Config.AutoSpinTurntable) end) end
+    if UIHandles.AutoStrawberryKing then pcall(function() UIHandles.AutoStrawberryKing:Set(Config.AutoStrawberryKing) end) end
+    if UIHandles.AutoStarCollector then pcall(function() UIHandles.AutoStarCollector:Set(Config.AutoStarCollector) end) end
+    if UIHandles.AutoClaimFreeGifts then pcall(function() UIHandles.AutoClaimFreeGifts:Set(Config.AutoClaimFreeGifts) end) end
+    if UIHandles.AutoBlackMarketCheck then pcall(function() UIHandles.AutoBlackMarketCheck:Set(Config.AutoBlackMarketCheck) end) end
+    if UIHandles.AutoDungeonEggClaim then pcall(function() UIHandles.AutoDungeonEggClaim:Set(Config.AutoDungeonEggClaim) end) end
     if UIHandles.AutoEquipBest then pcall(function() UIHandles.AutoEquipBest:Set(Config.AutoEquipBest) end) end
     if UIHandles.FastCollectMode then pcall(function() UIHandles.FastCollectMode:Set(Config.FastCollectMode) end) end
     if UIHandles.AntiAFK then pcall(function() UIHandles.AntiAFK:Set(Config.AntiAFK) end) end
@@ -2127,24 +2150,15 @@ local function loadConfig(profileName, silent)
 end
 
 local function resetConfig()
-    Config.AutoCollectFood   = false
-    Config.FoodCollectDelay  = 0.5
-    Config.AutoRollAnt       = false
-    Config.RollAntDelay      = 0.3
-    Config.AutoSellFood      = false
-    Config.AutoDiscardTrash  = false
-    Config.AutoUnlockSlots   = false
-    Config.AutoUpgradeNests  = false
-    Config.AutoCompost       = false
-    Config.AutoBuyEquipSlots = false
-    Config.AutoRebirth       = false
-    Config.FastCollectMode   = false
-    Config.AutoEquipBest     = false
-    Config.AntiAFK           = false
-    Config.WalkSpeed         = 16
-    Config.JumpPower         = 50
-    Config.InfJump           = false
-    Config.NoClip            = false
+    for k, _ in pairs(Config) do
+        if type(Config[k]) == "boolean" then
+            Config[k] = false
+        end
+    end
+    Config.FoodCollectDelay = 0.5
+    Config.RollAntDelay     = 0.3
+    Config.WalkSpeed        = 16
+    Config.JumpPower        = 50
 
     for k, handle in pairs(UIHandles) do
         if handle and handle.Set and Config[k] ~= nil then
@@ -2157,10 +2171,10 @@ end
 -- ─── CREATE WINDOW ───────────────────────────────────────────────────
 Window = UI:CreateWindow({
     Title = "PROJECT BARUN",
-    Subtitle = "BUILD AN ANT EMPIRE • MASTER HUB v1.0",
+    Subtitle = "BUILD AN ANT EMPIRE • MASTER HUB v2.0",
     DefaultTab = "Auto Farm",
     Name = "PB_AntEmpire_Hub",
-    Size = UDim2.new(0, 740, 0, 490),
+    Size = UDim2.new(0, 750, 0, 500),
     ToggleKey = Enum.KeyCode.RightShift,
 })
 
@@ -2281,7 +2295,163 @@ TabFarm:AddSlider({
 })
 
 -- ═════════════════════════════════════════════════════════════════════
--- 🏰 TAB 2: NEST & UPGRADES
+-- 🎪 TAB 2: AUTO EVENTS (NEW)
+-- ═════════════════════════════════════════════════════════════════════
+local TabEvents = Window:CreateTab({
+    Name = "Auto Events",
+    Icon = "🎪",
+    Subtitle = "ระบบเคลมรางวัลอีเวนต์ กิจกรรม และวงล้ออัตโนมัติ",
+})
+
+TabEvents:AddSection({ Title = "🎁 REWARDS & TIME GIFTS • รางวัลเวลาและล็อกอิน", Icon = "🎁" })
+
+UIHandles.AutoClaimOnlineReward = TabEvents:AddToggle({
+    Name = "Auto Claim Online Rewards (เคลมรางวัลออนไลน์ตามเวลา)",
+    Desc = "กดเคลมรางวัลตามระยะเวลาออนไลน์อัตโนมัติ (OnlineReward Panel)",
+    Default = false,
+    Callback = function(v)
+        Config.AutoClaimOnlineReward = v
+        saveConfig("default", true)
+    end
+})
+
+UIHandles.AutoClaimDailyReward = TabEvents:AddToggle({
+    Name = "Auto Claim Daily / 7-Day Rewards (เคลมรางวัลล็อกอินรายวัน)",
+    Desc = "เคลมของขวัญล็อกอิน 7 วัน และ 14 วัน (SevenDay & FourteenDay Reward)",
+    Default = false,
+    Callback = function(v)
+        Config.AutoClaimDailyReward = v
+        saveConfig("default", true)
+    end
+})
+
+UIHandles.AutoClaimFreeGifts = TabEvents:AddToggle({
+    Name = "Auto Claim Free Gifts & Mail (เคลมกล่องของขวัญและจดหมายฟรี)",
+    Desc = "เคลมกล่อง Gift, AwardReward, และจดหมายของรางวัลในกล่องข้อความ",
+    Default = false,
+    Callback = function(v)
+        Config.AutoClaimFreeGifts = v
+        saveConfig("default", true)
+    end
+})
+
+TabEvents:AddSection({ Title = "🎡 LUCKY SPIN & SPECIAL EVENTS • วงล้อและอีเวนต์แมพ", Icon = "🎡" })
+
+UIHandles.AutoSpinTurntable = TabEvents:AddToggle({
+    Name = "Auto Spin Turntable / Lucky Wheel (หมุนวงล้อนำโชค)",
+    Desc = "หมุนวงล้อสุ่มไอเทมและมดฟรีทันทีที่มีสิทธิ์หมุน (Lottery Frame)",
+    Default = false,
+    Callback = function(v)
+        Config.AutoSpinTurntable = v
+        saveConfig("default", true)
+    end
+})
+
+UIHandles.AutoStrawberryKing = TabEvents:AddToggle({
+    Name = "Auto Strawberry King Event (อีเวนต์ราชาสตรอว์เบอร์รี)",
+    Desc = "ตรวจจับและโต้ตอบกับ StrawberryKingNpc และซื้อ/เคลมแต้มร้านค้าอัตโนมัติ",
+    Default = false,
+    Callback = function(v)
+        Config.AutoStrawberryKing = v
+        saveConfig("default", true)
+    end
+})
+
+UIHandles.AutoStarCollector = TabEvents:AddToggle({
+    Name = "Auto Collect Star Event (เก็บดาวอีเวนต์ตกในแมพ)",
+    Desc = "สแกนหา StarEvent รอบแมพแล้วเก็บแต้มอีเวนต์เข้าตัวอัตโนมัติ",
+    Default = false,
+    Callback = function(v)
+        Config.AutoStarCollector = v
+        saveConfig("default", true)
+    end
+})
+
+UIHandles.AutoDungeonEggClaim = TabEvents:AddToggle({
+    Name = "Auto Dungeon Egg Rewards (เคลมรางวัลไข่ดันเจี้ยน)",
+    Desc = "เคลมของขวัญและไข่สัตว์เลี้ยงจาก DungeonEggRewardGui อัตโนมัติ",
+    Default = false,
+    Callback = function(v)
+        Config.AutoDungeonEggClaim = v
+        saveConfig("default", true)
+    end
+})
+
+UIHandles.AutoBlackMarketCheck = TabEvents:AddToggle({
+    Name = "Auto Black Market Alert (ตรวจจับตลาดมืด)",
+    Desc = "ตรวจจับการเกิดของ BlackMarketEvent ในเซิร์ฟเวอร์และแจ้งเตือนทันที",
+    Default = false,
+    Callback = function(v)
+        Config.AutoBlackMarketCheck = v
+        saveConfig("default", true)
+    end
+})
+
+TabEvents:AddSection({ Title = "⚡ QUICK EVENT ACTIONS • คำสั่งลัดอีเวนต์", Icon = "⚡" })
+
+TabEvents:AddButton({
+    Name = "Claim All Current Available Rewards (เคลมทุกอย่างทันที)",
+    Icon = "💎",
+    Callback = function()
+        pcall(function()
+            local pg = LocalPlayer.PlayerGui
+            local hud = pg:FindFirstChild("HUDContainer")
+            if hud then
+                -- Online Rewards
+                local onFrame = hud:FindFirstChild("OnlineReward")
+                if onFrame then
+                    for _, b in ipairs(onFrame:GetDescendants()) do
+                        if (b:IsA("TextButton") or b:IsA("ImageButton")) and b.Visible then
+                            safeClickButton(b)
+                        end
+                    end
+                end
+                -- Gifts
+                local giftFrame = hud:FindFirstChild("Gift") or hud:FindFirstChild("GiftGui")
+                if giftFrame then
+                    for _, b in ipairs(giftFrame:GetDescendants()) do
+                        if (b:IsA("TextButton") or b:IsA("ImageButton")) and b.Visible then
+                            safeClickButton(b)
+                        end
+                    end
+                end
+                -- Lottery
+                local lot = hud:FindFirstChild("Lottery")
+                if lot then
+                    for _, b in ipairs(lot:GetDescendants()) do
+                        if (b:IsA("TextButton") or b:IsA("ImageButton")) and (b.Name:find("Spin") or b.Name:find("Draw") or b.Name:find("Free")) then
+                            safeClickButton(b)
+                        end
+                    end
+                end
+            end
+            notifyUser("PB Events", "สั่งเคลมของรางวัลที่พร้อมรับทั้งหมดเรียบร้อย!", "success")
+        end)
+    end
+})
+
+TabEvents:AddButton({
+    Name = "Teleport to Strawberry King (วาร์ปไปราชาสตรอว์เบอร์รี)",
+    Icon = "🍓",
+    Callback = function()
+        pcall(function()
+            local sb = Workspace:FindFirstChild("StrawberryKingNpc") or Workspace:FindFirstChild("StrawberryKingPart")
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if sb and hrp then
+                local p = sb:IsA("Model") and (sb.PrimaryPart or sb:FindFirstChildWhichIsA("BasePart")) or sb
+                if p then
+                    hrp.CFrame = p.CFrame + Vector3.new(0, 4, 4)
+                    notifyUser("PB Events", "วาร์ปมาหาราชาสตรอว์เบอร์รีแล้ว!", "success")
+                end
+            else
+                notifyUser("PB Events", "ไม่พบราชาสตรอว์เบอร์รีในแมพ", "warning")
+            end
+        end)
+    end
+})
+
+-- ═════════════════════════════════════════════════════════════════════
+-- 🏰 TAB 3: NEST & UPGRADES
 -- ═════════════════════════════════════════════════════════════════════
 local TabNest = Window:CreateTab({
     Name = "Nest & Upgrades",
@@ -2367,7 +2537,7 @@ TabNest:AddButton({
 })
 
 -- ═════════════════════════════════════════════════════════════════════
--- ⚙️ TAB 3: PLAYER & UTILITIES
+-- ⚙️ TAB 4: PLAYER & UTILITIES
 -- ═════════════════════════════════════════════════════════════════════
 local TabUtil = Window:CreateTab({
     Name = "Utilities",
@@ -2387,7 +2557,6 @@ UIHandles.AntiAFK = TabUtil:AddToggle({
     end
 })
 
--- Anti-AFK Connection
 LocalPlayer.Idled:Connect(function()
     if Config.AntiAFK then
         VirtualUser:CaptureController()
@@ -2463,7 +2632,6 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- Keep speed applied after respawn
 LocalPlayer.CharacterAdded:Connect(function(char)
     local hum = char:WaitForChild("Humanoid", 5)
     if hum then
@@ -2476,7 +2644,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 -- ═════════════════════════════════════════════════════════════════════
--- 💾 TAB 4: SETTINGS & CONFIGURATION
+-- 💾 TAB 5: SETTINGS & CONFIGURATION
 -- ═════════════════════════════════════════════════════════════════════
 local TabSettings = Window:CreateTab({
     Name = "Settings",
@@ -2660,7 +2828,6 @@ task.spawn(function()
                         safeTriggerPrompt(prompt)
                     end
                 end
-                -- Also trigger HUD CompostMachine PullLever if UI open
                 local hud = LocalPlayer.PlayerGui:FindFirstChild("HUDContainer")
                 local lever = hud and hud:FindFirstChild("CompostMachine") and hud.CompostMachine.Main:FindFirstChild("PullLever")
                 if lever and lever.Visible then
@@ -2688,4 +2855,145 @@ task.spawn(function()
     end
 end)
 
-print("[PROJECT BARUN] Build An Ant Empire Master Hub v1.0 Loaded Successfully.")
+-- 8. Auto Online & Daily Rewards Worker (NEW)
+task.spawn(function()
+    while true do
+        if Config.AutoClaimOnlineReward or Config.AutoClaimDailyReward or Config.AutoClaimFreeGifts then
+            pcall(function()
+                local pg = LocalPlayer.PlayerGui
+                local hud = pg:FindFirstChild("HUDContainer")
+                if hud then
+                    -- 1. Online Rewards
+                    if Config.AutoClaimOnlineReward then
+                        local onFrame = hud:FindFirstChild("OnlineReward")
+                        if onFrame then
+                            for _, b in ipairs(onFrame:GetDescendants()) do
+                                if (b:IsA("TextButton") or b:IsA("ImageButton")) and b.Visible and (b.Name:find("Claim") or b.Name:find("Get") or b.Name:find("Reward") or b.Name:find("Button")) then
+                                    safeClickButton(b)
+                                end
+                            end
+                        end
+                    end
+
+                    -- 2. Daily 7-Day & 14-Day Rewards
+                    if Config.AutoClaimDailyReward then
+                        local dailyFrames = {"AwardReward", "SevenDayReward", "14DayReward", "ActivityIcon"}
+                        for _, name in ipairs(dailyFrames) do
+                            local f = hud:FindFirstChild(name) or pg:FindFirstChild(name)
+                            if f then
+                                for _, b in ipairs(f:GetDescendants()) do
+                                    if (b:IsA("TextButton") or b:IsA("ImageButton")) and b.Visible and (b.Name:find("Claim") or b.Name:find("Get") or b.Name:find("Receive")) then
+                                        safeClickButton(b)
+                                    end
+                                end
+                            end
+                        end
+                    end
+
+                    -- 3. Free Gifts & Mail
+                    if Config.AutoClaimFreeGifts then
+                        local giftFrames = {"Gift", "GiftGui", "MailGui"}
+                        for _, name in ipairs(giftFrames) do
+                            local f = hud:FindFirstChild(name) or pg:FindFirstChild(name)
+                            if f then
+                                for _, b in ipairs(f:GetDescendants()) do
+                                    if (b:IsA("TextButton") or b:IsA("ImageButton")) and b.Visible and (b.Name:find("Claim") or b.Name:find("GetAll") or b.Name:find("Open")) then
+                                        safeClickButton(b)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+        task.wait(4.0)
+    end
+end)
+
+-- 9. Auto Turntable & Lucky Spin Worker (NEW)
+task.spawn(function()
+    while true do
+        if Config.AutoSpinTurntable then
+            pcall(function()
+                local pg = LocalPlayer.PlayerGui
+                local hud = pg:FindFirstChild("HUDContainer")
+                local lot = hud and hud:FindFirstChild("Lottery")
+                if lot and lot.Visible then
+                    for _, b in ipairs(lot:GetDescendants()) do
+                        if (b:IsA("TextButton") or b:IsA("ImageButton")) and (b.Name:find("Spin") or b.Name:find("Draw") or b.Name:find("Free") or b.Name:find("Roll")) then
+                            safeClickButton(b)
+                        end
+                    end
+                end
+            end)
+        end
+        task.wait(5.0)
+    end
+end)
+
+-- 10. Auto Strawberry King & Star Event Worker (NEW)
+task.spawn(function()
+    while true do
+        if Config.AutoStrawberryKing then
+            pcall(function()
+                local sbNpc = Workspace:FindFirstChild("StrawberryKingNpc")
+                if sbNpc then
+                    local prompt = sbNpc:FindFirstChildWhichIsA("ProximityPrompt", true)
+                    if prompt and prompt.Enabled then
+                        safeTriggerPrompt(prompt)
+                    end
+                end
+                local hud = LocalPlayer.PlayerGui:FindFirstChild("HUDContainer")
+                local sbPanel = hud and hud:FindFirstChild("StrawberryPanel")
+                if sbPanel and sbPanel.Visible then
+                    for _, b in ipairs(sbPanel:GetDescendants()) do
+                        if (b:IsA("TextButton") or b:IsA("ImageButton")) and (b.Name:find("Claim") or b.Name:find("Buy") or b.Name:find("Upgrade")) then
+                            safeClickButton(b)
+                        end
+                    end
+                end
+            end)
+        end
+
+        if Config.AutoStarCollector then
+            pcall(function()
+                local starFolder = Workspace:FindFirstChild("StarEvent")
+                if starFolder then
+                    for _, star in ipairs(starFolder:GetChildren()) do
+                        if star:IsA("BasePart") or star:IsA("Model") then
+                            local prompt = star:FindFirstChildWhichIsA("ProximityPrompt", true)
+                            if prompt and prompt.Enabled then
+                                safeTriggerPrompt(prompt)
+                            elseif star:IsA("BasePart") and typeof(firetouchinterest) == "function" then
+                                local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                                if hrp then
+                                    firetouchinterest(hrp, star, 0)
+                                    firetouchinterest(hrp, star, 1)
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+
+        if Config.AutoDungeonEggClaim then
+            pcall(function()
+                local pg = LocalPlayer.PlayerGui
+                local dEgg = pg:FindFirstChild("DungeonEggRewardGui")
+                if dEgg and dEgg.Enabled then
+                    for _, b in ipairs(dEgg:GetDescendants()) do
+                        if (b:IsA("TextButton") or b:IsA("ImageButton")) and b.Visible and (b.Name:find("Claim") or b.Name:find("Get")) then
+                            safeClickButton(b)
+                        end
+                    end
+                end
+            end)
+        end
+
+        task.wait(3.5)
+    end
+end)
+
+print("[PROJECT BARUN] Build An Ant Empire Master Hub v2.0 (Auto Events Enabled) Loaded Successfully.")
