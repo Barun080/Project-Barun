@@ -2053,8 +2053,8 @@
         CornerSlowdown       = true,     -- ชะลอความเร็วเล็กน้อยตอนเจอโค้งหักศอก
         SmoothSteerFactor    = 0.22,     -- ความนุ่มนวลของการหักเลี้ยว (0.15 - 0.40)
         LookaheadLead        = 38,       -- ระยะคำนวณถนนล่วงหน้า (studs)
-        HoverSuspension      = true,     -- ระบบยกตัวลอยเหนือถนน กันจม & ลดแรงสั่นสะเทือน 100%
-        RideHeightOffset     = 2.8,      -- ความสูงลอยเหนือถนน (studs) ดึงล้อพ้นพื้นนิดหน่อย
+        HoverSuspension      = true,     -- ระบบยกตัวลอยเหนือถนน กันจม & ลดแรงสั่นสะเทือน 100% (เปิดถาวร)
+        RideHeightOffset     = 2.3,      -- ความสูงลอยเหนือถนน 2.3 studs ตายตัว
         RigidChassisLock     = true,     -- ล็อกโมเดลและล้อทั้งคันให้แข็งเป็นแผงเดียว สไลด์พร้อมกันไม่ย้วย
     }
     _G.GhostDriverSettings = Settings
@@ -2611,7 +2611,7 @@
                 return
             end
 
-            local rideH = Settings.RideHeightOffset or 2.8
+            local rideH = Settings.RideHeightOffset or 2.3
             local safePt = frame.CenterPos + (frame.Normal * FarmManager.CurrentLaneOffset) + Vector3.new(0, rideH + 0.6, 0)
             if LocalPlayer.RequestStreamAroundAsync then
                 LocalPlayer:RequestStreamAroundAsync(safePt, 2)
@@ -2917,7 +2917,7 @@
 
         local roadHit = workspace:Raycast(rayOrigin, rayDir, rayParams)
         local groundY = (roadHit and roadHit.Position) and roadHit.Position.Y or frame.CenterPos.Y
-        local targetRideHeight = Settings.RideHeightOffset or 2.8
+        local targetRideHeight = Settings.RideHeightOffset or 2.3
         local desiredHoverY = groundY + targetRideHeight
 
         -- Lookahead road target altitude
@@ -3088,19 +3088,7 @@
     local Dash_Traffic  = TabDash:AddLabel("🛡️ AI Traffic Evaded: 0 Cars")
     local Dash_Status   = TabDash:AddLabel("🟢 System Status: Active Grand Loop Farm")
 
-    TabDash:AddSection({ Name = "⚙️ Advanced Protections & Overnight AFK Controls" })
-
-    TabDash:AddToggle({
-        Name = "Ghost Godmode (ตัวถังรถทะลุสิ่งกีดขวาง/กำแพง/รถชาวบ้าน 100%)",
-        Default = Settings.GhostGodMode,
-        Callback = function(Value) Settings.GhostGodMode = Value end
-    })
-
-    TabDash:AddToggle({
-        Name = "Adaptive Cornering (คำนวณโค้งล่วงหน้า & เอียงตัวรถเข้าโค้ง)",
-        Default = Settings.AdaptiveCornering,
-        Callback = function(Value) Settings.AdaptiveCornering = Value end
-    })
+    TabDash:AddSection({ Name = "⚙️ Overnight AFK Controls" })
 
     TabDash:AddToggle({
         Name = "GPU/CPU Saver Mode (ปิดเรนเดอร์ 3D พักการ์ดจอ สำหรับฟาร์มข้ามคืน)",
@@ -3111,12 +3099,6 @@
                 RunService:Set3dRenderingEnabled(not Value)
             end)
         end
-    })
-
-    TabDash:AddToggle({
-        Name = "24/7 Anti-AFK (กันหลุด 20 นาที ปลอดภัยไม่โดนแบน)",
-        Default = Settings.AntiAFK,
-        Callback = function(Value) Settings.AntiAFK = Value end
     })
 
     -- Safe Anti-Idle & Heartbeat Keepalive (Replaces dangerous LocalPlayer.Idled:Connect / VirtualUser to bypass BAC)
@@ -3196,38 +3178,6 @@
         Callback = function(Value) Settings.InfiniteNitrous = Value end
     })
 
-    TabVehicle:AddToggle({
-        Name = "No Traffic Collision (ทะลุรถชาวบ้านไม่ชน)",
-        Default = Settings.NoCollisionTraffic,
-        Callback = function(Value) Settings.NoCollisionTraffic = Value end
-    })
-
-    TabVehicle:AddSection({ Name = "Hover Suspension & Anti-Sink (ระบบลอยตัวกันจม & กันสั่น)" })
-
-    TabVehicle:AddToggle({
-        Name = "Hover Suspension (ยกรถลอยเหนือถนน กันจม & ลดการสั่น 100%)",
-        Default = Settings.HoverSuspension,
-        Callback = function(Value) Settings.HoverSuspension = Value end
-    })
-
-    TabVehicle:AddSlider({
-        Name = "Ride Height Offset (ระดับความสูงลอยตัวเหนือถนน)",
-        Min = 1.8, Max = 4.5, Default = Settings.RideHeightOffset, Color = Color3.fromRGB(0, 240, 255),
-        Increment = 0.1, ValueName = "studs",
-        Callback = function(Value) Settings.RideHeightOffset = Value end
-    })
-
-    TabVehicle:AddToggle({
-        Name = "Rigid Chassis Lock (ล็อกโครงสร้างรถแข็งเป็นแผงเดียว ล้อไม่ย้วย)",
-        Default = Settings.RigidChassisLock,
-        Callback = function(Value)
-            Settings.RigidChassisLock = Value
-            local car = getPlayerCar()
-            local seat = getDriveSeat()
-            FarmManager.SetRigidLock(car, seat, Value)
-        end
-    })
-
     -- ─── Tab: Police & Defense ────────────────────────────────────────
     TabPolice:AddSection({ Name = "🚨 Auto Escape Police (หนีตำรวจ & ล็อคเงินเป้าหมาย)" })
 
@@ -3280,19 +3230,11 @@
 
     local PoliceStatusLabel = TabPolice:AddLabel("🛡️ Status: Standby")
 
-    TabPolice:AddSection({ Name = "Anti-Police Protection" })
-
-    TabPolice:AddToggle({
-        Name = "Anti-Busted 100% (กันตำรวจจับถาวร บล็อกแพ้คดี)",
-        Default = Settings.AntiBusted,
-        Callback = function(Value) Settings.AntiBusted = Value end
-    })
-
     -- ─── Tab: Farm & Economy ──────────────────────────────────────────
-    TabFarm:AddSection({ Name = "⚡ All-in-One Master Auto Farm (เปิดครบจบในปุ่มเดียว)" })
+    TabFarm:AddSection({ Name = "⚡ Auto Farm" })
 
     TabFarm:AddToggle({
-        Name = "⚡ MASTER AUTO FARM (เปิดครบจบในปุ่มเดียว)",
+        Name = "⚡ Auto Farm (เปิด/ปิด)",
         Default = Settings.AutoDriveFarm,
         Callback = function(Value)
             if Value then
@@ -3303,144 +3245,11 @@
         end
     })
 
-    TabFarm:AddLabel("💡 รวมให้อัตโนมัติ: ล็อกรถแข็งแผงเดียว + ลอยพ้นถนน + ทะลุรถ AI + กันตำรวจ 100% + ไนตรัส + เก็บเงินคอมโบ")
-
     TabFarm:AddSlider({
         Name = "Farm Drive Speed (ความเร็วขับฟาร์ม)",
         Min = 120, Max = 320, Default = Settings.FarmDriveSpeed, Color = Color3.fromRGB(0, 255, 150),
         Increment = 10, ValueName = "MPH",
         Callback = function(Value) Settings.FarmDriveSpeed = Value end
-    })
-
-    TabFarm:AddDropdown({
-        Name = "Farm Loop Mode (โหมดการวิ่งฟาร์ม)",
-        Default = "Infinite Loop (วิ่งวนลูปไฮเวย์รอบโลกต่อเนื่อง)",
-        Options = {
-            "Infinite Loop (วิ่งวนลูปไฮเวย์รอบโลกต่อเนื่อง)",
-            "Sprint 25% (~24,000 studs)",
-            "Sprint 50% (~48,000 studs)",
-            "Full Loop 100% (~96,000 studs แล้วรีเซ็ต)"
-        },
-        Callback = function(Value)
-            Settings.LoopMode = Value
-            if Value:find("25") then
-                Settings.FarmPercent = 0.25
-            elseif Value:find("50") then
-                Settings.FarmPercent = 0.50
-            elseif Value:find("100") then
-                Settings.FarmPercent = 1.00
-            else
-                Settings.FarmPercent = 1.00 -- Infinite loop continuously
-            end
-        end
-    })
-
-    TabFarm:AddDropdown({
-        Name = "Select Highway Lane (เลือกเลนขับฟาร์ม)",
-        Default = "Lane 2 (Center)",
-        Options = {"Lane 1 (Left)", "Lane 2 (Center)", "Lane 3 (Right)"},
-        Callback = function(Value) Settings.FarmLane = Value end
-    })
-
-    TabFarm:AddToggle({
-        Name = "Auto Bank / Revive Combo (บันทึกแต้มเงินอัตโนมัติ)",
-        Default = Settings.AutoBankCombo,
-        Callback = function(Value) Settings.AutoBankCombo = Value end
-    })
-
-    TabFarm:AddToggle({
-        Name = "Auto Keep Combo (รักษาระดับคอมโบรับแต้มต่อเนื่อง)",
-        Default = Settings.AutoKeepCombo,
-        Callback = function(Value) Settings.AutoKeepCombo = Value end
-    })
-
-    TabFarm:AddToggle({
-        Name = "Auto Close Call / Traffic Swerve (ฟาร์มแต้มเฉียดรถ AI รัวๆ)",
-        Default = Settings.AutoSwerveCloseCall,
-        Callback = function(Value) Settings.AutoSwerveCloseCall = Value end
-    })
-
-    TabFarm:AddToggle({
-        Name = "Auto Respawn & Mount Car (เสกและขึ้นรถใหม่อัตโนมัติถ้ารถหาย)",
-        Default = Settings.AutoRespawnCar,
-        Callback = function(Value) Settings.AutoRespawnCar = Value end
-    })
-
-    TabFarm:AddToggle({
-        Name = "Auto AFK Bonus (กดรับโบนัส AFK อัตโนมัติ)",
-        Default = Settings.AutoAFKBonus,
-        Callback = function(Value) Settings.AutoAFKBonus = Value end
-    })
-
-    TabFarm:AddSection({ Name = "Quick Waypoints & Course Start" })
-
-    TabFarm:AddButton({
-        Name = "Warp to Highway Start (วาปไปจุดเริ่มไฮเวย์ใหม่ Z = -957)",
-        Callback = function()
-            safe(function()
-                local car = getPlayerCar()
-                local targetPos = Vector3.new(-3498.0, 63.2, -957.0)
-                if LocalPlayer.RequestStreamAroundAsync then
-                    LocalPlayer:RequestStreamAroundAsync(targetPos, 2)
-                    task.wait(0.2)
-                end
-                if car then
-                    car:PivotTo(CFrame.lookAt(targetPos, targetPos + Vector3.new(0, 0, -10)))
-                    local seat = getDriveSeat()
-                    if seat then
-                        seat.AssemblyLinearVelocity = Vector3.zero
-                        seat.AssemblyAngularVelocity = Vector3.zero
-                    end
-                else
-                    local char = LocalPlayer.Character
-                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                    if hrp then hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0)) end
-                end
-            end)
-        end
-    })
-
-    TabFarm:AddButton({
-        Name = "Warp to Desert Sector (วาปไปโซนทะเลทราย X = -30168)",
-        Callback = function()
-            safe(function()
-                local car = getPlayerCar()
-                local targetPos = Vector3.new(-30168.0, 63.2, -14626.0)
-                if LocalPlayer.RequestStreamAroundAsync then
-                    LocalPlayer:RequestStreamAroundAsync(targetPos, 2)
-                    task.wait(0.2)
-                end
-                if car then
-                    car:PivotTo(CFrame.lookAt(targetPos, targetPos + Vector3.new(0, 0, 10)))
-                else
-                    local char = LocalPlayer.Character
-                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                    if hrp then hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0)) end
-                end
-            end)
-        end
-    })
-
-    TabFarm:AddSection({ Name = "Free Gifts & Daily Rewards" })
-
-    TabFarm:AddButton({
-        Name = "Claim Daily Login Reward (กดรับรางวัลประจำวัน)",
-        Callback = function()
-            if Remote_ClaimDaily then
-                local ok, res = pcall(function() return Remote_ClaimDaily:InvokeServer() end)
-                print("[GhostDriver] Daily Login Result: " .. tostring(res))
-            end
-        end
-    })
-
-    TabFarm:AddButton({
-        Name = "Claim Free Car (รับรถแจกฟรี)",
-        Callback = function()
-            if Remote_ClaimFree then
-                local ok, res = pcall(function() return Remote_ClaimFree:InvokeServer() end)
-                print("[GhostDriver] Claim Free Car Result: " .. tostring(res))
-            end
-        end
     })
 
     -- ─── Tab: Teleports ───────────────────────────────────────────────
@@ -3539,33 +3348,7 @@
         end
     })
 
-    TabConfig:AddSection({ Name = "🏎️ Adaptive Physics & Curve Steering" })
 
-    TabConfig:AddToggle({
-        Name = "Adaptive Cornering (คำนวณโค้งล่วงหน้า & เลี้ยวสมูท)",
-        Default = Settings.AdaptiveCornering,
-        Callback = function(Value) Settings.AdaptiveCornering = Value end
-    })
-
-    TabConfig:AddToggle({
-        Name = "Corner Dynamic Slowdown (ชะลอความเร็วเล็กน้อยตอนโค้งหักศอก)",
-        Default = Settings.CornerSlowdown,
-        Callback = function(Value) Settings.CornerSlowdown = Value end
-    })
-
-    TabConfig:AddSlider({
-        Name = "Smooth Steer Factor (ความนุ่มนวลของการหักเลี้ยว)",
-        Min = 0.10, Max = 0.50, Default = Settings.SmoothSteerFactor, Color = Color3.fromRGB(0, 240, 255),
-        Increment = 0.02, ValueName = "factor",
-        Callback = function(Value) Settings.SmoothSteerFactor = Value end
-    })
-
-    TabConfig:AddSlider({
-        Name = "Lookahead Distance Lead (ระยะดึงสายตามองถนน)",
-        Min = 20, Max = 60, Default = Settings.LookaheadLead, Color = Color3.fromRGB(255, 180, 0),
-        Increment = 2, ValueName = "studs",
-        Callback = function(Value) Settings.LookaheadLead = Value end
-    })
 
     -- ═══════════════════════════════════════════════════════════════════
     -- 4. INDEPENDENT EXECUTION LOOPS 
@@ -3830,7 +3613,7 @@
                         FarmManager.UnfreezeVehicle()
                         local frame = findRoadFrame(seat.Position)
                         if frame then
-                            local rideH = Settings.RideHeightOffset or 2.8
+                            local rideH = Settings.RideHeightOffset or 2.3
                             local safePt = frame.CenterPos + (frame.Normal * FarmManager.CurrentLaneOffset) + Vector3.new(0, rideH + 0.6, 0)
                             local flatDir = Vector3.new(frame.Direction.X, 0, frame.Direction.Z).Unit
                             car:PivotTo(CFrame.lookAt(safePt, safePt + flatDir))
