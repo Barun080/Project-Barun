@@ -2997,7 +2997,7 @@ end)
 -- ═════════════════════════════════════════════════════════════════════
 
 -- ═════════════════════════════════════════════════════════════════════
--- 15. PERSISTENT CONFIGURATION ENGINE (SAVE & LOAD PROFILES)
+-- 15. 2K BULLETPROOF CONFIGURATION ENGINE (ROOT FILE NO-FOLDER SAFE)
 -- ═════════════════════════════════════════════════════════════════════
 local UIHandles = {}
 
@@ -3061,88 +3061,98 @@ local DefaultCleanConfig = {
     AutoClaimRewards = false
 }
 
-local ConfigManager = {}
-do
-    local BASE_DIR = "ProjectBarun"
-    local GAME_DIR = "ProjectBarun/AnimeDice"
-    local DEFAULT_NAME = "default"
+local CONFIG_FILE = "PB_AnimeDice_Config.json"
+local saveDebounce = false
 
-    local function ensureFolders()
-        pcall(function()
-            if makefolder then
-                if not (isfolder and isfolder(BASE_DIR)) then
-                    makefolder(BASE_DIR)
-                end
-                if not (isfolder and isfolder(GAME_DIR)) then
-                    makefolder(GAME_DIR)
+local function getCleanConfigFilename(profileName)
+    if profileName and profileName ~= "" and profileName ~= "default" then
+        local sanitized = profileName:gsub("[^%w_%-]", "")
+        if sanitized ~= "" then
+            return "PB_AnimeDice_" .. sanitized .. ".json"
+        end
+    end
+    return CONFIG_FILE
+end
+
+local function saveConfig(profileName, silent)
+    if not writefile then
+        if not silent and Window and Window.Notify then
+            Window:Notify({ Title = "PB Config", Content = "Executor ไม่รองรับ writefile", Type = "error" })
+        end
+        return false
+    end
+
+    local fileName = getCleanConfigFilename(profileName)
+    local clean = {}
+    for k, v in pairs(Config) do
+        local t = type(v)
+        if t == "boolean" or t == "number" or t == "string" then
+            clean[k] = v
+        elseif t == "table" then
+            local subClean = {}
+            for subK, subV in pairs(v) do
+                local st = type(subV)
+                if st == "boolean" or st == "number" or st == "string" then
+                    subClean[subK] = subV
                 end
             end
-        end)
+            clean[k] = subClean
+        end
     end
 
-    local function getPath(name)
-        name = (name and name ~= "") and name or DEFAULT_NAME
-        name = name:gsub("[^%w_%-]", "")
-        if name == "" then name = DEFAULT_NAME end
-        return GAME_DIR .. "/" .. name .. ".json"
+    local ok, encoded = pcall(function()
+        return HttpService:JSONEncode(clean)
+    end)
+    if not ok or not encoded then
+        if not silent and Window and Window.Notify then
+            Window:Notify({ Title = "PB Config", Content = "การแปลงข้อมูล JSON ผิดพลาด", Type = "error" })
+        end
+        return false
     end
 
-    function ConfigManager.Save(name)
-        ensureFolders()
-        if not writefile then
-            return false, "Executor lacks writefile function"
+    local writeOk, writeErr = pcall(function()
+        writefile(fileName, encoded)
+    end)
+    if writeOk then
+        if not silent and Window and Window.Notify then
+            Window:Notify({ Title = "PB Config", Content = "บันทึกการตั้งค่าลงเครื่องเรียบร้อย! (" .. fileName .. ")", Type = "success" })
         end
+        return true
+    else
+        if not silent and Window and Window.Notify then
+            Window:Notify({ Title = "PB Config", Content = "บันทึกไฟล์ล้มเหลว: " .. tostring(writeErr), Type = "error" })
+        end
+        return false
+    end
+end
 
-        local filePath = getPath(name)
-        local encoded = nil
-        local ok, err = pcall(function()
-            return HttpService:JSONEncode(Config)
-        end)
-        if not ok or not err then
-            return false, "JSON Encode failed"
+local function loadConfig(profileName, silent)
+    local fileName = getCleanConfigFilename(profileName)
+    if not (readfile and isfile and isfile(fileName)) then
+        if not silent and Window and Window.Notify then
+            Window:Notify({ Title = "PB Config", Content = "ไม่พบไฟล์คอนฟิกบนเครื่อง (" .. fileName .. ")", Type = "warning" })
         end
-        encoded = err
-
-        local writeOk, writeErr = pcall(function()
-            writefile(filePath, encoded)
-        end)
-        if not writeOk then
-            return false, "Failed to write file: " .. tostring(writeErr)
-        end
-        return true, filePath
+        return false
     end
 
-    function ConfigManager.Load(name, syncUI)
-        ensureFolders()
-        if not (isfile and readfile) then
-            return false, "Executor lacks isfile/readfile functions"
+    local ok, data = pcall(function() return readfile(fileName) end)
+    if not ok or not data or data == "" then
+        if not silent and Window and Window.Notify then
+            Window:Notify({ Title = "PB Config", Content = "ไม่สามารถอ่านไฟล์คอนฟิกได้", Type = "error" })
         end
+        return false
+    end
 
-        local filePath = getPath(name)
-        if not isfile(filePath) then
-            return false, "Profile file not found: " .. filePath
+    local okDecode, parsed = pcall(function() return HttpService:JSONDecode(data) end)
+    if not okDecode or type(parsed) ~= "table" then
+        if not silent and Window and Window.Notify then
+            Window:Notify({ Title = "PB Config", Content = "ไฟล์คอนฟิกเสียหายหรือไม่ถูกต้อง", Type = "error" })
         end
+        return false
+    end
 
-        local content = nil
-        local readOk, readErr = pcall(function()
-            return readfile(filePath)
-        end)
-        if not readOk or not readErr or readErr == "" then
-            return false, "Failed to read profile data"
-        end
-        content = readErr
-
-        local decoded = nil
-        local decOk, decErr = pcall(function()
-            return HttpService:JSONDecode(content)
-        end)
-        if not decOk or type(decErr) ~= "table" then
-            return false, "Failed to parse JSON configuration"
-        end
-        decoded = decErr
-
-        -- Deep merge into active Config
-        for k, v in pairs(decoded) do
+    for k, v in pairs(parsed) do
+        if Config[k] ~= nil then
             if type(v) == "table" and type(Config[k]) == "table" then
                 for subK, subV in pairs(v) do
                     Config[k][subK] = subV
@@ -3152,51 +3162,52 @@ do
             end
         end
 
-        -- Synchronize visual UI controls
-        if syncUI and UIHandles then
-            for k, handle in pairs(UIHandles) do
-                if handle and handle.Set and Config[k] ~= nil then
-                    pcall(function()
-                        handle:Set(Config[k])
-                    end)
+        if UIHandles[k] then
+            pcall(function()
+                if UIHandles[k].SetValue then
+                    UIHandles[k]:SetValue(v)
+                elseif UIHandles[k].Set then
+                    UIHandles[k]:Set(v)
+                elseif UIHandles[k].Select then
+                    UIHandles[k]:Select(v)
                 end
-            end
-            if UIHandles.SellCommon and Config.SelectedSellRarities then
-                pcall(function() UIHandles.SellCommon:Set(Config.SelectedSellRarities["Common"] == true) end)
-            end
-            if UIHandles.SellUncommon and Config.SelectedSellRarities then
-                pcall(function() UIHandles.SellUncommon:Set(Config.SelectedSellRarities["Uncommon"] == true) end)
-            end
-            if UIHandles.SellRare and Config.SelectedSellRarities then
-                pcall(function() UIHandles.SellRare:Set(Config.SelectedSellRarities["Rare"] == true) end)
-            end
-            if UIHandles.UpgrLuck and Config.SelectedUpgradeCategories then
-                pcall(function() UIHandles.UpgrLuck:Set(Config.SelectedUpgradeCategories["Luck & Fortune"] == true) end)
-            end
-            if UIHandles.UpgrSpeed and Config.SelectedUpgradeCategories then
-                pcall(function() UIHandles.UpgrSpeed:Set(Config.SelectedUpgradeCategories["Roll Speed"] == true) end)
-            end
-            if UIHandles.UpgrMoney and Config.SelectedUpgradeCategories then
-                pcall(function() UIHandles.UpgrMoney:Set(Config.SelectedUpgradeCategories["Money"] == true) end)
-            end
+            end)
         end
-
-        return true, filePath
     end
 
-    function ConfigManager.Delete(name)
-        ensureFolders()
-        if not (isfile and delfile) then
-            return false, "Executor lacks delfile function"
+    -- Sync sub-toggles
+    if Config.SelectedSellRarities then
+        if UIHandles.SellCommon then pcall(function() UIHandles.SellCommon:Set(Config.SelectedSellRarities["Common"] == true) end) end
+        if UIHandles.SellUncommon then pcall(function() UIHandles.SellUncommon:Set(Config.SelectedSellRarities["Uncommon"] == true) end) end
+        if UIHandles.SellRare then pcall(function() UIHandles.SellRare:Set(Config.SelectedSellRarities["Rare"] == true) end) end
+    end
+    if Config.SelectedUpgradeCategories then
+        if UIHandles.UpgrLuck then pcall(function() UIHandles.UpgrLuck:Set(Config.SelectedUpgradeCategories["Luck & Fortune"] == true) end) end
+        if UIHandles.UpgrSpeed then pcall(function() UIHandles.UpgrSpeed:Set(Config.SelectedUpgradeCategories["Roll Speed"] == true) end) end
+        if UIHandles.UpgrMoney then pcall(function() UIHandles.UpgrMoney:Set(Config.SelectedUpgradeCategories["Money"] == true) end) end
+    end
+
+    if not silent and Window and Window.Notify then
+        Window:Notify({ Title = "PB Config", Content = "โหลดการตั้งค่าสำเร็จ! (" .. fileName .. ")", Type = "success" })
+    end
+    return true
+end
+
+local function resetConfig()
+    for k, v in pairs(DefaultCleanConfig) do
+        if type(v) == "table" then
+            Config[k] = table.clone(v)
+        else
+            Config[k] = v
         end
-        local filePath = getPath(name)
-        if not isfile(filePath) then
-            return false, "Profile file does not exist"
+    end
+    for k, handle in pairs(UIHandles) do
+        if handle and handle.Set and Config[k] ~= nil then
+            pcall(function() handle:Set(Config[k]) end)
         end
-        local delOk, delErr = pcall(function()
-            delfile(filePath)
-        end)
-        return delOk, delErr
+    end
+    if Window and Window.Notify then
+        Window:Notify({ Title = "PB Config", Content = "รีเซ็ตค่าเริ่มต้นเรียบร้อย!", Type = "info" })
     end
 end
 
@@ -3704,104 +3715,41 @@ TabSettings:AddButton({
     end,
 })
 
-TabSettings:AddSection("CONFIGURATION PROFILES (ระบบเซฟและโหลดคอนฟิก)")
+TabSettings:AddSection("CONFIGURATION (ระบบเซฟและโหลดคอนฟิกแบบ 2K)")
 
 local currentProfileName = "default"
 
 TabSettings:AddTextbox({
     Name = "ชื่อคอนฟิก (Profile Name)",
     Default = "default",
-    Placeholder = "เช่น default, afk_mode, tower_push...",
+    Placeholder = "เช่น default, afk, towers...",
     Callback = function(val)
         currentProfileName = (val and val:gsub("%s+", "") ~= "") and val:gsub("%s+", "") or "default"
-    end,
+    end
 })
 
 TabSettings:AddButton({
-    Name = "💾 บันทึกคอนฟิกปัจจุบัน (Save Config)",
+    Name = "บันทึกการตั้งค่า (Save Config)",
     Icon = "💾",
     Callback = function()
-        local ok, err = ConfigManager.Save(currentProfileName)
-        if ok then
-            Window:Notify({
-                Title = "Config Saved",
-                Content = string.format("บันทึกการตั้งค่าลงไฟล์ '%s' สำเร็จ!", currentProfileName),
-                Type = "success"
-            })
-        else
-            Window:Notify({
-                Title = "Save Error",
-                Content = tostring(err),
-                Type = "error"
-            })
-        end
-    end,
+        saveConfig(currentProfileName, false)
+    end
 })
 
 TabSettings:AddButton({
-    Name = "📂 โหลดคอนฟิก (Load Config)",
+    Name = "โหลดการตั้งค่า (Load Config)",
     Icon = "📂",
     Callback = function()
-        local ok, err = ConfigManager.Load(currentProfileName, true)
-        if ok then
-            Window:Notify({
-                Title = "Config Loaded",
-                Content = string.format("โหลดและปรับใช้การตั้งค่า '%s' สำเร็จ!", currentProfileName),
-                Type = "success"
-            })
-        else
-            Window:Notify({
-                Title = "Load Error",
-                Content = tostring(err),
-                Type = "error"
-            })
-        end
-    end,
+        loadConfig(currentProfileName, false)
+    end
 })
 
 TabSettings:AddButton({
-    Name = "🔄 รีเซ็ตค่าเริ่มต้น (Reset to Defaults)",
+    Name = "รีเซ็ตค่าเริ่มต้น (Reset to Defaults)",
     Icon = "🔄",
     Callback = function()
-        for k, v in pairs(DefaultCleanConfig) do
-            if type(v) == "table" then
-                Config[k] = table.clone(v)
-            else
-                Config[k] = v
-            end
-        end
-        for k, handle in pairs(UIHandles) do
-            if handle and handle.Set and Config[k] ~= nil then
-                pcall(function() handle:Set(Config[k]) end)
-            end
-        end
-        Window:Notify({
-            Title = "Config Reset",
-            Content = "รีเซ็ตการตั้งค่ากลับสู่ค่าเริ่มต้นเรียบร้อย!",
-            Type = "info"
-        })
-    end,
-})
-
-TabSettings:AddButton({
-    Name = "🗑️ ลบไฟล์คอนฟิก (Delete Config)",
-    Icon = "🗑️",
-    Callback = function()
-        local ok, err = ConfigManager.Delete(currentProfileName)
-        if ok then
-            Window:Notify({
-                Title = "Config Deleted",
-                Content = string.format("ลบไฟล์คอนฟิก '%s' เรียบร้อย!", currentProfileName),
-                Type = "info"
-            })
-        else
-            Window:Notify({
-                Title = "Delete Error",
-                Content = tostring(err),
-                Type = "error"
-            })
-        end
-    end,
+        resetConfig()
+    end
 })
 
 TabSettings:AddSection("WORLD TELEPORTS")
