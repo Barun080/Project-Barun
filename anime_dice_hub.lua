@@ -1912,6 +1912,7 @@ function UI:CreateWindow(config)
     return WindowObj
 end
 
+
 -- ═════════════════════════════════════════════════════════════════════
 -- 💎 PROJECT BARUN — ANIME DICE [UPD 7] GOD SCRIPT ENGINE
 -- ═════════════════════════════════════════════════════════════════════
@@ -1955,10 +1956,10 @@ local Config = {
     RollSpeedDelay = 0.05,
 
     -- Plot & Slots Money Engine
-    AutoFarmPlot = true,        -- เปิดฟาร์มเกาะและเก็บเงินทันที
-    AutoCollectChest = true,     -- ดูดเงินจากทุกสล็อตและหีบอัตโนมัติ
-    AutoEquipBestPlot = true,    -- สวมใส่อนิเมะตัวแรงสุดลงแท่นอัตโนมัติเพื่อผลิตเงิน
-    AutoUpgradeSlots = false,    -- อัปเกรดสล็อต
+    AutoFarmPlot = true,        -- เปิดฟาร์มเกาะและดูดเงินสล็อต
+    AutoCollectChest = true,     -- ดูดเงินจากทุกสล็อตอัตโนมัติ (CollectBalance per Slot)
+    AutoEquipBestPlot = true,    -- สวมใส่อนิเมะตัวแรงสุดลงแท่นอัตโนมัติ
+    AutoUpgradeSlots = false,    -- อัปเกรดเลเวลสล็อต
     TargetSlotLevel = 25,
 
     -- Towers
@@ -2005,6 +2006,28 @@ _G.AnimeDice_Cleanup = function()
         end
     end)
 end
+
+-- ═════════════════════════════════════════════════════════════════════
+-- 0. SHIELD: AUTO-CLOSE UNWANTED GROUP REWARDS MODAL POPUPS
+-- ═════════════════════════════════════════════════════════════════════
+task.spawn(function()
+    while Running and _G.AnimeDiceActiveToken == myToken do
+        pcall(function()
+            local pg = LocalPlayer:FindFirstChild("PlayerGui")
+            if pg then
+                for _, gui in ipairs(pg:GetChildren()) do
+                    if gui:IsA("ScreenGui") and gui.Enabled then
+                        local n = string.lower(gui.Name)
+                        if string.find(n, "group") or string.find(n, "groupreward") then
+                            gui.Enabled = false
+                        end
+                    end
+                end
+            end
+        end)
+        task.wait(0.5)
+    end
+end)
 
 -- ═════════════════════════════════════════════════════════════════════
 -- 1. CUTSCENE BYPASS & INSTANT ROLL HOOK
@@ -2081,17 +2104,28 @@ local function TeleportToPlot()
 end
 
 -- ═════════════════════════════════════════════════════════════════════
--- 2. UNIVERSAL MONEY COLLECTOR (Slot Hitboxes + Prompts + Remote)
+-- 2. PRECISION MONEY COLLECTOR (Direct Slot Balance Remotes & Hitbox)
 -- ═════════════════════════════════════════════════════════════════════
 local function CollectAllMoney()
-    -- Method A: Remote Call
-    pcall(function()
-        if PlotNet and PlotNet.RE:FindFirstChild("CollectBalance") then
-            PlotNet.RE.CollectBalance:FireServer()
+    -- 1. Firing CollectBalance per slot ID (1..24) — This is the proven mechanic
+    if PlotNet and PlotNet:FindFirstChild("RE") and PlotNet.RE:FindFirstChild("CollectBalance") then
+        for slotId = 1, 24 do
+            pcall(function()
+                PlotNet.RE.CollectBalance:FireServer(slotId)
+            end)
         end
-    end)
+    end
 
-    -- Method B: Touch / Vacuum All Slot Balance Hitboxes
+    -- 2. Firing InteractSlot per slot ID (1..24)
+    if PlotNet and PlotNet:FindFirstChild("RE") and PlotNet.RE:FindFirstChild("InteractSlot") then
+        for slotId = 1, 24 do
+            pcall(function()
+                PlotNet.RE.InteractSlot:FireServer(slotId)
+            end)
+        end
+    end
+
+    -- 3. Touch slot balance hitboxes on client as secondary trigger
     pcall(function()
         local plotCtrl = Features and Features:FindFirstChild("Plot") and require(Features.Plot.PlotController)
         local p = plotCtrl and plotCtrl.plot
@@ -2099,31 +2133,14 @@ local function CollectAllMoney()
         local char = lp and lp.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
-        if p and p:FindFirstChild("Slots") and hrp then
+        if p and p:FindFirstChild("Slots") and hrp and firetouchinterest then
             for _, slot in ipairs(p.Slots:GetChildren()) do
-                -- Vacuum Money Hitbox on this slot
                 local bal = slot:FindFirstChild("Balance")
                 local hitbox = bal and bal:FindFirstChild("Hitbox")
                 if hitbox then
-                    if firetouchinterest then
-                        firetouchinterest(hrp, hitbox, 0)
-                        firetouchinterest(hrp, hitbox, 1)
-                    end
+                    firetouchinterest(hrp, hitbox, 0)
+                    firetouchinterest(hrp, hitbox, 1)
                 end
-
-                -- Trigger any slot prompt
-                local prompt = slot:FindFirstChildWhichIsA("ProximityPrompt", true)
-                if prompt and prompt.Enabled and fireproximityprompt then
-                    fireproximityprompt(prompt)
-                end
-            end
-        end
-
-        -- Method C: Group Chest ProximityPrompt on Island
-        if p and p:FindFirstChild("Chest") and fireproximityprompt then
-            local chestPrompt = p.Chest:FindFirstChildWhichIsA("ProximityPrompt", true)
-            if chestPrompt and chestPrompt.Enabled then
-                fireproximityprompt(chestPrompt)
             end
         end
     end)
@@ -2151,12 +2168,12 @@ task.spawn(function()
 end)
 
 -- ═════════════════════════════════════════════════════════════════════
--- 4. AUTO FARM PLOT ENGINE (Chest, Slots Vacuum, Equip Best)
+-- 4. AUTO FARM PLOT ENGINE (Slot Balance Suction & Equip Best)
 -- ═════════════════════════════════════════════════════════════════════
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
         if Config.AutoFarmPlot then
-            -- Collect Balance from All Slots & Island Chest
+            -- Collect Balance from All 24 Slots
             if Config.AutoCollectChest then
                 CollectAllMoney()
             end
@@ -2239,7 +2256,7 @@ task.spawn(function()
 end)
 
 -- ═════════════════════════════════════════════════════════════════════
--- 6. AUTO CLAIM REWARDS
+-- 6. AUTO CLAIM REWARDS (Safe: Daily & Offline only, No Group Spam)
 -- ═════════════════════════════════════════════════════════════════════
 local function ClaimAllRewards()
     pcall(function()
@@ -2248,9 +2265,6 @@ local function ClaimAllRewards()
         end
         if OfflineNet and OfflineNet:FindFirstChild("RE") and OfflineNet.RE:FindFirstChild("Claim") then
             OfflineNet.RE.Claim:FireServer()
-        end
-        if GroupNet and GroupNet:FindFirstChild("RE") and GroupNet.RE:FindFirstChild("Claim") then
-            GroupNet.RE.Claim:FireServer()
         end
     end)
 end
@@ -2272,77 +2286,94 @@ end)
 local Window = UI:CreateWindow({
     Title = "PROJECT BARUN",
     Subtitle = "ANIME DICE • AURORA v3.0",
-    Size = UDim2.new(0, 720, 0, 500),
-    Name = "ProjectBarun_AnimeDice",
-    ToggleKey = Enum.KeyCode.RightShift,
+    DefaultTab = "Dashboard",
+    Size = UDim2.fromOffset(660, 480),
+    Accent = Color3.fromRGB(56, 189, 248),
 })
 
 -- TAB 1: DASHBOARD
 local TabDash = Window:CreateTab({
     Name = "Dashboard",
     Icon = "📊",
-    Subtitle = "Real-Time Telemetry & Overview",
+    Subtitle = "Real-time Dice & Farming Stats",
 })
 
 TabDash:AddSection("LIVE TELEMETRY")
 
-local StatRolls = TabDash:AddStatCard({
-    Title = "Total Rolls (Session)",
+local StatRolls = TabDash:AddStat({
+    Title = "Total Rolls",
     Value = "0",
-    Subtext = "Rolls executed",
-    Progress = 0,
+    Desc = "Dice rolled this session",
+    Icon = "🎲",
+    Accent = Theme.AccentCyan,
 })
 
-local StatCash = TabDash:AddStatCard({
-    Title = "Current Cash",
+local StatCash = TabDash:AddStat({
+    Title = "Player Wallet",
     Value = "0",
-    Subtext = "leaderstats.Money",
-    Progress = 0.5,
+    Desc = "Current cash balance",
+    Icon = "💰",
+    Accent = Color3.fromRGB(250, 204, 21),
 })
 
-local StatFloors = TabDash:AddStatCard({
-    Title = "Towers Cleared",
+local StatFloors = TabDash:AddStat({
+    Title = "Tower Floors",
     Value = "0",
-    Subtext = "Floors beaten",
-    Progress = 0,
+    Desc = "Cleared floors this session",
+    Icon = "🏰",
+    Accent = Theme.AccentPurple,
 })
 
-local StatTowerStatus = TabDash:AddStatCard({
+local StatTowerStatus = TabDash:AddStat({
     Title = "Tower Status",
     Value = "Standby",
-    Subtext = "Active dungeon state",
+    Desc = "Selected: Hidden Leaf Tower",
+    Icon = "⚡",
+    Accent = Theme.AccentCyan,
 })
 
-TabDash:AddSection("QUICK ACTIONS")
+TabDash:AddSection("QUICK TOGGLES")
 
-TabDash:AddButton({
-    Name = "💰 Collect All Money Now (ดูดเงินทันที)",
-    Icon = "💰",
-    Callback = function()
-        CollectAllMoney()
-        Window:Notify({ Title = "Money Vacuum", Content = "Collected all island & slot balances!", Type = "success" })
+TabDash:AddToggle({
+    Name = "Fast Auto Roll",
+    Desc = "เปิดทอยลูกเต๋าอัตโนมัติความเร็วสูง",
+    Default = Config.AutoRoll,
+    Callback = function(v)
+        Config.AutoRoll = v
+        Window:Notify({
+            Title = "Auto Roll",
+            Content = v and "Started auto rolling!" or "Paused auto rolling.",
+            Type = v and "success" or "warning"
+        })
     end,
 })
 
-TabDash:AddButton({
-    Name = "🎲 Single Dice Roll",
-    Icon = "🎲",
-    Callback = function()
-        pcall(function()
-            if RollNet and RollNet.RF:FindFirstChild("RollDice") then
-                RollNet.RF.RollDice:InvokeServer()
-            end
-        end)
-        Window:Notify({ Title = "Roll Dice", Content = "Single roll completed!", Type = "info" })
+TabDash:AddToggle({
+    Name = "Auto Farm Plot (ดูดเงินทุกสล็อต)",
+    Desc = "เปิดระบบดูดเงินทุกสล็อตบนเกาะอัตโนมัติ",
+    Default = Config.AutoFarmPlot,
+    Callback = function(v)
+        Config.AutoFarmPlot = v
+        Window:Notify({
+            Title = "Auto Farm Plot",
+            Content = v and "Started plot money suction!" or "Paused plot farming.",
+            Type = v and "success" or "warning"
+        })
     end,
 })
 
-TabDash:AddButton({
-    Name = "📍 Teleport to Island Spawn",
-    Icon = "📍",
-    Callback = function()
-        TeleportToPlot()
-        Window:Notify({ Title = "Teleport", Content = "Arrived at island spawn!", Type = "info" })
+TabDash:AddToggle({
+    Name = "Skip Cutscene & Screen Shake",
+    Desc = "ตัดฉากทอยลูกเต๋า 100% หน้าจอไม่สั่น ไม่เวียนหัว",
+    Default = Config.SkipCutscene,
+    Callback = function(v)
+        Config.SkipCutscene = v
+        SetupCutsceneBypass()
+        Window:Notify({
+            Title = "Cutscene Bypass",
+            Content = v and "Cutscenes bypassed 100%!" or "Cutscenes restored.",
+            Type = "info"
+        })
     end,
 })
 
@@ -2350,7 +2381,7 @@ TabDash:AddButton({
 local TabTowers = Window:CreateTab({
     Name = "Towers",
     Icon = "🏰",
-    Subtitle = "Auto Dungeon & Fast Floor Clear",
+    Subtitle = "Tower Dungeon Auto Clearer",
 })
 
 TabTowers:AddSection("TOWER DUNGEON AUTOMATION")
@@ -2435,14 +2466,14 @@ TabTowers:AddButton({
 local TabPlot = Window:CreateTab({
     Name = "Island / Plot",
     Icon = "🏡",
-    Subtitle = "Island Chest & Slot Level Management",
+    Subtitle = "Direct Slot Money Suction & Upgrades",
 })
 
 TabPlot:AddSection("ISLAND AUTOMATION")
 
 TabPlot:AddToggle({
     Name = "Auto Farm Plot",
-    Desc = "เปิดระบบทำงานบนเกาะ (เก็บเงินทุกสล็อต + สวมใส่ตัวแรงสุด)",
+    Desc = "เปิดระบบทำงานบนเกาะ (ดูดเงินทุกสล็อต + สวมใส่ตัวแรงสุด)",
     Default = Config.AutoFarmPlot,
     Callback = function(v)
         Config.AutoFarmPlot = v
@@ -2455,8 +2486,8 @@ TabPlot:AddToggle({
 })
 
 TabPlot:AddToggle({
-    Name = "Auto Collect Money (ดูดเงินจากสล็อต & หีบ)",
-    Desc = "ดูดเงินสะสมจากทุกช่องสล็อต (Balance Hitbox) และหีบเข้าตัว",
+    Name = "Auto Collect Money (ดูดเงิน 24 สล็อต)",
+    Desc = "ส่งคำสั่ง CollectBalance ดูดเงินเข้าตัวทุกสล็อต ไม่เด้งหน้าต่างกลุ่ม",
     Default = Config.AutoCollectChest,
     Callback = function(v)
         Config.AutoCollectChest = v
@@ -2465,7 +2496,7 @@ TabPlot:AddToggle({
 
 TabPlot:AddToggle({
     Name = "Auto Equip Best Plot Units",
-    Desc = "คัดสรรและสวมใส่อนิเมะตัวที่ผลิตเงินสูงสุดลงแท่น",
+    Desc = "คัดสรรและสวมใส่อนิเมะตัวที่ผลิตเงินสูงสุดลงแท่นอัตโนมัติ",
     Default = Config.AutoEquipBestPlot,
     Callback = function(v)
         Config.AutoEquipBestPlot = v
@@ -2503,11 +2534,37 @@ TabPlot:AddSlider({
 TabPlot:AddSection("MANUAL PLOT ACTIONS")
 
 TabPlot:AddButton({
-    Name = "Force Collect All Money Now",
+    Name = "Force Collect All Money Now (ดูดเงินทุกสล็อต)",
     Icon = "💰",
     Callback = function()
         CollectAllMoney()
-        Window:Notify({ Title = "Collect Money", Content = "Sucked money from all slots & chest!", Type = "success" })
+        Window:Notify({ Title = "Collect Money", Content = "Directly sucked balance from all 24 slots!", Type = "success" })
+    end,
+})
+
+TabPlot:AddButton({
+    Name = "Sweep All Slots (เดินกวาดแตะทุกสล็อต 1 วิ)",
+    Icon = "🧹",
+    Callback = function()
+        pcall(function()
+            local plotCtrl = Features and Features:FindFirstChild("Plot") and require(Features.Plot.PlotController)
+            local p = plotCtrl and plotCtrl.plot
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if p and p:FindFirstChild("Slots") and hrp then
+                local origCF = hrp.CFrame
+                for _, slot in ipairs(p.Slots:GetChildren()) do
+                    local bal = slot:FindFirstChild("Balance")
+                    local hb = bal and bal:FindFirstChild("Hitbox")
+                    if hb then
+                        hrp.CFrame = hb.CFrame + Vector3.new(0, 2, 0)
+                        task.wait(0.04)
+                    end
+                end
+                hrp.CFrame = origCF
+            end
+        end)
+        Window:Notify({ Title = "Sweep Slots", Content = "Swept all slots on your island!", Type = "success" })
     end,
 })
 
@@ -2643,8 +2700,8 @@ local TabMisc = Window:CreateTab({
 TabMisc:AddSection("FREE REWARDS")
 
 TabMisc:AddToggle({
-    Name = "Auto Claim Free Rewards",
-    Desc = "กดรับ Daily, Offline, และ Group Rewards อัตโนมัติทุก 15 วิ",
+    Name = "Auto Claim Free Rewards (Daily & Offline)",
+    Desc = "กดรับ Daily Reward และ Offline Earnings อัตโนมัติทุก 15 วิ",
     Default = Config.AutoClaimRewards,
     Callback = function(v)
         Config.AutoClaimRewards = v
@@ -2652,11 +2709,24 @@ TabMisc:AddToggle({
 })
 
 TabMisc:AddButton({
-    Name = "Claim All Free Gifts Now",
+    Name = "Claim Daily & Offline Rewards Now",
     Icon = "🎁",
     Callback = function()
         ClaimAllRewards()
-        Window:Notify({ Title = "Gifts", Content = "Claimed all available rewards!", Type = "success" })
+        Window:Notify({ Title = "Gifts", Content = "Claimed Daily and Offline rewards!", Type = "success" })
+    end,
+})
+
+TabMisc:AddButton({
+    Name = "Claim Group Reward (ต้องเข้ากลุ่มก่อน)",
+    Icon = "👥",
+    Callback = function()
+        pcall(function()
+            if GroupNet and GroupNet:FindFirstChild("RE") and GroupNet.RE:FindFirstChild("Claim") then
+                GroupNet.RE.Claim:FireServer()
+            end
+        end)
+        Window:Notify({ Title = "Group Reward", Content = "Sent group reward claim request!", Type = "info" })
     end,
 })
 
