@@ -2017,32 +2017,32 @@
         -- Vehicle Tuning & Speed
         VehicleSpeedBoost    = false,
         BoostMultiplier      = 1.3,
-        InfiniteNitrous      = true,     -- Default ON: ไนตรัสไม่จำกัด
+        InfiniteNitrous      = false,     -- Default ON: ไนตรัสไม่จำกัด
         VehicleFly           = false,
         FlySpeed             = 120,
 
         -- Anti-Police & Godmode
-        AntiBusted           = true,     -- Default ON: กันตำรวจจับ 100%
-        NoCollisionTraffic   = true,     -- Default ON: ทะลุรถ AI & ผู้เล่น
-        GhostGodMode         = true,     -- Default ON: ตัวถังรถเป็นผี ทะลุกำแพง/สิ่งกีดขวาง
+        AntiBusted           = false,     -- Default ON: กันตำรวจจับ 100%
+        NoCollisionTraffic   = false,     -- Default ON: ทะลุรถ AI & ผู้เล่น
+        GhostGodMode         = false,     -- Default ON: ตัวถังรถเป็นผี ทะลุกำแพง/สิ่งกีดขวาง
         AutoEscapePolice     = false,     -- Auto Escape Police Pursuit mode
         PoliceTargetCash     = 50000,     -- Target cash goal before activating 100% Anti-Busted
         PoliceBustedActivated= false,     -- Flag indicating target cash reached and 100% protection active
 
         -- Auto Farming & Economy (Grand Loop 96,000+ studs / 26.8 km!)
-        AutoDriveFarm        = true,     -- Default ON: ฟาร์มอัตโนมัติทันทีที่รันสคริป
+        AutoDriveFarm        = false,     -- Default ON: ฟาร์มอัตโนมัติทันทีที่รันสคริป
         FarmDriveSpeed       = 240,      -- High-speed stable farm speed
         FarmPercent          = 1.0,      -- Full loop or custom route percent
         FarmLane             = "Lane 2 (Center)",
         LoopMode             = "Infinite Loop (วิ่งวนลูปไฮเวย์รอบโลกต่อเนื่อง)",
-        AutoBankCombo        = true,     -- Default ON: บันทึกแต้มเงินอัตโนมัติ
+        AutoBankCombo        = false,     -- Default ON: บันทึกแต้มเงินอัตโนมัติ
         AutoKeepCombo        = false,    -- Do not spam combo remotes by default
         AutoSwerveCloseCall  = false,    -- Disabled to prevent server-side spam kicks
-        AutoRespawnCar       = true,     -- Default ON: เสกและขึ้นรถใหม่อัตโนมัติถ้ารถหาย/พัง
+        AutoRespawnCar       = false,     -- Default ON: เสกและขึ้นรถใหม่อัตโนมัติถ้ารถหาย/พัง
         AutoClaimDaily       = false,
         AutoClaimFreeCar     = false,
         AutoAFKBonus         = false,    -- Safe default: off
-        AntiAFK              = true,     -- 24/7 Anti-Idle disconnect protector (client safe)
+        AntiAFK              = false,     -- 24/7 Anti-Idle disconnect protector (client safe)
         PerformanceMode      = false,    -- GPU/CPU saver (disables 3D rendering for overnight AFK)
 
         -- Selected Car to Spawn

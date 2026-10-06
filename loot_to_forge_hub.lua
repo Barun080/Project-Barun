@@ -1121,11 +1121,11 @@ local Settings = {
 
     -- Stage & Ore
     AutoStageOre         = false,
-    AutoMaxStage         = true,
+    AutoMaxStage         = false,
     StageName            = "Stage_27",
     StageDelay           = 0.35,
-    AutoClaimOre         = true,
-    SilentKillMobs       = true,
+    AutoClaimOre         = false,
+    SilentKillMobs       = false,
 
     -- Forge (Engineered with 2SKI Smart Slicing)
     AutoForge            = false,
@@ -1133,7 +1133,7 @@ local Settings = {
     MinOreToForge        = 4,     -- เกมนี้ต้องการขั้นต่ำ 4 แร่
     ForgeDelay           = 0.6,
     OreQualityMode       = "Best", -- "Best" (แร่เกรดสูงก่อน) | "Low" (แร่เกรดต่ำก่อน)
-    AutoEquipBestAfter   = true,
+    AutoEquipBestAfter   = false,
 
     -- Auto Equip Best Gear
     AutoEquipBest        = false,

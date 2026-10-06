@@ -2214,17 +2214,17 @@ local AllPotionsList = {
 -- ── 3. CONFIGURATION & STATE ──────────────────────────────────────────
 local Config = {
     -- Anti-AFK
-    AntiAFK = true,
+    AntiAFK = false,
 
     -- Rolling
     AutoRoll = false,
-    SkipCutscene = true,
+    SkipCutscene = false,
     RollSpeedDelay = 0.05,
 
     -- Plot & Slots
-    AutoFarmPlot = true,
-    AutoCollectChest = true,
-    AutoEquipBestPlot = true,
+    AutoFarmPlot = false,
+    AutoCollectChest = false,
+    AutoEquipBestPlot = false,
     AutoUpgradeSlots = false,
     TargetSlotLevel = 25,
 
@@ -2288,10 +2288,10 @@ local Config = {
     SelectedTower = TowerList[1],
     TargetTowerFloor = 50,
     AutoTowerFloorDelay = 0.35,
-    HideTowerScreen = true,
+    HideTowerScreen = false,
 
     -- Free Gifts
-    AutoClaimRewards = true
+    AutoClaimRewards = false
 }
 
 local State = {
