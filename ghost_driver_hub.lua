@@ -2523,8 +2523,10 @@
             return
         end
 
-        -- Ensure rigid chassis lock is active on current vehicle
-        if Settings.RigidChassisLock then
+        -- Ensure rigid chassis lock is active on current vehicle (Throttled for performance)
+        if Settings.RigidChassisLock and (FarmManager.LastLockedCar ~= car or tick() - (FarmManager.LastRigidLockTick or 0) > 2.5) then
+            FarmManager.LastRigidLockTick = tick()
+            FarmManager.LastLockedCar = car
             FarmManager.SetRigidLock(car, seat, true)
         end
 
@@ -2664,41 +2666,61 @@
 
         local function checkObstacle(obj)
             if not obj or obj == car or obj == LocalPlayer.Character then return end
-            local p = obj:IsA("BasePart") and obj or obj.PrimaryPart or obj:FindFirstChild("Body") or obj:FindFirstChild("CoreHitbox") or obj:FindFirstChildWhichIsA("BasePart")
-            if p then
-                local toObs = p.Position - currentPos
-                local forwardDist = toObs:Dot(frame.Direction)
-
-                if forwardDist > -20 and forwardDist < RADAR_MAX_DIST then
-                    local obsVecFromCenter = p.Position - frame.CenterPos
-                    local obsLaneOffset = obsVecFromCenter:Dot(frame.Normal)
-
-                    if forwardDist < nearestObsDist then
-                        nearestObsDist = forwardDist
-                        nearestObsLateral = obsLaneOffset
-                    end
-
-                    local lateralDiffToCar = math.abs(obsLaneOffset - carCurrentRoadOffset)
-                    local lateralDiffToTarget = math.abs(obsLaneOffset - FarmManager.CurrentLaneOffset)
-                    if (lateralDiffToCar < (CAR_HALF_WIDTH + SAFETY_MARGIN)) or (lateralDiffToTarget < (CAR_HALF_WIDTH + SAFETY_MARGIN)) then
-                        if forwardDist > 0 and forwardDist < currentLaneObstacleDist then
-                            currentLaneObstacleDist = forwardDist
+            local obsPos = nil
+            if obj:IsA("BasePart") then
+                obsPos = obj.Position
+            elseif obj:IsA("Model") then
+                if obj.PrimaryPart then
+                    obsPos = obj.PrimaryPart.Position
+                else
+                    local hb = obj:FindFirstChild("CoreHitbox") or obj:FindFirstChild("Body")
+                    if hb and hb:IsA("BasePart") then
+                        obsPos = hb.Position
+                    else
+                        local bp = obj:FindFirstChildWhichIsA("BasePart", true)
+                        if bp then
+                            obsPos = bp.Position
+                        else
+                            local okP, piv = pcall(function() return obj:GetPivot() end)
+                            if okP and piv then obsPos = piv.Position end
                         end
                     end
+                end
+            end
+            if not obsPos then return end
 
-                    -- Proactive collision nullifier on obstacle when in proximity
-                    if forwardDist < 250 and (lateralDiffToCar < 20 or lateralDiffToTarget < 20) then
-                        if p.CanCollide then p.CanCollide = false end
-                        for _, part in ipairs(obj:GetDescendants()) do
-                            if part:IsA("BasePart") then
-                                if part.CanCollide then part.CanCollide = false end
-                                part.CollisionGroup = "TrafficBox"
-                            end
+            local toObs = obsPos - currentPos
+            local forwardDist = toObs:Dot(frame.Direction)
+
+            if forwardDist > -20 and forwardDist < RADAR_MAX_DIST then
+                local obsVecFromCenter = obsPos - frame.CenterPos
+                local obsLaneOffset = obsVecFromCenter:Dot(frame.Normal)
+
+                if forwardDist < nearestObsDist then
+                    nearestObsDist = forwardDist
+                    nearestObsLateral = obsLaneOffset
+                end
+
+                local lateralDiffToCar = math.abs(obsLaneOffset - carCurrentRoadOffset)
+                local lateralDiffToTarget = math.abs(obsLaneOffset - FarmManager.CurrentLaneOffset)
+                if (lateralDiffToCar < (CAR_HALF_WIDTH + SAFETY_MARGIN)) or (lateralDiffToTarget < (CAR_HALF_WIDTH + SAFETY_MARGIN)) then
+                    if forwardDist > 0 and forwardDist < currentLaneObstacleDist then
+                        currentLaneObstacleDist = forwardDist
+                    end
+                end
+
+                -- Proactive collision nullifier on obstacle when in proximity
+                if forwardDist < 250 and (lateralDiffToCar < 20 or lateralDiffToTarget < 20) then
+                    for _, part in ipairs(obj:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            if part.CanCollide then part.CanCollide = false end
+                            part.CollisionGroup = "TrafficBox"
                         end
                     end
+                end
 
-                    -- Trigger close call points when passing near traffic
-                    if Settings.AutoSwerveCloseCall and Remote_TrafficSwerve and forwardDist > 0 and forwardDist < 45 and lateralDiffToCar < 18 then
+                -- Trigger close call points when passing near traffic
+                if Settings.AutoSwerveCloseCall and Remote_TrafficSwerve and forwardDist > 0 and forwardDist < 45 and lateralDiffToCar < 18 then
                         if tick() - FarmManager.LastCloseCallTick > 0.35 then
                             FarmManager.LastCloseCallTick = tick()
                             pcall(function()
