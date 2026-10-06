@@ -1916,111 +1916,186 @@ end
 
 
 -- ═════════════════════════════════════════════════════════════════════
--- 💎 PROJECT BARUN — ANIME DICE [UPD 7] GOD SCRIPT ENGINE
+-- 💎 PROJECT BARUN — ANIME DICE [UPD 7] PRO PROGRESSION & AUTOMATION HUB
 -- ═════════════════════════════════════════════════════════════════════
 
-local Players = game:GetService("Players")
+local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
+local RunService        = game:GetService("RunService")
+local CoreGui           = game:GetService("CoreGui")
+local UserInputService  = game:GetService("UserInputService")
+local TeleportService   = game:GetService("TeleportService")
+local VirtualUser       = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+local LP = LocalPlayer
 
--- Network references
+-- ── 1. NETWORK REMOTES ────────────────────────────────────────────────
 local Network = ReplicatedStorage:WaitForChild("Network", 10) or ReplicatedStorage:FindFirstChild("Network")
-local RollNet = Network and Network:WaitForChild("RollService", 10)
-local TowersNet = Network and Network:WaitForChild("Towers", 10)
-local PlotNet = Network and Network:WaitForChild("PlotService", 10)
-local BoostNet = Network and Network:WaitForChild("BoostService", 10)
-local DailyNet = Network and Network:FindFirstChild("DailyRewardService")
-local OfflineNet = Network and Network:FindFirstChild("OfflineEarningsService")
-local GroupNet = Network and Network:FindFirstChild("GroupRewardService")
 
--- Framework Modules
+local RollService            = Network and Network:WaitForChild("RollService", 10)
+local PlotService            = Network and Network:WaitForChild("PlotService", 10)
+local RebirthService         = Network and Network:FindFirstChild("RebirthService")
+local DiceShopService        = Network and Network:FindFirstChild("DiceShopService")
+local DailyRewardService     = Network and Network:FindFirstChild("DailyRewardService")
+local GroupRewardService     = Network and Network:FindFirstChild("GroupRewardService")
+local OfflineEarningsService = Network and Network:FindFirstChild("OfflineEarningsService")
+local SpinService            = Network and Network:FindFirstChild("SpinService")
+local TowersNet              = Network and Network:FindFirstChild("Towers")
+local GradeNetwork           = Network and Network:FindFirstChild("GradeService")
+local SellNetwork            = Network and Network:FindFirstChild("SellService")
+local BoostNetwork           = Network and Network:FindFirstChild("BoostService")
+
+local UpgradeServiceRE = Network and Network:FindFirstChild("RE") and Network.RE:FindFirstChild("BuyUpgrade")
+local BoostUseRE       = BoostNetwork and BoostNetwork:FindFirstChild("RE") and BoostNetwork.RE:FindFirstChild("Use")
+
+-- Towers Remotes
+local EquipBestTowerTeamRE = TowersNet and TowersNet:FindFirstChild("RE") and TowersNet.RE:FindFirstChild("EquipBestTowerTeam")
+local PlayTowerRF          = TowersNet and TowersNet:FindFirstChild("RF") and TowersNet.RF:FindFirstChild("PlayTower")
+local CompleteTowerFloorRF = TowersNet and TowersNet:FindFirstChild("RF") and TowersNet.RF:FindFirstChild("CompleteTowerFloor")
+local CancelTowerRF        = TowersNet and TowersNet:FindFirstChild("RF") and TowersNet.RF:FindFirstChild("CancelTower")
+
+-- Grade Remotes
+local RollGradeRE          = GradeNetwork and GradeNetwork:FindFirstChild("RE") and GradeNetwork.RE:FindFirstChild("Roll")
+
+-- Sell Remotes
+local SellInventoryRF      = SellNetwork and SellNetwork:FindFirstChild("RF") and SellNetwork.RF:FindFirstChild("SellInventory")
+
+-- ── 2. FRAMEWORK & MODULE REFERENCES ──────────────────────────────────
 local Framework = ReplicatedStorage:WaitForChild("Framework", 10) or ReplicatedStorage:FindFirstChild("Framework")
-local Features = Framework and Framework:WaitForChild("Features", 10)
+local Features  = Framework and Framework:WaitForChild("Features", 10)
 
-local BoostController = nil
-pcall(function()
-    if Features and Features:FindFirstChild("Inventory") then
-        local kinds = Features.Inventory:FindFirstChild("Kinds")
-        if kinds and kinds:FindFirstChild("Boost") then
-            BoostController = require(kinds.Boost.BoostController)
+local DataController    = nil
+local UnitUtil          = nil
+local EntryRegistry     = nil
+local GradesModule      = nil
+local TreeStructure     = nil
+local RebirthsModule    = nil
+local UpgradesModule    = nil
+local DiceModule        = nil
+local GroupRewardConfig = nil
+local BoostController   = nil
+local BoostConfig       = nil
+local TowerController   = nil
+local UIReferences      = nil
+
+pcall(function() DataController    = require(Features.Data.DataController) end)
+pcall(function() UnitUtil          = require(Features.Inventory.Kinds.Unit.UnitUtil) end)
+pcall(function() EntryRegistry     = require(Features.Inventory.EntryRegistry) end)
+pcall(function() GradesModule      = require(Features.Grades.Grades) end)
+pcall(function() TreeStructure     = require(Features.Upgrades.TreeStructure) end)
+pcall(function() RebirthsModule    = require(Features.Rebirth.Rebirths) end)
+pcall(function() UpgradesModule    = require(Features.Upgrades.Upgrades) end)
+pcall(function() DiceModule        = require(Features.Rolling.Dice) end)
+pcall(function() GroupRewardConfig = require(Features.Rewards.GroupRewardConfig) end)
+pcall(function() BoostController   = require(Features.Inventory.Kinds.Boost.BoostController) end)
+pcall(function() BoostConfig       = require(Features.Inventory.Kinds.Boost.BoostConfig) end)
+pcall(function() TowerController   = require(Features.Towers.TowerController) end)
+pcall(function() UIReferences      = require(Features.UI.UIReferences) end)
+
+-- Upgrade Categories
+local UpgradeCategories = {
+    ["Luck & Fortune"]  = {"Luck", "Fortune"},
+    ["Roll Speed"]       = {"Roll Speed"},
+    ["Money"]           = {"Money"},
+    ["Unit Storage"]    = {"Unit Storage"},
+    ["Damage"]          = {"Damage"},
+    ["Health"]          = {"Health"},
+    ["Walkspeed"]       = {"Walkspeed"},
+    ["Sell"]            = {"Sell"},
+}
+
+local function getCategoryOfKey(key)
+    for catName, prefixes in pairs(UpgradeCategories) do
+        for _, p in ipairs(prefixes) do
+            if key:sub(1, #p) == p then
+                return catName
+            end
         end
     end
-end)
+    return "Other"
+end
 
--- Available Towers List
+local GradeOrder = {
+    ["D"] = 1, ["C"] = 2, ["B"] = 3, ["A"] = 4, ["A+"] = 5,
+    ["S"] = 6, ["S+"] = 7, ["Z"] = 8, ["Z+"] = 9, ["神"] = 10
+}
+
 local TowerList = {
-    "Hidden Leaf Tower",
+    "Dragon Tower",
+    "Cursed Tower",
     "Pirate Tower",
+    "Hidden Leaf Tower",
     "Infinity Tower",
     "Shadow Tower",
-    "Dragon Tower",
-    "Slayer Tower",
-    "Cursed Tower"
+    "Slayer Tower"
 }
 
--- Available Potions List
 local AllPotionsList = {
-    "Luck IV",
-    "Luck III",
-    "Luck II",
-    "Luck I",
-    "Income IV",
-    "Income III",
-    "Income II",
-    "Income I",
-    "Damage IV",
-    "Damage III",
-    "Damage II",
-    "Damage I",
-    "Shadow Speed IV",
-    "Shadow Speed III",
-    "Shadow Speed II",
-    "Shadow Speed I",
-    "Shadow Luck IV",
-    "Shadow Luck III",
-    "Shadow Luck II",
-    "Shadow Luck I",
-    "Shadow Income IV",
-    "Shadow Income III",
-    "Shadow Income II",
-    "Shadow Income I",
-    "Dragon Luck III",
-    "Dragon Damage III",
-    "Dragon Income III",
-    "Slayer Luck III",
-    "Slayer Damage III",
-    "Slayer Income III",
-    "Leaf Luck III",
-    "Leaf Damage III",
-    "Leaf Income III",
-    "Pirate Luck III",
-    "Pirate Damage III",
-    "Pirate Income III",
-    "Cursed Luck III",
-    "Cursed Damage III",
-    "Cursed Income III",
+    "Luck IV", "Luck III", "Luck II", "Luck I",
+    "Income IV", "Income III", "Income II", "Income I",
+    "Damage IV", "Damage III", "Damage II", "Damage I",
+    "Shadow Speed IV", "Shadow Speed III", "Shadow Speed II", "Shadow Speed I",
+    "Shadow Luck IV", "Shadow Luck III", "Shadow Luck II", "Shadow Luck I",
+    "Shadow Income IV", "Shadow Income III", "Shadow Income II", "Shadow Income I",
+    "Dragon Luck III", "Dragon Damage III", "Dragon Income III",
+    "Slayer Luck III", "Slayer Damage III", "Slayer Income III",
+    "Leaf Luck III", "Leaf Damage III", "Leaf Income III",
+    "Pirate Luck III", "Pirate Damage III", "Pirate Income III",
+    "Cursed Luck III", "Cursed Damage III", "Cursed Income III"
 }
 
--- Configuration & State
+-- ── 3. CONFIGURATION & STATE ──────────────────────────────────────────
 local Config = {
+    -- Anti-AFK
+    AntiAFK = true,
+
     -- Rolling
     AutoRoll = false,
     SkipCutscene = true,
     RollSpeedDelay = 0.05,
 
-    -- Plot & Slots Money Engine
-    AutoFarmPlot = true,        -- เปิดฟาร์มเกาะและดูดเงินสล็อต
-    AutoCollectChest = true,     -- ดูดเงินจากทุกสล็อตอัตโนมัติ (CollectBalance per Slot)
-    AutoEquipBestPlot = true,    -- สวมใส่อนิเมะตัวแรงสุดลงแท่นอัตโนมัติ
-    AutoUpgradeSlots = false,    -- อัปเกรดเลเวลสล็อต
+    -- Plot & Slots
+    AutoFarmPlot = true,
+    AutoCollectChest = true,
+    AutoEquipBestPlot = true,
+    AutoUpgradeSlots = false,
     TargetSlotLevel = 25,
+
+    -- Rebirth & Upgrades
+    AutoRebirth = false,
+    TargetRebirth = 12,
+    AutoUpgrades = false,
+    OnlySelectedUpgrades = false,
+    SelectedUpgradeCategories = {
+        ["Luck & Fortune"] = true,
+        ["Roll Speed"] = true,
+        ["Money"] = true,
+    },
+    AutoBuyDice = false,
+
+    -- Auto Sell Units
+    AutoSellUnits = false,
+    SelectedSellRarities = {
+        ["Common"] = true,
+        ["Uncommon"] = true,
+        ["Rare"] = true,
+        ["Epic"] = false,
+    },
+    ProtectPlottedUnits = true,
+    ProtectTowerTeam = true,
+    ProtectLockedUnits = true,
+    ProtectGradeSPlus = true,
+
+    -- Grade Reroll
+    AutoRerollGrade = false,
+    TargetGrade = "S",
+    TargetGradeUnitKey = "",
 
     -- Potions & Boosts
     AutoUsePotions = false,
     PotionInterval = 10,
+    ItemUseCondition = "When Expired", -- "When Expired" or "Always"
     SelectedCustomPotion = "Luck IV",
     ActivePotions = {
         ["Luck IV"] = true,
@@ -2040,7 +2115,6 @@ local Config = {
         ["Shadow Income IV"] = false,
         ["Dragon Luck III"] = false,
         ["Slayer Luck III"] = false,
-        ["Cursed Luck III"] = false,
     },
 
     -- Towers
@@ -2048,6 +2122,7 @@ local Config = {
     SelectedTower = TowerList[1],
     TargetTowerFloor = 50,
     AutoTowerFloorDelay = 0.35,
+    HideTowerScreen = true,
 
     -- Free Gifts
     AutoClaimRewards = true
@@ -2057,6 +2132,8 @@ local State = {
     TotalRollsSession = 0,
     TotalChestCollected = 0,
     TotalPotionsUsedSession = 0,
+    TotalRebirthsSession = 0,
+    TotalSoldUnitsSession = 0,
     FloorsClearedSession = 0,
     CurrentTowerStatus = "Standby",
     SlotLevels = {}
@@ -2064,7 +2141,7 @@ local State = {
 
 for i = 1, 24 do State.SlotLevels[i] = 1 end
 
--- Cleanup existing instance
+-- Cleanup previous instance
 local myToken = tick()
 _G.AnimeDiceActiveToken = myToken
 
@@ -2089,31 +2166,53 @@ _G.AnimeDice_Cleanup = function()
     end)
 end
 
--- ═════════════════════════════════════════════════════════════════════
--- 0. SHIELD: AUTO-CLOSE UNWANTED GROUP REWARDS MODAL POPUPS
--- ═════════════════════════════════════════════════════════════════════
+-- ── 4. TRIPLE-LAYER ANTI-AFK & ANTI-KICK DEFENSE ENGINE ──────────────
+pcall(function()
+    -- Layer 1: Destroy Game's custom 19-minute AFK script
+    local afkScript = LP.PlayerScripts:FindFirstChild("AFK")
+    if afkScript then
+        afkScript.Disabled = true
+        afkScript:Destroy()
+    end
+    LP.PlayerScripts.ChildAdded:Connect(function(child)
+        if child.Name == "AFK" and child:IsA("LocalScript") then
+            child.Disabled = true
+            child:Destroy()
+        end
+    end)
+end)
+
+pcall(function()
+    -- Layer 2: Disable Idled kick connections & simulate user click on Idle
+    if getconnections then
+        for _, c in ipairs(getconnections(LP.Idled)) do
+            pcall(function() c:Disable() end)
+        end
+    end
+    LP.Idled:Connect(function()
+        if Config.AntiAFK and VirtualUser then
+            pcall(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.zero)
+            end)
+        end
+    end)
+end)
+
+-- Layer 3: Heartbeat Anti-AFK Virtual User Pulse every 35 seconds
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
-        pcall(function()
-            local pg = LocalPlayer:FindFirstChild("PlayerGui")
-            if pg then
-                for _, gui in ipairs(pg:GetChildren()) do
-                    if gui:IsA("ScreenGui") and gui.Enabled then
-                        local n = string.lower(gui.Name)
-                        if string.find(n, "group") or string.find(n, "groupreward") then
-                            gui.Enabled = false
-                        end
-                    end
-                end
-            end
-        end)
-        task.wait(0.5)
+        task.wait(35)
+        if Config.AntiAFK and VirtualUser then
+            pcall(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.zero)
+            end)
+        end
     end
 end)
 
--- ═════════════════════════════════════════════════════════════════════
--- 1. CUTSCENE BYPASS & INSTANT ROLL HOOK
--- ═════════════════════════════════════════════════════════════════════
+-- ── 5. CUTSCENE BYPASS & INSTANT ROLL HOOK ───────────────────────────
 local function SetupCutsceneBypass()
     pcall(function()
         if Features and Features:FindFirstChild("Rolling") then
@@ -2138,81 +2237,40 @@ local function SetupCutsceneBypass()
 end
 SetupCutsceneBypass()
 
--- Listen to Slot Level Up Success to update internal level trackers
-pcall(function()
-    if PlotNet and PlotNet:FindFirstChild("RE") and PlotNet.RE:FindFirstChild("LevelUpSuccess") then
-        PlotNet.RE.LevelUpSuccess.OnClientEvent:Connect(function(slotId, newLevel)
-            local idNum = tonumber(slotId)
-            local lvlNum = tonumber(newLevel)
-            if idNum and lvlNum then
-                State.SlotLevels[idNum] = lvlNum
-            end
-        end)
-    end
-end)
-
-local function GetSlotCurrentLevel(slotId)
-    local cached = State.SlotLevels[slotId]
-    pcall(function()
-        if Features and Features:FindFirstChild("Plot") then
-            local plotCtrl = require(Features.Plot.PlotController)
-            local p = plotCtrl and plotCtrl.plot
-            if p and p:FindFirstChild("Slots") then
-                local slotInstance = p.Slots:FindFirstChild(tostring(slotId))
-                if slotInstance then
-                    if slotInstance:GetAttribute("Level") then
-                        cached = tonumber(slotInstance:GetAttribute("Level"))
-                    elseif slotInstance:FindFirstChild("Level") then
-                        cached = tonumber(slotInstance.Level.Value)
+-- Auto-close unwanted Group Rewards popup modal
+task.spawn(function()
+    while Running and _G.AnimeDiceActiveToken == myToken do
+        pcall(function()
+            local pg = LP:FindFirstChild("PlayerGui")
+            if pg then
+                for _, gui in ipairs(pg:GetChildren()) do
+                    if gui:IsA("ScreenGui") and gui.Enabled then
+                        local n = string.lower(gui.Name)
+                        if string.find(n, "group") or string.find(n, "groupreward") then
+                            gui.Enabled = false
+                        end
                     end
                 end
             end
-        end
-    end)
-    return cached or 1
-end
+        end)
+        task.wait(0.5)
+    end
+end)
 
-local function TeleportToPlot()
-    if Features and Features:FindFirstChild("Plot") then
-        local plotCtrl = require(Features.Plot.PlotController)
-        local p = plotCtrl and plotCtrl.plot
-        if p and p:FindFirstChild("Spawn") then
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                char.HumanoidRootPart.CFrame = p.Spawn.CFrame + Vector3.new(0, 3, 0)
+-- ── 6. MONEY & PLOT AUTOMATION ───────────────────────────────────────
+local function CollectAllMoney()
+    pcall(function()
+        for slotId = 1, 24 do
+            if PlotService and PlotService.RE:FindFirstChild("CollectBalance") then
+                PlotService.RE.CollectBalance:FireServer(slotId)
             end
         end
-    end
-end
+    end)
 
--- ═════════════════════════════════════════════════════════════════════
--- 2. PRECISION MONEY COLLECTOR (Direct Slot Balance Remotes & Hitbox)
--- ═════════════════════════════════════════════════════════════════════
-local function CollectAllMoney()
-    -- 1. Firing CollectBalance per slot ID (1..24) — Proven mechanic
-    if PlotNet and PlotNet:FindFirstChild("RE") and PlotNet.RE:FindFirstChild("CollectBalance") then
-        for slotId = 1, 24 do
-            pcall(function()
-                PlotNet.RE.CollectBalance:FireServer(slotId)
-            end)
-        end
-    end
-
-    -- 2. Firing InteractSlot per slot ID (1..24)
-    if PlotNet and PlotNet:FindFirstChild("RE") and PlotNet.RE:FindFirstChild("InteractSlot") then
-        for slotId = 1, 24 do
-            pcall(function()
-                PlotNet.RE.InteractSlot:FireServer(slotId)
-            end)
-        end
-    end
-
-    -- 3. Touch slot balance hitboxes on client as secondary trigger
     pcall(function()
         local plotCtrl = Features and Features:FindFirstChild("Plot") and require(Features.Plot.PlotController)
         local p = plotCtrl and plotCtrl.plot
-        local lp = LocalPlayer
-        local char = lp and lp.Character
+        local char = LP.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
         if p and p:FindFirstChild("Slots") and hrp and firetouchinterest then
@@ -2230,18 +2288,219 @@ local function CollectAllMoney()
     State.TotalChestCollected = State.TotalChestCollected + 1
 end
 
--- ═════════════════════════════════════════════════════════════════════
--- 3. POTION CONSUMER ENGINE
--- ═════════════════════════════════════════════════════════════════════
+local function levelUpAllSlots()
+    pcall(function()
+        local curMoney = (DataController and DataController.Money and DataController.Money())
+            or (LP:FindFirstChild("leaderstats") and LP.leaderstats:FindFirstChild("Money") and LP.leaderstats.Money.Value)
+            or 0
+        if curMoney <= 0 then return end
+
+        local targetLvl = tonumber(Config.TargetSlotLevel) or 25
+        for slot = 1, 24 do
+            local canUpgrade = true
+            if DataController and DataController.Slots and UnitUtil then
+                local sData = DataController.Slots[tostring(slot)] and DataController.Slots[tostring(slot)]()
+                if sData and sData.unitId and DataController.Inventory then
+                    local unitData = DataController.Inventory[sData.unitId] and DataController.Inventory[sData.unitId]()
+                    if unitData then
+                        local currentLvl = (unitData.attributes and unitData.attributes.level) or 1
+                        if currentLvl >= targetLvl then
+                            canUpgrade = false
+                        else
+                            local price = UnitUtil.GetLevelPrice(unitData.name, unitData.attributes)
+                            if not price or curMoney < price then
+                                canUpgrade = false
+                            end
+                        end
+                    end
+                end
+            end
+
+            if canUpgrade and PlotService and PlotService.RE:FindFirstChild("LevelUpSlot") then
+                PlotService.RE.LevelUpSlot:FireServer(slot)
+                task.wait(0.03)
+            end
+        end
+    end)
+end
+
+local function TeleportToPlot()
+    pcall(function()
+        local plotCtrl = Features and Features:FindFirstChild("Plot") and require(Features.Plot.PlotController)
+        local p = plotCtrl and plotCtrl.plot
+        if p and p:FindFirstChild("Spawn") then
+            local char = LP.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = p.Spawn.CFrame + Vector3.new(0, 3, 0)
+            end
+        end
+    end)
+end
+
+-- Plot Farming Loop
+task.spawn(function()
+    while Running and _G.AnimeDiceActiveToken == myToken do
+        if Config.AutoFarmPlot then
+            if Config.AutoCollectChest then
+                CollectAllMoney()
+            end
+            if Config.AutoEquipBestPlot and PlotService and PlotService.RE:FindFirstChild("EquipBest") then
+                pcall(function() PlotService.RE.EquipBest:FireServer() end)
+            end
+            if Config.AutoUpgradeSlots then
+                levelUpAllSlots()
+            end
+            task.wait(1.5)
+        else
+            task.wait(0.5)
+        end
+    end
+end)
+
+-- ── 7. REBIRTH & UPGRADES ENGINE (FROM 2K SCRIPT) ─────────────────────
+local function checkAndRebirth()
+    pcall(function()
+        if not RebirthService or not RebirthService:FindFirstChild("RE") or not RebirthService.RE:FindFirstChild("Rebirth") then return end
+        local curRebirth = (DataController and DataController.Rebirth and DataController.Rebirth())
+            or (LP:FindFirstChild("leaderstats") and LP.leaderstats:FindFirstChild("Rebirth") and LP.leaderstats.Rebirth.Value)
+            or 0
+        local targetRebirth = tonumber(Config.TargetRebirth) or 12
+        if curRebirth >= targetRebirth then return end
+
+        local curMoney = (DataController and DataController.Money and DataController.Money())
+            or (LP:FindFirstChild("leaderstats") and LP.leaderstats:FindFirstChild("Money") and LP.leaderstats.Money.Value)
+            or 0
+
+        local canRebirth = false
+        if RebirthsModule and RebirthsModule.GetNext then
+            local nextData = RebirthsModule.GetNext(curRebirth)
+            if nextData and nextData.cost and curMoney >= nextData.cost then
+                canRebirth = true
+            end
+        else
+            canRebirth = true
+        end
+
+        if canRebirth then
+            RebirthService.RE.Rebirth:FireServer()
+            State.TotalRebirthsSession = State.TotalRebirthsSession + 1
+        end
+    end)
+end
+
+local function buyPrioritizedUpgrades()
+    pcall(function()
+        if not UpgradeServiceRE or not UpgradesModule or not TreeStructure or not DataController then return end
+        local curMoney = DataController.Money and DataController.Money() or 0
+        if curMoney <= 0 then return end
+
+        local unownedAvailable = {}
+        for key, data in pairs(UpgradesModule) do
+            local isOwned = DataController.Upgrades and DataController.Upgrades[key] and DataController.Upgrades[key]()
+            if not isOwned then
+                local parent = TreeStructure.GetParent(key)
+                local parentUnlocked = (not parent or parent == "Start") or (DataController.Upgrades and DataController.Upgrades[parent] and DataController.Upgrades[parent]())
+                if parentUnlocked and data.price and curMoney >= data.price then
+                    table.insert(unownedAvailable, {
+                        key = key,
+                        price = data.price,
+                        category = getCategoryOfKey(key)
+                    })
+                end
+            end
+        end
+
+        if #unownedAvailable == 0 then return end
+
+        local focusedList = {}
+        local otherList = {}
+
+        for _, item in ipairs(unownedAvailable) do
+            if Config.SelectedUpgradeCategories[item.category] then
+                table.insert(focusedList, item)
+            else
+                table.insert(otherList, item)
+            end
+        end
+
+        table.sort(focusedList, function(a, b) return a.price < b.price end)
+        table.sort(otherList, function(a, b) return a.price < b.price end)
+
+        for _, item in ipairs(focusedList) do
+            if curMoney >= item.price then
+                curMoney = curMoney - item.price
+                UpgradeServiceRE:FireServer(item.key)
+                task.wait(0.12)
+            end
+        end
+
+        if not Config.OnlySelectedUpgrades then
+            for _, item in ipairs(otherList) do
+                if curMoney >= item.price then
+                    curMoney = curMoney - item.price
+                    UpgradeServiceRE:FireServer(item.key)
+                    task.wait(0.12)
+                end
+            end
+        end
+    end)
+end
+
+local function buyAffordableDice()
+    pcall(function()
+        if not DiceShopService or not DiceShopService:FindFirstChild("RE") or not DiceShopService.RE:FindFirstChild("BuyDice") then return end
+        if not DiceModule or not DataController then return end
+        local allDice = DiceModule.GetAll and DiceModule.GetAll()
+        if not allDice then return end
+
+        local curMoney = DataController.Money and DataController.Money() or 0
+        for name, data in pairs(allDice) do
+            local isOwned = DataController.OwnedDice and DataController.OwnedDice[name] and DataController.OwnedDice[name]()
+            if not isOwned and data.price and data.price <= curMoney then
+                DiceShopService.RE.BuyDice:FireServer(name)
+                task.wait(0.4)
+            end
+        end
+    end)
+end
+
+-- Rebirth & Upgrade Loop
+task.spawn(function()
+    while Running and _G.AnimeDiceActiveToken == myToken do
+        if Config.AutoRebirth then
+            checkAndRebirth()
+        end
+        if Config.AutoUpgrades then
+            buyPrioritizedUpgrades()
+        end
+        if Config.AutoBuyDice then
+            buyAffordableDice()
+        end
+        task.wait(2.5)
+    end
+end)
+
+-- ── 8. SMART POTIONS ENGINE (BUFFBAR DETECTION) ───────────────────────
+local function isBoostActive(boostName)
+    local active = false
+    pcall(function()
+        local buffBar = LP.PlayerGui:FindFirstChild("BuffBar", true)
+        if buffBar and buffBar:FindFirstChild("Boost_" .. boostName) then
+            active = true
+        end
+    end)
+    return active
+end
+
 local function UsePotion(potionName)
     if not potionName then return false end
     local success = false
     pcall(function()
-        if BoostNet and BoostNet:FindFirstChild("RE") and BoostNet.RE:FindFirstChild("Use") then
-            BoostNet.RE.Use:FireServer(potionName)
-            success = true
-        elseif BoostController and BoostController.UseBoost then
+        if BoostController and BoostController.UseBoost then
             BoostController.UseBoost(potionName)
+            success = true
+        elseif BoostUseRE then
+            BoostUseRE:FireServer(potionName)
             success = true
         end
     end)
@@ -2256,8 +2515,15 @@ task.spawn(function()
         if Config.AutoUsePotions then
             for potionName, enabled in pairs(Config.ActivePotions) do
                 if enabled and Running and _G.AnimeDiceActiveToken == myToken then
-                    UsePotion(potionName)
-                    task.wait(0.08)
+                    local shouldConsume = true
+                    if Config.ItemUseCondition == "When Expired" and isBoostActive(potionName) then
+                        shouldConsume = false
+                    end
+
+                    if shouldConsume then
+                        UsePotion(potionName)
+                        task.wait(0.12)
+                    end
                 end
             end
             task.wait(Config.PotionInterval)
@@ -2267,14 +2533,120 @@ task.spawn(function()
     end
 end)
 
--- ═════════════════════════════════════════════════════════════════════
--- 4. AUTO ROLL ENGINE
--- ═════════════════════════════════════════════════════════════════════
+-- ── 9. AUTO SELL UNITS ENGINE ─────────────────────────────────────────
+local function sellSelectedUnits()
+    local soldCount = 0
+    pcall(function()
+        if not SellInventoryRF or not DataController or not DataController.Inventory then return end
+        local inv = DataController.Inventory()
+        if type(inv) ~= "table" then return end
+
+        local plotted = {}
+        if DataController.Slots then
+            for slot = 1, 24 do
+                local sData = DataController.Slots[tostring(slot)] and DataController.Slots[tostring(slot)]()
+                if sData and sData.unitId then
+                    plotted[sData.unitId] = true
+                end
+            end
+        end
+
+        local towerTeam = {}
+        if DataController.TowerTeam then
+            local tt = DataController.TowerTeam()
+            if type(tt) == "table" then
+                for _, uid in pairs(tt) do
+                    if type(uid) == "string" then towerTeam[uid] = true end
+                end
+            end
+        end
+
+        local toSell = {}
+        for id, unit in pairs(inv) do
+            if type(unit) == "table" and unit.name and unit.attributes then
+                local isPlotted = plotted[id] == true
+                local isTower   = towerTeam[id] == true
+                local isLocked  = unit.attributes and unit.attributes.locked == true
+
+                local canSell = true
+                if Config.ProtectPlottedUnits and (isPlotted or isTower) then canSell = false end
+                if Config.ProtectLockedUnits and isLocked then canSell = false end
+                if Config.ProtectGradeSPlus and unit.attributes and unit.attributes.grade then
+                    local gOrder = GradeOrder[unit.attributes.grade] or 0
+                    if gOrder >= 6 then canSell = false end
+                end
+
+                if canSell and EntryRegistry and EntryRegistry.getEntryConfig then
+                    local cfg = EntryRegistry.getEntryConfig(unit.name)
+                    local rarity = (cfg and cfg.rarity) or "Common"
+                    if Config.SelectedSellRarities[rarity] then
+                        table.insert(toSell, id)
+                        if #toSell >= 50 then break end
+                    end
+                end
+            end
+        end
+
+        if #toSell > 0 then
+            local res1, res2 = SellInventoryRF:InvokeServer(toSell)
+            soldCount = res2 or #toSell
+            State.TotalSoldUnitsSession = State.TotalSoldUnitsSession + soldCount
+        end
+    end)
+    return soldCount
+end
+
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
-        if Config.AutoRoll and RollNet and RollNet:FindFirstChild("RF") and RollNet.RF:FindFirstChild("RollDice") then
-            local success, err = pcall(function()
-                RollNet.RF.RollDice:InvokeServer()
+        if Config.AutoSellUnits then
+            sellSelectedUnits()
+            task.wait(4)
+        else
+            task.wait(1)
+        end
+    end
+end)
+
+-- ── 10. AUTO ROLL GRADE ENGINE ────────────────────────────────────────
+local function rollGradeForSelectedUnit()
+    local success = false
+    pcall(function()
+        if not RollGradeRE or not Config.TargetGradeUnitKey or Config.TargetGradeUnitKey == "" or not DataController then return end
+        local inv = DataController.Inventory and DataController.Inventory()
+        if not inv then return end
+
+        local unit = inv[Config.TargetGradeUnitKey]
+        if not unit or not unit.attributes then return end
+
+        local curGrade = unit.attributes.grade or "D"
+        local curOrder = GradeOrder[curGrade] or 1
+        local targetOrder = GradeOrder[Config.TargetGrade] or 6
+
+        if curOrder >= targetOrder then return end
+
+        RollGradeRE:FireServer(Config.TargetGradeUnitKey, true)
+        success = true
+    end)
+    return success
+end
+
+task.spawn(function()
+    while Running and _G.AnimeDiceActiveToken == myToken do
+        if Config.AutoRerollGrade then
+            rollGradeForSelectedUnit()
+            task.wait(0.35)
+        else
+            task.wait(1)
+        end
+    end
+end)
+
+-- ── 11. AUTO ROLL ENGINE ──────────────────────────────────────────────
+task.spawn(function()
+    while Running and _G.AnimeDiceActiveToken == myToken do
+        if Config.AutoRoll and RollService and RollService:FindFirstChild("RF") and RollService.RF:FindFirstChild("RollDice") then
+            local success = pcall(function()
+                RollService.RF.RollDice:InvokeServer()
             end)
             if success then
                 State.TotalRollsSession = State.TotalRollsSession + 1
@@ -2286,79 +2658,53 @@ task.spawn(function()
     end
 end)
 
--- ═════════════════════════════════════════════════════════════════════
--- 5. AUTO FARM PLOT ENGINE (Slot Balance Suction & Equip Best)
--- ═════════════════════════════════════════════════════════════════════
+-- ── 12. AUTO TOWERS ENGINE ────────────────────────────────────────────
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
-        if Config.AutoFarmPlot then
-            -- Collect Balance from All 24 Slots
-            if Config.AutoCollectChest then
-                CollectAllMoney()
-            end
-
-            -- Keep Strongest Units Equipped to maximize income
-            if Config.AutoEquipBestPlot and PlotNet and PlotNet:FindFirstChild("RE") and PlotNet.RE:FindFirstChild("EquipBest") then
-                pcall(function()
-                    PlotNet.RE.EquipBest:FireServer()
-                end)
-            end
-
-            -- Auto Level Up Island Slots up to TargetSlotLevel
-            if Config.AutoUpgradeSlots and PlotNet and PlotNet:FindFirstChild("RE") and PlotNet.RE:FindFirstChild("LevelUpSlot") then
-                for slotId = 1, 24 do
-                    local curLvl = GetSlotCurrentLevel(slotId)
-                    if curLvl < Config.TargetSlotLevel then
-                        pcall(function()
-                            PlotNet.RE.LevelUpSlot:FireServer(slotId)
-                        end)
-                        task.wait(0.04)
-                    end
-                end
-            end
-
-            task.wait(1.5)
-        else
-            task.wait(0.5)
-        end
-    end
-end)
-
--- ═════════════════════════════════════════════════════════════════════
--- 6. AUTO TOWERS ENGINE
--- ═════════════════════════════════════════════════════════════════════
-task.spawn(function()
-    while Running and _G.AnimeDiceActiveToken == myToken do
-        if Config.AutoTowers and TowersNet and TowersNet:FindFirstChild("RF") and TowersNet:FindFirstChild("RE") then
+        if Config.AutoTowers and TowersNet then
             pcall(function()
                 State.CurrentTowerStatus = "Equipping Best Team..."
-                if TowersNet.RE:FindFirstChild("EquipBestTowerTeam") then
-                    TowersNet.RE.EquipBestTowerTeam:FireServer()
+                if EquipBestTowerTeamRE then
+                    EquipBestTowerTeamRE:FireServer()
                 end
                 task.wait(0.2)
 
                 State.CurrentTowerStatus = "Entering " .. tostring(Config.SelectedTower) .. "..."
-                if TowersNet.RF:FindFirstChild("PlayTower") then
-                    TowersNet.RF.PlayTower:InvokeServer(Config.SelectedTower)
+                if PlayTowerRF then
+                    PlayTowerRF:InvokeServer(Config.SelectedTower)
                 end
                 task.wait(0.3)
+
+                -- Click in-game Auto button & Hide screen if configured
+                pcall(function()
+                    local screen = UIReferences and UIReferences.Root and UIReferences.Root.Tower and UIReferences.Root.Tower.Screen
+                    local hidden = screen and screen.Parent and screen.Parent:FindFirstChild("Hidden")
+                    if Config.HideTowerScreen and screen and screen.Visible and hidden and firesignal then
+                        firesignal(hidden.Activated)
+                    end
+                    if screen and screen:FindFirstChild("Buttons") and screen.Buttons:FindFirstChild("Auto") and firesignal then
+                        firesignal(screen.Buttons.Auto.Activated)
+                    end
+                end)
 
                 local maxFloor = math.max(1, Config.TargetTowerFloor)
                 for floor = 1, maxFloor do
                     if not Config.AutoTowers or not Running or _G.AnimeDiceActiveToken ~= myToken then
-                        State.CurrentTowerStatus = "Cancelled / Paused"
+                        State.CurrentTowerStatus = "Paused"
                         break
                     end
 
                     State.CurrentTowerStatus = string.format("Clearing Floor %d / %d...", floor, maxFloor)
                     local success, res = pcall(function()
-                        return TowersNet.RF.CompleteTowerFloor:InvokeServer(floor)
+                        if CompleteTowerFloorRF then
+                            return CompleteTowerFloorRF:InvokeServer(floor)
+                        end
                     end)
 
                     if success then
                         State.FloorsClearedSession = State.FloorsClearedSession + 1
                     else
-                        State.CurrentTowerStatus = "Floor Cleared / Max Floor"
+                        State.CurrentTowerStatus = "Floor Done / Max Floor"
                         break
                     end
                     task.wait(Config.AutoTowerFloorDelay)
@@ -2374,16 +2720,26 @@ task.spawn(function()
     end
 end)
 
--- ═════════════════════════════════════════════════════════════════════
--- 7. AUTO CLAIM REWARDS (Safe: Daily & Offline only, No Group Spam)
--- ═════════════════════════════════════════════════════════════════════
+-- ── 13. AUTO CLAIM REWARDS (SAFE ISINGROUP CHECK) ─────────────────────
 local function ClaimAllRewards()
     pcall(function()
-        if DailyNet and DailyNet:FindFirstChild("RE") and DailyNet.RE:FindFirstChild("Claim") then
-            DailyNet.RE.Claim:FireServer()
+        if DailyRewardService and DailyRewardService:FindFirstChild("RE") and DailyRewardService.RE:FindFirstChild("Claim") then
+            DailyRewardService.RE.Claim:FireServer()
         end
-        if OfflineNet and OfflineNet:FindFirstChild("RE") and OfflineNet.RE:FindFirstChild("Claim") then
-            OfflineNet.RE.Claim:FireServer()
+        if OfflineEarningsService and OfflineEarningsService:FindFirstChild("RE") and OfflineEarningsService.RE:FindFirstChild("Claim") then
+            OfflineEarningsService.RE.Claim:FireServer()
+        end
+        if SpinService and SpinService:FindFirstChild("RE") and SpinService.RE:FindFirstChild("Use") then
+            SpinService.RE.Use:FireServer()
+        end
+
+        -- Safe Group check (Only fire if in group and haven't claimed)
+        if GroupRewardConfig and GroupRewardConfig.GroupId and GroupRewardService then
+            local inGroup = false
+            pcall(function() inGroup = LP:IsInGroup(GroupRewardConfig.GroupId) end)
+            if inGroup and DataController and DataController.ClaimedGroupReward and not DataController.ClaimedGroupReward() then
+                GroupRewardService.RE.Claim:FireServer()
+            end
         end
     end)
 end
@@ -2400,13 +2756,13 @@ task.spawn(function()
 end)
 
 -- ═════════════════════════════════════════════════════════════════════
--- 8. BUILD UI INTERFACE (AURORA EDITION v3.0)
+-- 14. BUILD UI INTERFACE (AURORA EDITION v3.0)
 -- ═════════════════════════════════════════════════════════════════════
 local Window = UI:CreateWindow({
     Title = "PROJECT BARUN",
-    Subtitle = "ANIME DICE • AURORA v3.0",
+    Subtitle = "ANIME DICE • PRO HUB v3.0",
     DefaultTab = "Dashboard",
-    Size = UDim2.fromOffset(660, 480),
+    Size = UDim2.fromOffset(680, 500),
     Accent = Color3.fromRGB(56, 189, 248),
 })
 
@@ -2414,7 +2770,7 @@ local Window = UI:CreateWindow({
 local TabDash = Window:CreateTab({
     Name = "Dashboard",
     Icon = "📊",
-    Subtitle = "Real-time Dice & Farming Stats",
+    Subtitle = "Real-Time Telemetry & Overview",
 })
 
 TabDash:AddSection("LIVE TELEMETRY")
@@ -2433,24 +2789,24 @@ local StatCash = TabDash:AddStatCard({
     Progress = 0.5,
 })
 
-local StatPotions = TabDash:AddStatCard({
-    Title = "Potions Consumed",
+local StatRebirth = TabDash:AddStatCard({
+    Title = "Rebirths",
     Value = "0",
-    Subtext = "Auto consumed this session",
+    Subtext = "Rebirth session count",
     Progress = 0,
 })
 
-local StatFloors = TabDash:AddStatCard({
-    Title = "Tower Floors",
+local StatPotions = TabDash:AddStatCard({
+    Title = "Potions Used",
     Value = "0",
-    Subtext = "Cleared floors this session",
+    Subtext = "Auto consumed this session",
     Progress = 0,
 })
 
 local StatTowerStatus = TabDash:AddStatCard({
     Title = "Tower Status",
     Value = "Standby",
-    Subtext = "Selected: Hidden Leaf Tower",
+    Subtext = "Selected: Dragon Tower",
 })
 
 TabDash:AddSection("QUICK TOGGLES")
@@ -2461,11 +2817,7 @@ TabDash:AddToggle({
     Default = Config.AutoRoll,
     Callback = function(v)
         Config.AutoRoll = v
-        Window:Notify({
-            Title = "Auto Roll",
-            Content = v and "Started auto rolling!" or "Paused auto rolling.",
-            Type = v and "success" or "warning"
-        })
+        Window:Notify({ Title = "Auto Roll", Content = v and "Started auto rolling!" or "Paused.", Type = v and "success" or "warning" })
     end,
 })
 
@@ -2475,25 +2827,27 @@ TabDash:AddToggle({
     Default = Config.AutoFarmPlot,
     Callback = function(v)
         Config.AutoFarmPlot = v
-        Window:Notify({
-            Title = "Auto Farm Plot",
-            Content = v and "Started plot money suction!" or "Paused plot farming.",
-            Type = v and "success" or "warning"
-        })
+        Window:Notify({ Title = "Auto Farm Plot", Content = v and "Plot farming active!" or "Paused.", Type = v and "success" or "warning" })
     end,
 })
 
 TabDash:AddToggle({
     Name = "Auto Potions (ใช้น้ำยาอัตโนมัติ)",
-    Desc = "เปิดใช้งานน้ำยาที่เลือกไว้ในแท่น้ำยาอัตโนมัติ",
+    Desc = "เปิดใช้งานน้ำยาตามที่ตั้งค่าไว้",
     Default = Config.AutoUsePotions,
     Callback = function(v)
         Config.AutoUsePotions = v
-        Window:Notify({
-            Title = "Auto Potions",
-            Content = v and "Potion automation active!" or "Potion automation paused.",
-            Type = v and "success" or "warning"
-        })
+        Window:Notify({ Title = "Auto Potions", Content = v and "Potions active!" or "Paused.", Type = v and "success" or "warning" })
+    end,
+})
+
+TabDash:AddToggle({
+    Name = "Auto Rebirth (จุติอัตโนมัติ)",
+    Desc = "เปิดจุติอัตโนมัติเมื่อเงินครบ",
+    Default = Config.AutoRebirth,
+    Callback = function(v)
+        Config.AutoRebirth = v
+        Window:Notify({ Title = "Auto Rebirth", Content = v and "Rebirth active!" or "Paused.", Type = v and "success" or "warning" })
     end,
 })
 
@@ -2504,96 +2858,87 @@ TabDash:AddToggle({
     Callback = function(v)
         Config.SkipCutscene = v
         SetupCutsceneBypass()
-        Window:Notify({
-            Title = "Cutscene Bypass",
-            Content = v and "Cutscenes bypassed 100%!" or "Cutscenes restored.",
-            Type = "info"
-        })
+        Window:Notify({ Title = "Cutscene Bypass", Content = v and "Cutscenes bypassed 100%!" or "Restored.", Type = "info" })
     end,
 })
 
--- TAB 2: TOWERS
-local TabTowers = Window:CreateTab({
-    Name = "Towers",
-    Icon = "🏰",
-    Subtitle = "Tower Dungeon Auto Clearer",
+-- TAB 2: UPGRADES & REBIRTH (NEW 2K LOGIC)
+local TabRebirth = Window:CreateTab({
+    Name = "Upgrades & Rebirth",
+    Icon = "⚡",
+    Subtitle = "Auto Rebirth & Skill Tree Purchasing",
 })
 
-TabTowers:AddSection("TOWER DUNGEON AUTOMATION")
+TabRebirth:AddSection("AUTO REBIRTH ENGINE")
 
-TabTowers:AddToggle({
-    Name = "Auto Towers",
-    Desc = "ลงหอคอยอัตโนมัติ จัดทีมที่ดีที่สุด และเคลียร์ชั้นต่อเนื่อง",
-    Default = Config.AutoTowers,
+TabRebirth:AddToggle({
+    Name = "Auto Rebirth (จุติอัตโนมัติ)",
+    Desc = "ตรวจสอบเงินและจุติอัตโนมัติทันทีที่ถึงราคา",
+    Default = Config.AutoRebirth,
     Callback = function(v)
-        Config.AutoTowers = v
-        Window:Notify({
-            Title = "Auto Towers",
-            Content = v and "Started Tower automation!" or "Paused Tower automation.",
-            Type = v and "success" or "warning"
-        })
+        Config.AutoRebirth = v
     end,
 })
 
-TabTowers:AddDropdown({
-    Name = "Select Tower (เลือกระดับหอคอย)",
-    Options = TowerList,
-    Default = Config.SelectedTower,
-    Callback = function(selected)
-        Config.SelectedTower = selected
-        Window:Notify({ Title = "Tower Selected", Content = "Target Tower: " .. tostring(selected), Type = "info" })
-    end,
-})
-
-TabTowers:AddSlider({
-    Name = "Target Floor (เคลียร์ถึงชั้นเป้าหมาย)",
+TabRebirth:AddSlider({
+    Name = "Target Rebirth (จุติถึงขั้นเป้าหมาย)",
     Min = 1,
-    Max = 100,
-    Default = Config.TargetTowerFloor,
+    Max = 12,
+    Default = Config.TargetRebirth,
     Increment = 1,
-    Format = "%d",
+    Format = "Rebirth %d",
     Callback = function(v)
-        Config.TargetTowerFloor = v
+        Config.TargetRebirth = v
     end,
 })
 
-TabTowers:AddSlider({
-    Name = "Floor Clear Speed (ดีเลย์เคลียร์ชั้น)",
-    Min = 0.1,
-    Max = 1.0,
-    Default = Config.AutoTowerFloorDelay,
-    Increment = 0.05,
-    Format = "%.2fs",
+TabRebirth:AddSection("SKILL TREE UPGRADE ENGINE")
+
+TabRebirth:AddToggle({
+    Name = "Auto Buy Upgrades (ซื้ออัปเกรดอัตโนมัติ)",
+    Desc = "ซื้อความสามารถใน Skill Tree อัตโนมัติ เรียงตามราคาที่ถูกที่สุดก่อน",
+    Default = Config.AutoUpgrades,
     Callback = function(v)
-        Config.AutoTowerFloorDelay = v
+        Config.AutoUpgrades = v
+        Window:Notify({ Title = "Auto Upgrades", Content = v and "Upgrades purchasing started!" or "Paused.", Type = v and "success" or "warning" })
     end,
 })
 
-TabTowers:AddSection("MANUAL CONTROLS")
-
-TabTowers:AddButton({
-    Name = "Equip Best Tower Team",
-    Icon = "👑",
-    Callback = function()
-        pcall(function()
-            if TowersNet and TowersNet.RE:FindFirstChild("EquipBestTowerTeam") then
-                TowersNet.RE.EquipBestTowerTeam:FireServer()
-            end
-        end)
-        Window:Notify({ Title = "Tower Team", Content = "Equipped best tower units!", Type = "success" })
+TabRebirth:AddToggle({
+    Name = "Focus: Luck & Fortune (เน้นอัปโชคและดวง)",
+    Desc = "ซื้อสายโชคและดวงก่อนเป็นอันดับแรก",
+    Default = Config.SelectedUpgradeCategories["Luck & Fortune"],
+    Callback = function(v)
+        Config.SelectedUpgradeCategories["Luck & Fortune"] = v
     end,
 })
 
-TabTowers:AddButton({
-    Name = "Cancel Current Tower",
-    Icon = "⏹",
-    Callback = function()
-        pcall(function()
-            if TowersNet and TowersNet.RF:FindFirstChild("CancelTower") then
-                TowersNet.RF.CancelTower:InvokeServer()
-            end
-        end)
-        Window:Notify({ Title = "Tower Cancelled", Content = "Exited current tower dungeon.", Type = "warning" })
+TabRebirth:AddToggle({
+    Name = "Focus: Roll Speed (เน้นความเร็วหมุน)",
+    Desc = "ซื้อสายเพิ่มความเร็วทอยลูกเต๋าก่อน",
+    Default = Config.SelectedUpgradeCategories["Roll Speed"],
+    Callback = function(v)
+        Config.SelectedUpgradeCategories["Roll Speed"] = v
+    end,
+})
+
+TabRebirth:AddToggle({
+    Name = "Focus: Money (เน้นผลิตเงิน)",
+    Desc = "ซื้อสายเพิ่มเงินก่อน",
+    Default = Config.SelectedUpgradeCategories["Money"],
+    Callback = function(v)
+        Config.SelectedUpgradeCategories["Money"] = v
+    end,
+})
+
+TabRebirth:AddSection("DICE SHOP AUTOMATION")
+
+TabRebirth:AddToggle({
+    Name = "Auto Buy New Dice (ซื้อลูกเต๋าใหม่)",
+    Desc = "ซื้อลูกเต๋าที่ยังไม่มีในร้านค้าเมื่อเงินถึงอัตโนมัติ",
+    Default = Config.AutoBuyDice,
+    Callback = function(v)
+        Config.AutoBuyDice = v
     end,
 })
 
@@ -2601,7 +2946,7 @@ TabTowers:AddButton({
 local TabPlot = Window:CreateTab({
     Name = "Island / Plot",
     Icon = "🏡",
-    Subtitle = "Direct Slot Money Suction & Upgrades",
+    Subtitle = "Slot Balance Suction & Precondition Upgrades",
 })
 
 TabPlot:AddSection("ISLAND AUTOMATION")
@@ -2612,17 +2957,12 @@ TabPlot:AddToggle({
     Default = Config.AutoFarmPlot,
     Callback = function(v)
         Config.AutoFarmPlot = v
-        Window:Notify({
-            Title = "Auto Farm Plot",
-            Content = v and "Plot farming activated!" or "Plot farming paused.",
-            Type = v and "success" or "warning"
-        })
     end,
 })
 
 TabPlot:AddToggle({
     Name = "Auto Collect Money (ดูดเงิน 24 สล็อต)",
-    Desc = "ส่งคำสั่ง CollectBalance ดูดเงินเข้าตัวทุกสล็อต ไม่เด้งหน้าต่างกลุ่ม",
+    Desc = "ส่งคำสั่ง CollectBalance ดูดเงินเข้าตัวทุกสล็อต ปลอดภัย ไม่เด้งป๊อปอัป",
     Default = Config.AutoCollectChest,
     Callback = function(v)
         Config.AutoCollectChest = v
@@ -2638,19 +2978,14 @@ TabPlot:AddToggle({
     end,
 })
 
-TabPlot:AddSection("SLOT LEVEL UPGRADE ENGINE")
+TabPlot:AddSection("SMART SLOT UPGRADE ENGINE")
 
 TabPlot:AddToggle({
-    Name = "Auto Upgrade Slots",
-    Desc = "อัปเกรดเลเวลช่องวางยูนิตทั้ง 24 สล็อตบนเกาะอัตโนมัติ",
+    Name = "Auto Upgrade Slots (เช็คราคาเงินจริง)",
+    Desc = "ตรวจสอบเงินก่อนอัปเกรดเลเวลช่องวางยูนิต ป้องกันระบบค้าง",
     Default = Config.AutoUpgradeSlots,
     Callback = function(v)
         Config.AutoUpgradeSlots = v
-        Window:Notify({
-            Title = "Auto Upgrade Slots",
-            Content = v and ("Upgrading slots to Lv. " .. Config.TargetSlotLevel) or "Slot upgrade paused.",
-            Type = v and "success" or "warning"
-        })
     end,
 })
 
@@ -2673,7 +3008,7 @@ TabPlot:AddButton({
     Icon = "💰",
     Callback = function()
         CollectAllMoney()
-        Window:Notify({ Title = "Collect Money", Content = "Directly sucked balance from all 24 slots!", Type = "success" })
+        Window:Notify({ Title = "Collect Money", Content = "Directly sucked balance from all slots!", Type = "success" })
     end,
 })
 
@@ -2684,7 +3019,7 @@ TabPlot:AddButton({
         pcall(function()
             local plotCtrl = Features and Features:FindFirstChild("Plot") and require(Features.Plot.PlotController)
             local p = plotCtrl and plotCtrl.plot
-            local char = LocalPlayer.Character
+            local char = LP.Character
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
             if p and p:FindFirstChild("Slots") and hrp then
                 local origCF = hrp.CFrame
@@ -2704,19 +3039,6 @@ TabPlot:AddButton({
 })
 
 TabPlot:AddButton({
-    Name = "Force Equip Best Units Now",
-    Icon = "👑",
-    Callback = function()
-        pcall(function()
-            if PlotNet and PlotNet.RE:FindFirstChild("EquipBest") then
-                PlotNet.RE.EquipBest:FireServer()
-            end
-        end)
-        Window:Notify({ Title = "Equip Best", Content = "Equipped strongest units on plot!", Type = "success" })
-    end,
-})
-
-TabPlot:AddButton({
     Name = "Teleport to Island Spawn",
     Icon = "📍",
     Callback = function()
@@ -2725,11 +3047,11 @@ TabPlot:AddButton({
     end,
 })
 
--- TAB 4: POTIONS / BOOSTS
+-- TAB 4: POTIONS & BOOSTS
 local TabPotions = Window:CreateTab({
     Name = "Potions / Boosts",
     Icon = "🧪",
-    Subtitle = "Auto Potion Consumption & Buff Engine",
+    Subtitle = "Smart Potion Usage with BuffBar Detection",
 })
 
 TabPotions:AddSection("AUTO POTION ENGINE")
@@ -2740,11 +3062,15 @@ TabPotions:AddToggle({
     Default = Config.AutoUsePotions,
     Callback = function(v)
         Config.AutoUsePotions = v
-        Window:Notify({
-            Title = "Auto Potions",
-            Content = v and "Started auto consuming potions!" or "Paused auto potions.",
-            Type = v and "success" or "warning"
-        })
+    end,
+})
+
+TabPotions:AddDropdown({
+    Name = "Usage Condition (เงื่อนไขการใช้)",
+    Options = {"When Expired", "Always"},
+    Default = Config.ItemUseCondition,
+    Callback = function(v)
+        Config.ItemUseCondition = v
     end,
 })
 
@@ -2760,98 +3086,235 @@ TabPotions:AddSlider({
     end,
 })
 
-TabPotions:AddSection("LUCK POTIONS (น้ำยาโชค / ทอยได้ตัวดี)")
-
+TabPotions:AddSection("LUCK POTIONS")
 for _, pName in ipairs({"Luck IV", "Luck III", "Luck II", "Luck I"}) do
     TabPotions:AddToggle({
         Name = "Use " .. pName,
         Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
         Default = Config.ActivePotions[pName] or false,
-        Callback = function(v)
-            Config.ActivePotions[pName] = v
-        end,
+        Callback = function(v) Config.ActivePotions[pName] = v end,
     })
 end
 
-TabPotions:AddSection("INCOME POTIONS (น้ำยาคูณเงิน / ผลิตเงินเกาะ)")
-
+TabPotions:AddSection("INCOME POTIONS")
 for _, pName in ipairs({"Income IV", "Income III", "Income II", "Income I"}) do
     TabPotions:AddToggle({
         Name = "Use " .. pName,
         Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
         Default = Config.ActivePotions[pName] or false,
-        Callback = function(v)
-            Config.ActivePotions[pName] = v
-        end,
+        Callback = function(v) Config.ActivePotions[pName] = v end,
     })
 end
 
-TabPotions:AddSection("DAMAGE POTIONS (น้ำยาพลังดาเมจ / เคลียร์หอคอยแรง)")
-
+TabPotions:AddSection("DAMAGE POTIONS")
 for _, pName in ipairs({"Damage IV", "Damage III", "Damage II", "Damage I"}) do
     TabPotions:AddToggle({
         Name = "Use " .. pName,
         Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
         Default = Config.ActivePotions[pName] or false,
-        Callback = function(v)
-            Config.ActivePotions[pName] = v
-        end,
+        Callback = function(v) Config.ActivePotions[pName] = v end,
     })
 end
 
-TabPotions:AddSection("SPECIAL & WORLD BOOSTS (น้ำยาโลก / ความเร็ว)")
-
-for _, pName in ipairs({"Shadow Speed IV", "Shadow Luck IV", "Shadow Income IV", "Dragon Luck III", "Slayer Luck III", "Cursed Luck III"}) do
+TabPotions:AddSection("SPECIAL BOOSTS")
+for _, pName in ipairs({"Shadow Speed IV", "Shadow Luck IV", "Shadow Income IV", "Dragon Luck III", "Slayer Luck III"}) do
     TabPotions:AddToggle({
         Name = "Use " .. pName,
         Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
         Default = Config.ActivePotions[pName] or false,
-        Callback = function(v)
-            Config.ActivePotions[pName] = v
-        end,
+        Callback = function(v) Config.ActivePotions[pName] = v end,
     })
 end
 
-TabPotions:AddSection("MANUAL POTION CONSUMPTION")
-
+TabPotions:AddSection("MANUAL CONTROLS")
 TabPotions:AddDropdown({
-    Name = "Choose Potion (เลือกน้ำยาเจาะจง)",
+    Name = "Choose Potion",
     Options = AllPotionsList,
     Default = Config.SelectedCustomPotion,
-    Callback = function(v)
-        Config.SelectedCustomPotion = v
-    end,
+    Callback = function(v) Config.SelectedCustomPotion = v end,
 })
 
 TabPotions:AddButton({
-    Name = "Consume Selected Potion 1x (กดใช้น้ำยานี้ทันที)",
+    Name = "Consume Selected Potion 1x",
     Icon = "🧪",
     Callback = function()
         UsePotion(Config.SelectedCustomPotion)
-        Window:Notify({ Title = "Potion Used", Content = "Consumed 1x " .. tostring(Config.SelectedCustomPotion), Type = "info" })
+        Window:Notify({ Title = "Potion Used", Content = "Consumed " .. tostring(Config.SelectedCustomPotion), Type = "info" })
     end,
 })
 
-TabPotions:AddButton({
-    Name = "Consume All Enabled Potions Now (กดใช้ทุกตัวที่ติ๊ก)",
-    Icon = "⚡",
+-- TAB 5: AUTO SELL & GRADES (NEW 2K LOGIC)
+local TabSell = Window:CreateTab({
+    Name = "Auto Sell & Grades",
+    Icon = "💎",
+    Subtitle = "Safe Unit Selling & Grade Reroll Engine",
+})
+
+TabSell:AddSection("AUTO SELL UNITS ENGINE")
+
+TabSell:AddToggle({
+    Name = "Auto Sell Units (ขายตัวละครอัตโนมัติ)",
+    Desc = "ขายตัวละครตามระดับ Rarity ที่เลือกเป็นชุดละ 50 ตัว",
+    Default = Config.AutoSellUnits,
+    Callback = function(v)
+        Config.AutoSellUnits = v
+    end,
+})
+
+TabSell:AddToggle({
+    Name = "Sell Common (ขายระดับปกติ)",
+    Default = Config.SelectedSellRarities["Common"],
+    Callback = function(v) Config.SelectedSellRarities["Common"] = v end,
+})
+
+TabSell:AddToggle({
+    Name = "Sell Uncommon (ขายระดับไม่ธรรมดา)",
+    Default = Config.SelectedSellRarities["Uncommon"],
+    Callback = function(v) Config.SelectedSellRarities["Uncommon"] = v end,
+})
+
+TabSell:AddToggle({
+    Name = "Sell Rare (ขายระดับหายาก)",
+    Default = Config.SelectedSellRarities["Rare"],
+    Callback = function(v) Config.SelectedSellRarities["Rare"] = v end,
+})
+
+TabSell:AddSection("SAFETY PROTECTIONS")
+
+TabSell:AddToggle({
+    Name = "Protect Plotted Units (ห้ามขายตัวบนเกาะ)",
+    Desc = "ปลอดภัย 100% ตัวที่วางบนเกาะจะไม่ถูกขายเด็ดขาด",
+    Default = Config.ProtectPlottedUnits,
+    Callback = function(v) Config.ProtectPlottedUnits = v end,
+})
+
+TabSell:AddToggle({
+    Name = "Protect Tower Team (ห้ามขายทีมหอคอย)",
+    Desc = "ตัวที่อยู่ในทีมหอคอยจะไม่ถูกขายเด็ดขาด",
+    Default = Config.ProtectTowerTeam,
+    Callback = function(v) Config.ProtectTowerTeam = v end,
+})
+
+TabSell:AddToggle({
+    Name = "Protect Locked Units (ห้ามขายตัวที่ล็อคไว้)",
+    Desc = "ตัวที่กดปุ่มล็อคแม่กุญแจไว้จะไม่ถูกขาย",
+    Default = Config.ProtectLockedUnits,
+    Callback = function(v) Config.ProtectLockedUnits = v end,
+})
+
+TabSell:AddToggle({
+    Name = "Protect Grade S+ Units (ห้ามขายเกรด S ขึ้นไป)",
+    Desc = "ตัวที่มีเกรด S, S+, Z, 神 จะปลอดภัยเสมอ",
+    Default = Config.ProtectGradeSPlus,
+    Callback = function(v) Config.ProtectGradeSPlus = v end,
+})
+
+TabSell:AddButton({
+    Name = "Force Sell Selected Units Now",
+    Icon = "💰",
     Callback = function()
-        local count = 0
-        for pName, enabled in pairs(Config.ActivePotions) do
-            if enabled then
-                UsePotion(pName)
-                count = count + 1
-                task.wait(0.05)
-            end
-        end
-        Window:Notify({ Title = "Potions Consumed", Content = string.format("Consumed %d active potion types!", count), Type = "success" })
+        local count = sellSelectedUnits()
+        Window:Notify({ Title = "Sell Units", Content = string.format("Sold %d units safely!", count), Type = "success" })
     end,
 })
 
--- TAB 5: ROLLING
+TabSell:AddSection("GRADE REROLL ENGINE")
+
+TabSell:AddToggle({
+    Name = "Auto Reroll Grade (สุ่มเกรดอัตโนมัติ)",
+    Desc = "สุ่มเกรดตัวละครด้วย Gem จนกว่าจะถึงเกรดเป้าหมาย",
+    Default = Config.AutoRerollGrade,
+    Callback = function(v)
+        Config.AutoRerollGrade = v
+    end,
+})
+
+TabSell:AddDropdown({
+    Name = "Target Grade (เกรดเป้าหมาย)",
+    Options = {"S", "S+", "Z", "Z+", "神"},
+    Default = Config.TargetGrade,
+    Callback = function(v) Config.TargetGrade = v end,
+})
+
+-- TAB 6: TOWERS
+local TabTowers = Window:CreateTab({
+    Name = "Towers",
+    Icon = "🏰",
+    Subtitle = "Tower Dungeon Auto Clearer & In-Game Accelerator",
+})
+
+TabTowers:AddSection("TOWER DUNGEON AUTOMATION")
+
+TabTowers:AddToggle({
+    Name = "Auto Towers",
+    Desc = "ลงหอคอยอัตโนมัติ จัดทีมที่ดีที่สุด และเคลียร์ชั้นต่อเนื่อง",
+    Default = Config.AutoTowers,
+    Callback = function(v)
+        Config.AutoTowers = v
+    end,
+})
+
+TabTowers:AddDropdown({
+    Name = "Select Tower (เลือกระดับหอคอย)",
+    Options = TowerList,
+    Default = Config.SelectedTower,
+    Callback = function(selected)
+        Config.SelectedTower = selected
+        Window:Notify({ Title = "Tower Selected", Content = "Target Tower: " .. tostring(selected), Type = "info" })
+    end,
+})
+
+TabTowers:AddSlider({
+    Name = "Target Floor (เคลียร์ถึงชั้นเป้าหมาย)",
+    Min = 1,
+    Max = 100,
+    Default = Config.TargetTowerFloor,
+    Increment = 1,
+    Format = "%d",
+    Callback = function(v) Config.TargetTowerFloor = v end,
+})
+
+TabTowers:AddSlider({
+    Name = "Floor Clear Speed (ดีเลย์เคลียร์ชั้น)",
+    Min = 0.1,
+    Max = 1.0,
+    Default = Config.AutoTowerFloorDelay,
+    Increment = 0.05,
+    Format = "%.2fs",
+    Callback = function(v) Config.AutoTowerFloorDelay = v end,
+})
+
+TabTowers:AddToggle({
+    Name = "Hide Tower Screen (ซ่อนหน้าจอต่อสู้หอคอย)",
+    Desc = "ซ่อนหน้าจอต่อสู้หอคอยเพื่อความลื่นไหลและประหยัด FPS",
+    Default = Config.HideTowerScreen,
+    Callback = function(v) Config.HideTowerScreen = v end,
+})
+
+TabTowers:AddSection("MANUAL CONTROLS")
+
+TabTowers:AddButton({
+    Name = "Equip Best Tower Team",
+    Icon = "👑",
+    Callback = function()
+        if EquipBestTowerTeamRE then EquipBestTowerTeamRE:FireServer() end
+        Window:Notify({ Title = "Tower Team", Content = "Equipped best tower units!", Type = "success" })
+    end,
+})
+
+TabTowers:AddButton({
+    Name = "Cancel Current Tower",
+    Icon = "⏹",
+    Callback = function()
+        if CancelTowerRF then CancelTowerRF:InvokeServer() end
+        Window:Notify({ Title = "Tower Cancelled", Content = "Exited current tower dungeon.", Type = "warning" })
+    end,
+})
+
+-- TAB 7: ROLLING
 local TabRolling = Window:CreateTab({
     Name = "Rolling",
-    Icon = "⚡",
+    Icon = "🎲",
     Subtitle = "Fast Dice & Cutscene Bypass",
 })
 
@@ -2861,14 +3324,7 @@ TabRolling:AddToggle({
     Name = "Auto Roll",
     Desc = "ทอยลูกเต๋าอัตโนมัติความเร็วสูง",
     Default = Config.AutoRoll,
-    Callback = function(v)
-        Config.AutoRoll = v
-        Window:Notify({
-            Title = "Auto Roll",
-            Content = v and "Auto rolling active!" or "Auto rolling paused.",
-            Type = v and "success" or "warning"
-        })
-    end,
+    Callback = function(v) Config.AutoRoll = v end,
 })
 
 TabRolling:AddToggle({
@@ -2878,7 +3334,7 @@ TabRolling:AddToggle({
     Callback = function(v)
         Config.SkipCutscene = v
         SetupCutsceneBypass()
-        Window:Notify({ Title = "Cutscene Bypass", Content = v and "Cutscenes disabled!" or "Cutscenes restored.", Type = "info" })
+        Window:Notify({ Title = "Cutscene Bypass", Content = v and "Cutscenes disabled!" or "Restored.", Type = "info" })
     end,
 })
 
@@ -2889,27 +3345,21 @@ TabRolling:AddSlider({
     Default = Config.RollSpeedDelay,
     Increment = 0.01,
     Format = "%.2fs",
-    Callback = function(v)
-        Config.RollSpeedDelay = v
-    end,
+    Callback = function(v) Config.RollSpeedDelay = v end,
 })
-
-TabRolling:AddSection("MANUAL ROLL")
 
 TabRolling:AddButton({
     Name = "Roll Dice 1x Now",
     Icon = "🎲",
     Callback = function()
-        pcall(function()
-            if RollNet and RollNet.RF:FindFirstChild("RollDice") then
-                RollNet.RF.RollDice:InvokeServer()
-            end
-        end)
+        if RollService and RollService.RF:FindFirstChild("RollDice") then
+            RollService.RF.RollDice:InvokeServer()
+        end
         Window:Notify({ Title = "Roll Dice", Content = "Roll completed!", Type = "info" })
     end,
 })
 
--- TAB 6: TELEPORTS
+-- TAB 8: TELEPORTS
 local TabTeleports = Window:CreateTab({
     Name = "Teleports",
     Icon = "🌐",
@@ -2938,7 +3388,7 @@ for _, zone in ipairs(ZonesList) do
         Icon = zone.Icon,
         Callback = function()
             pcall(function()
-                local char = LocalPlayer.Character
+                local char = LP.Character
                 if char and char:FindFirstChild("HumanoidRootPart") then
                     char.HumanoidRootPart.CFrame = CFrame.new(zone.Pos + Vector3.new(0, 3, 0))
                     Window:Notify({ Title = "Teleport", Content = "Arrived at " .. zone.Name, Type = "info" })
@@ -2948,43 +3398,39 @@ for _, zone in ipairs(ZonesList) do
     })
 end
 
--- TAB 7: MISC & REWARDS
+-- TAB 9: MISC & DEFENSE
 local TabMisc = Window:CreateTab({
-    Name = "Misc & Gifts",
+    Name = "Misc & Defense",
     Icon = "🎁",
-    Subtitle = "Free Rewards & Hub Controls",
+    Subtitle = "Anti-AFK & Free Rewards Automation",
+})
+
+TabMisc:AddSection("ANTI-DISCONNECT DEFENSE")
+
+TabMisc:AddToggle({
+    Name = "Triple-Layer Anti-AFK (ป้องกันหลุด 24 ชม.)",
+    Desc = "ทำลายสคริปต์เตะ 19 นาทีของเกม + บล็อก Idled 20 นาที 100%",
+    Default = Config.AntiAFK,
+    Callback = function(v)
+        Config.AntiAFK = v
+    end,
 })
 
 TabMisc:AddSection("FREE REWARDS")
 
 TabMisc:AddToggle({
-    Name = "Auto Claim Free Rewards (Daily & Offline)",
-    Desc = "กดรับ Daily Reward และ Offline Earnings อัตโนมัติทุก 15 วิ",
+    Name = "Auto Claim Free Rewards (Daily, Offline, Spins)",
+    Desc = "กดรับ Daily Reward, Offline Earnings, และหมุนวงล้อฟรีอัตโนมัติ",
     Default = Config.AutoClaimRewards,
-    Callback = function(v)
-        Config.AutoClaimRewards = v
-    end,
+    Callback = function(v) Config.AutoClaimRewards = v end,
 })
 
 TabMisc:AddButton({
-    Name = "Claim Daily & Offline Rewards Now",
+    Name = "Claim All Free Gifts Now",
     Icon = "🎁",
     Callback = function()
         ClaimAllRewards()
-        Window:Notify({ Title = "Gifts", Content = "Claimed Daily and Offline rewards!", Type = "success" })
-    end,
-})
-
-TabMisc:AddButton({
-    Name = "Claim Group Reward (ต้องเข้ากลุ่มก่อน)",
-    Icon = "👥",
-    Callback = function()
-        pcall(function()
-            if GroupNet and GroupNet:FindFirstChild("RE") and GroupNet.RE:FindFirstChild("Claim") then
-                GroupNet.RE.Claim:FireServer()
-            end
-        end)
-        Window:Notify({ Title = "Group Reward", Content = "Sent group reward claim request!", Type = "info" })
+        Window:Notify({ Title = "Gifts", Content = "Claimed Daily, Offline, and Wheel Spins!", Type = "success" })
     end,
 })
 
@@ -3002,13 +3448,14 @@ TabMisc:AddButton({
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
         pcall(function()
-            local rolls = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Rolls") and LocalPlayer.leaderstats.Rolls.Value or State.TotalRollsSession
-            local money = LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Money") and tostring(LocalPlayer.leaderstats.Money.Value) or "0"
+            local rolls = (LP:FindFirstChild("leaderstats") and LP.leaderstats:FindFirstChild("Rolls") and LP.leaderstats.Rolls.Value) or State.TotalRollsSession
+            local money = (LP:FindFirstChild("leaderstats") and LP.leaderstats:FindFirstChild("Money") and tostring(LP.leaderstats.Money.Value)) or "0"
+            local rebirth = (LP:FindFirstChild("leaderstats") and LP.leaderstats:FindFirstChild("Rebirth") and tostring(LP.leaderstats.Rebirth.Value)) or "0"
 
             StatRolls:Set(tostring(rolls), nil, string.format("+%d this session", State.TotalRollsSession))
             StatCash:Set(money, Color3.fromRGB(250, 204, 21), "Cash in wallet")
+            StatRebirth:Set("Rebirth " .. rebirth, Theme.AccentPrimary, string.format("+%d this session", State.TotalRebirthsSession))
             StatPotions:Set(tostring(State.TotalPotionsUsedSession), Theme.AccentCyan, "Consumed potions")
-            StatFloors:Set(tostring(State.FloorsClearedSession), nil, "Cleared floors")
             StatTowerStatus:Set(State.CurrentTowerStatus, Theme.AccentCyan, Config.SelectedTower)
         end)
         task.wait(0.7)
@@ -3017,9 +3464,9 @@ end)
 
 Window:Notify({
     Title = "PROJECT BARUN",
-    Content = "Anime Dice God Script initialized successfully!",
+    Content = "Anime Dice Pro Automation Hub loaded successfully!",
     Duration = 5,
     Type = "success",
 })
 
-print("[PROJECT BARUN] Anime Dice God Script loaded with Aurora Edition v3.0!")
+print("[PROJECT BARUN] Anime Dice Pro Hub loaded with 2K Progression Engine & Aurora v3.0!")
