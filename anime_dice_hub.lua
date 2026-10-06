@@ -31,6 +31,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
 
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 
@@ -3105,8 +3106,20 @@ local function saveConfig(profileName, silent)
         return HttpService:JSONEncode(clean)
     end)
     if not ok or not encoded then
-        if not silent and Window and Window.Notify then
-            Window:Notify({ Title = "PB Config", Content = "การแปลงข้อมูล JSON ผิดพลาด", Type = "error" })
+        if not silent then
+            pcall(function()
+                if Window and Window.Notify then
+                    Window:Notify({ Title = "PB Config", Content = "JSON Encode: " .. tostring(encoded), Type = "error" })
+                end
+            end)
+            pcall(function()
+                game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = "PB Config Error",
+                    Text = "JSON Encode: " .. tostring(encoded),
+                    Duration = 4
+                })
+            end)
+            warn("[PB Config] JSON Encode error: " .. tostring(encoded))
         end
         return false
     end

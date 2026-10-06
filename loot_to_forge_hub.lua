@@ -1,3 +1,4 @@
+local HttpService = game:GetService("HttpService")
 -- ╔══════════════════════════════════════════════════════════════════╗
 -- ║   💎 PROJECT BARUN — LOOT TO FORGE GOD FARM HUB v3 MASTER        ║
 -- ║   Reverse-Engineered & Enhanced with Project Barun (PB) Engine   ║

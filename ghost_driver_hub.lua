@@ -44,6 +44,7 @@
     local RunService = game:GetService("RunService")
     local CoreGui = game:GetService("CoreGui")
     local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
 
     local LocalPlayerRef = Players.LocalPlayer or Players.PlayerAdded:Wait()
 
