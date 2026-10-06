@@ -1869,7 +1869,7 @@ function UI:CreateWindow(config)
                         task.spawn(callback, selected)
                     else
                         selected = opt
-                        Header.SelectedText.Text = tostring(opt)
+                        SelectedLabel.Text = tostring(opt)
                         paintOptions()
                         setExpanded(false)
                         task.spawn(callback, selected)
@@ -1908,7 +1908,7 @@ function UI:CreateWindow(config)
                 else
                     if optionButtons[newVal] then
                         selected = newVal
-                        Header.SelectedText.Text = tostring(newVal)
+                        SelectedLabel.Text = tostring(newVal)
                         paintOptions()
                         task.spawn(callback, selected)
                     end
@@ -2987,6 +2987,211 @@ end)
 -- ═════════════════════════════════════════════════════════════════════
 -- 14. BUILD UI INTERFACE (STANDARD 5-PILLAR ARCHITECTURE)
 -- ═════════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════════
+-- 15. PERSISTENT CONFIGURATION ENGINE (SAVE & LOAD PROFILES)
+-- ═════════════════════════════════════════════════════════════════════
+local UIHandles = {}
+
+local DefaultCleanConfig = {
+    AntiAFK = false,
+    AutoRoll = false,
+    SkipCutscene = false,
+    RollSpeedDelay = 0.05,
+    AutoFarmPlot = false,
+    AutoCollectChest = false,
+    AutoEquipBestPlot = false,
+    AutoUpgradeSlots = false,
+    TargetSlotLevel = 25,
+    AutoRebirth = false,
+    TargetRebirth = 12,
+    AutoUpgrades = false,
+    OnlySelectedUpgrades = false,
+    SelectedUpgradeCategories = {
+        ["Luck & Fortune"] = true,
+        ["Roll Speed"] = true,
+        ["Money"] = true,
+    },
+    AutoBuyDice = false,
+    AutoSellUnits = false,
+    SelectedSellRarities = {
+        ["Common"] = true,
+        ["Uncommon"] = true,
+        ["Rare"] = true,
+        ["Epic"] = false,
+    },
+    ProtectPlottedUnits = true,
+    ProtectTowerTeam = true,
+    ProtectLockedUnits = true,
+    ProtectGradeSPlus = true,
+    AutoRerollGrade = false,
+    TargetGrade = "S",
+    TargetGradeUnitKey = "",
+    AutoUsePotions = false,
+    PotionInterval = 10,
+    ItemUseCondition = "When Expired",
+    SelectedCustomPotion = "Luck IV",
+    ActivePotions = {
+        ["Luck IV"] = true,
+        ["Luck III"] = true,
+        ["Luck II"] = false,
+        ["Luck I"] = false,
+        ["Income IV"] = true,
+        ["Income III"] = true,
+        ["Income II"] = false,
+        ["Income I"] = false,
+        ["Damage IV"] = true,
+        ["Damage III"] = true,
+        ["Damage II"] = false,
+        ["Damage I"] = false,
+    },
+    AutoTowers = false,
+    SelectedTower = TowerList[1],
+    TargetTowerFloor = 50,
+    AutoTowerFloorDelay = 0.35,
+    HideTowerScreen = false,
+    AutoClaimRewards = false
+}
+
+local ConfigManager = {}
+do
+    local BASE_DIR = "ProjectBarun"
+    local GAME_DIR = "ProjectBarun/AnimeDice"
+    local DEFAULT_NAME = "default"
+
+    local function ensureFolders()
+        pcall(function()
+            if makefolder then
+                if not (isfolder and isfolder(BASE_DIR)) then
+                    makefolder(BASE_DIR)
+                end
+                if not (isfolder and isfolder(GAME_DIR)) then
+                    makefolder(GAME_DIR)
+                end
+            end
+        end)
+    end
+
+    local function getPath(name)
+        name = (name and name ~= "") and name or DEFAULT_NAME
+        name = name:gsub("[^%w_%-]", "")
+        if name == "" then name = DEFAULT_NAME end
+        return GAME_DIR .. "/" .. name .. ".json"
+    end
+
+    function ConfigManager.Save(name)
+        ensureFolders()
+        if not writefile then
+            return false, "Executor lacks writefile function"
+        end
+
+        local filePath = getPath(name)
+        local encoded = nil
+        local ok, err = pcall(function()
+            return HttpService:JSONEncode(Config)
+        end)
+        if not ok or not err then
+            return false, "JSON Encode failed"
+        end
+        encoded = err
+
+        local writeOk, writeErr = pcall(function()
+            writefile(filePath, encoded)
+        end)
+        if not writeOk then
+            return false, "Failed to write file: " .. tostring(writeErr)
+        end
+        return true, filePath
+    end
+
+    function ConfigManager.Load(name, syncUI)
+        ensureFolders()
+        if not (isfile and readfile) then
+            return false, "Executor lacks isfile/readfile functions"
+        end
+
+        local filePath = getPath(name)
+        if not isfile(filePath) then
+            return false, "Profile file not found: " .. filePath
+        end
+
+        local content = nil
+        local readOk, readErr = pcall(function()
+            return readfile(filePath)
+        end)
+        if not readOk or not readErr or readErr == "" then
+            return false, "Failed to read profile data"
+        end
+        content = readErr
+
+        local decoded = nil
+        local decOk, decErr = pcall(function()
+            return HttpService:JSONDecode(content)
+        end)
+        if not decOk or type(decErr) ~= "table" then
+            return false, "Failed to parse JSON configuration"
+        end
+        decoded = decErr
+
+        -- Deep merge into active Config
+        for k, v in pairs(decoded) do
+            if type(v) == "table" and type(Config[k]) == "table" then
+                for subK, subV in pairs(v) do
+                    Config[k][subK] = subV
+                end
+            else
+                Config[k] = v
+            end
+        end
+
+        -- Synchronize visual UI controls
+        if syncUI and UIHandles then
+            for k, handle in pairs(UIHandles) do
+                if handle and handle.Set and Config[k] ~= nil then
+                    pcall(function()
+                        handle:Set(Config[k])
+                    end)
+                end
+            end
+            if UIHandles.SellCommon and Config.SelectedSellRarities then
+                pcall(function() UIHandles.SellCommon:Set(Config.SelectedSellRarities["Common"] == true) end)
+            end
+            if UIHandles.SellUncommon and Config.SelectedSellRarities then
+                pcall(function() UIHandles.SellUncommon:Set(Config.SelectedSellRarities["Uncommon"] == true) end)
+            end
+            if UIHandles.SellRare and Config.SelectedSellRarities then
+                pcall(function() UIHandles.SellRare:Set(Config.SelectedSellRarities["Rare"] == true) end)
+            end
+            if UIHandles.UpgrLuck and Config.SelectedUpgradeCategories then
+                pcall(function() UIHandles.UpgrLuck:Set(Config.SelectedUpgradeCategories["Luck & Fortune"] == true) end)
+            end
+            if UIHandles.UpgrSpeed and Config.SelectedUpgradeCategories then
+                pcall(function() UIHandles.UpgrSpeed:Set(Config.SelectedUpgradeCategories["Roll Speed"] == true) end)
+            end
+            if UIHandles.UpgrMoney and Config.SelectedUpgradeCategories then
+                pcall(function() UIHandles.UpgrMoney:Set(Config.SelectedUpgradeCategories["Money"] == true) end)
+            end
+        end
+
+        return true, filePath
+    end
+
+    function ConfigManager.Delete(name)
+        ensureFolders()
+        if not (isfile and delfile) then
+            return false, "Executor lacks delfile function"
+        end
+        local filePath = getPath(name)
+        if not isfile(filePath) then
+            return false, "Profile file does not exist"
+        end
+        local delOk, delErr = pcall(function()
+            delfile(filePath)
+        end)
+        return delOk, delErr
+    end
+end
+
 local Window = UI:CreateWindow({
     Title = "PROJECT BARUN",
     Subtitle = "ANIME DICE • MASTER HUB v3.5",
@@ -3013,7 +3218,7 @@ local StatPotions = TabMain:AddStatCard({ Title = "Potions Used", Value = "0", S
 local StatTowerStatus = TabMain:AddStatCard({ Title = "Tower Status", Value = "Standby", Subtext = "Selected: Dragon Tower" })
 
 TabMain:AddSection("DICE ROLLING (ทอยเต๋าอัตโนมัติ)")
-TabMain:AddToggle({
+UIHandles.AutoRoll = UIHandles.AutoRoll = TabMain:AddToggle({
     Name = "Auto Roll (เปิดทอยลูกเต๋าอัตโนมัติ)",
     Desc = "ทอยต่อเนื่องความเร็วสูงด้วยแพ็กเก็ตปลอดภัย",
     Default = Config.AutoRoll,
@@ -3022,7 +3227,7 @@ TabMain:AddToggle({
         Window:Notify({ Title = "Auto Roll", Content = v and "Started auto rolling!" or "Paused.", Type = v and "success" or "warning" })
     end,
 })
-TabMain:AddToggle({
+UIHandles.SkipCutscene = UIHandles.SkipCutscene = TabMain:AddToggle({
     Name = "Skip Cutscene & Screen Shakes",
     Desc = "ตัดแอนิเมชันลูกเต๋า 100% หน้าจอไม่สั่นเวียนหัว",
     Default = Config.SkipCutscene,
@@ -3032,7 +3237,7 @@ TabMain:AddToggle({
         Window:Notify({ Title = "Cutscene Bypass", Content = v and "Cutscenes disabled!" or "Restored.", Type = "info" })
     end,
 })
-TabMain:AddSlider({
+UIHandles.RollSpeedDelay = UIHandles.RollSpeedDelay = TabMain:AddSlider({
     Name = "Roll Speed Delay (ความเร็วในการทอย)",
     Min = 0.01,
     Max = 0.5,
@@ -3053,7 +3258,7 @@ TabMain:AddButton({
 })
 
 TabMain:AddSection("ISLAND & PLOT BALANCE (เกาะ & สล็อตดูดเงิน)")
-TabMain:AddToggle({
+UIHandles.AutoFarmPlot = UIHandles.AutoFarmPlot = TabMain:AddToggle({
     Name = "Auto Farm Plot (เปิดระบบทำงานบนเกาะ)",
     Desc = "เปิดระบบดูดเงินทุกสล็อตบนเกาะ + สวมใส่ตัวผลิตเงินสูงสุด",
     Default = Config.AutoFarmPlot,
@@ -3062,13 +3267,13 @@ TabMain:AddToggle({
         Window:Notify({ Title = "Auto Farm Plot", Content = v and "Plot farming active!" or "Paused.", Type = v and "success" or "warning" })
     end,
 })
-TabMain:AddToggle({
+UIHandles.AutoCollectChest = UIHandles.AutoCollectChest = TabMain:AddToggle({
     Name = "Auto Collect Money (ดูดเงิน 24 สล็อต)",
     Desc = "ส่งคำสั่ง CollectBalance ดูดเงินเข้าตัวทุกสล็อต ปลอดภัย ไม่เด้งป๊อปอัป",
     Default = Config.AutoCollectChest,
     Callback = function(v) Config.AutoCollectChest = v end,
 })
-TabMain:AddToggle({
+UIHandles.AutoEquipBestPlot = UIHandles.AutoEquipBestPlot = TabMain:AddToggle({
     Name = "Auto Equip Best Plot Units",
     Desc = "คัดสรรและสวมใส่อนิเมะตัวที่ผลิตเงินสูงสุดลงแท่นอัตโนมัติ",
     Default = Config.AutoEquipBestPlot,
@@ -3126,46 +3331,46 @@ local TabEconomy = Window:CreateTab({
 })
 
 TabEconomy:AddSection("AUTO SELL UNITS ENGINE")
-TabEconomy:AddToggle({
+UIHandles.AutoSellUnits = UIHandles.AutoSellUnits = TabEconomy:AddToggle({
     Name = "Auto Sell Units (เปิดระบบขายตัวละครอัตโนมัติ)",
     Desc = "ขายตัวละครตามระดับ Rarity ที่เลือกเป็นชุดละ 50 ตัว ปลอดภัย",
     Default = Config.AutoSellUnits,
     Callback = function(v) Config.AutoSellUnits = v end,
 })
-TabEconomy:AddToggle({
+UIHandles.SellCommon = UIHandles.SellCommon = TabEconomy:AddToggle({
     Name = "Sell Common (ขายระดับปกติ)",
     Default = Config.SelectedSellRarities["Common"],
     Callback = function(v) Config.SelectedSellRarities["Common"] = v end,
 })
-TabEconomy:AddToggle({
+UIHandles.SellUncommon = UIHandles.SellUncommon = TabEconomy:AddToggle({
     Name = "Sell Uncommon (ขายระดับไม่ธรรมดา)",
     Default = Config.SelectedSellRarities["Uncommon"],
     Callback = function(v) Config.SelectedSellRarities["Uncommon"] = v end,
 })
-TabEconomy:AddToggle({
+UIHandles.SellRare = UIHandles.SellRare = TabEconomy:AddToggle({
     Name = "Sell Rare (ขายระดับหายาก)",
     Default = Config.SelectedSellRarities["Rare"],
     Callback = function(v) Config.SelectedSellRarities["Rare"] = v end,
 })
-TabEconomy:AddToggle({
+UIHandles.ProtectPlottedUnits = UIHandles.ProtectPlottedUnits = TabEconomy:AddToggle({
     Name = "Safety: Protect Plotted Units (ห้ามขายตัวบนเกาะ)",
     Desc = "ปลอดภัย 100% ตัวที่วางบนเกาะจะไม่ถูกขายเด็ดขาด",
     Default = Config.ProtectPlottedUnits,
     Callback = function(v) Config.ProtectPlottedUnits = v end,
 })
-TabEconomy:AddToggle({
+UIHandles.ProtectTowerTeam = UIHandles.ProtectTowerTeam = TabEconomy:AddToggle({
     Name = "Safety: Protect Tower Team (ห้ามขายทีมหอคอย)",
     Desc = "ตัวที่อยู่ในทีมหอคอยจะไม่ถูกขายเด็ดขาด",
     Default = Config.ProtectTowerTeam,
     Callback = function(v) Config.ProtectTowerTeam = v end,
 })
-TabEconomy:AddToggle({
+UIHandles.ProtectLockedUnits = UIHandles.ProtectLockedUnits = TabEconomy:AddToggle({
     Name = "Safety: Protect Locked Units (ห้ามขายตัวที่ล็อคไว้)",
     Desc = "ตัวที่กดปุ่มล็อคแม่กุญแจไว้จะไม่ถูกขาย",
     Default = Config.ProtectLockedUnits,
     Callback = function(v) Config.ProtectLockedUnits = v end,
 })
-TabEconomy:AddToggle({
+UIHandles.ProtectGradeSPlus = UIHandles.ProtectGradeSPlus = TabEconomy:AddToggle({
     Name = "Safety: Protect Grade S+ Units (ห้ามขายเกรด S ขึ้นไป)",
     Desc = "ตัวที่มีเกรด S, S+, Z, 神 จะปลอดภัยเสมอ",
     Default = Config.ProtectGradeSPlus,
@@ -3181,7 +3386,7 @@ TabEconomy:AddButton({
 })
 
 TabEconomy:AddSection("ระบบใช้ไอเทมอัตโนมัติ (Auto Use Items)")
-TabEconomy:AddToggle({
+UIHandles.AutoUsePotions = UIHandles.AutoUsePotions = TabEconomy:AddToggle({
     Name = "ใช้ไอเทมอัตโนมัติ (Auto Use Items)",
     Desc = "กดใช้ไอเทมและบัฟที่เลือกจากในคลัง",
     Default = Config.AutoUsePotions,
@@ -3197,7 +3402,7 @@ TabEconomy:AddToggle({
 
 local allBoostList = getAllBoostNames()
 local PotionDropdownHandle
-PotionDropdownHandle = TabEconomy:AddDropdown({
+UIHandles.ActivePotions = TabEconomy:AddDropdown({
     Name = "เลือกไอเทม / บัฟ (Select Items)",
     Desc = "เลือกไอเทมที่ต้องการกดใช้ (เลือกได้มากกว่า 1 ชนิด)",
     Options = allBoostList,
@@ -3208,7 +3413,7 @@ PotionDropdownHandle = TabEconomy:AddDropdown({
     end,
 })
 
-TabEconomy:AddDropdown({
+UIHandles.ItemUseCondition = UIHandles.ItemUseCondition = TabEconomy:AddDropdown({
     Name = "เงื่อนไขการใช้ (Condition)",
     Desc = "กำหนดจังหวะการกดใช้ไอเทม",
     Options = {
@@ -3221,7 +3426,7 @@ TabEconomy:AddDropdown({
     end,
 })
 
-TabEconomy:AddSlider({
+UIHandles.PotionInterval = UIHandles.PotionInterval = TabEconomy:AddSlider({
     Name = "ความถี่ตรวจสอบ (วินาที)",
     Desc = "ระยะเวลาระหว่างการตรวจเช็คไอเทม",
     Min = 1,
@@ -3300,7 +3505,7 @@ TabContent:AddToggle({
     Default = Config.AutoTowers,
     Callback = function(v) Config.AutoTowers = v end,
 })
-TabContent:AddDropdown({
+UIHandles.SelectedTower = UIHandles.SelectedTower = TabContent:AddDropdown({
     Name = "Select Tower (เลือกระดับหอคอย)",
     Options = TowerList,
     Default = Config.SelectedTower,
@@ -3351,13 +3556,13 @@ TabContent:AddButton({
 })
 
 TabContent:AddSection("GRADE REROLL ENGINE")
-TabContent:AddToggle({
+UIHandles.AutoRerollGrade = UIHandles.AutoRerollGrade = TabContent:AddToggle({
     Name = "Auto Reroll Grade (สุ่มเกรดอัตโนมัติ)",
     Desc = "สุ่มเกรดตัวละครด้วย Gem จนกว่าจะถึงเกรดเป้าหมาย",
     Default = Config.AutoRerollGrade,
     Callback = function(v) Config.AutoRerollGrade = v end,
 })
-TabContent:AddDropdown({
+UIHandles.TargetGrade = UIHandles.TargetGrade = TabContent:AddDropdown({
     Name = "Target Grade (เกรดเป้าหมาย)",
     Options = {"S", "S+", "Z", "Z+", "神"},
     Default = Config.TargetGrade,
@@ -3380,7 +3585,7 @@ local TabProgression = Window:CreateTab({
 })
 
 TabProgression:AddSection("AUTO REBIRTH ENGINE")
-TabProgression:AddToggle({
+UIHandles.AutoRebirth = UIHandles.AutoRebirth = TabProgression:AddToggle({
     Name = "Auto Rebirth (จุติอัตโนมัติ)",
     Desc = "ตรวจสอบเงินและจุติอัตโนมัติทันทีที่ถึงราคา",
     Default = Config.AutoRebirth,
@@ -3448,7 +3653,7 @@ TabProgression:AddToggle({
     Default = Config.AutoUpgradeSlots,
     Callback = function(v) Config.AutoUpgradeSlots = v end,
 })
-TabProgression:AddSlider({
+UIHandles.TargetSlotLevel = UIHandles.TargetSlotLevel = TabProgression:AddSlider({
     Name = "Target Slot Level (อัปถึงเลเวลเป้าหมาย)",
     Min = 1,
     Max = 100,
@@ -3468,7 +3673,7 @@ local TabSettings = Window:CreateTab({
 })
 
 TabSettings:AddSection("ANTI-DISCONNECT DEFENSE")
-TabSettings:AddToggle({
+UIHandles.AntiAFK = UIHandles.AntiAFK = TabSettings:AddToggle({
     Name = "Triple-Layer Anti-AFK (ป้องกันหลุด 24 ชม.)",
     Desc = "ทำลายสคริปต์เตะ 19 นาทีของเกม + บล็อก Idled 20 นาที 100%",
     Default = Config.AntiAFK,
@@ -3476,7 +3681,7 @@ TabSettings:AddToggle({
 })
 
 TabSettings:AddSection("FREE REWARDS")
-TabSettings:AddToggle({
+UIHandles.AutoClaimRewards = UIHandles.AutoClaimRewards = TabSettings:AddToggle({
     Name = "Auto Claim Free Rewards (Daily, Offline, Spins)",
     Desc = "กดรับ Daily Reward, Offline Earnings, และหมุนวงล้อฟรีอัตโนมัติ",
     Default = Config.AutoClaimRewards,
@@ -3488,6 +3693,106 @@ TabSettings:AddButton({
     Callback = function()
         ClaimAllRewards()
         Window:Notify({ Title = "Gifts", Content = "Claimed Daily, Offline, and Wheel Spins!", Type = "success" })
+    end,
+})
+
+TabSettings:AddSection("CONFIGURATION PROFILES (ระบบเซฟและโหลดคอนฟิก)")
+
+local currentProfileName = "default"
+
+TabSettings:AddTextbox({
+    Name = "ชื่อคอนฟิก (Profile Name)",
+    Default = "default",
+    Placeholder = "เช่น default, afk_mode, tower_push...",
+    Callback = function(val)
+        currentProfileName = (val and val:gsub("%s+", "") ~= "") and val:gsub("%s+", "") or "default"
+    end,
+})
+
+TabSettings:AddButton({
+    Name = "💾 บันทึกคอนฟิกปัจจุบัน (Save Config)",
+    Icon = "💾",
+    Callback = function()
+        local ok, err = ConfigManager.Save(currentProfileName)
+        if ok then
+            Window:Notify({
+                Title = "Config Saved",
+                Content = string.format("บันทึกการตั้งค่าลงไฟล์ '%s' สำเร็จ!", currentProfileName),
+                Type = "success"
+            })
+        else
+            Window:Notify({
+                Title = "Save Error",
+                Content = tostring(err),
+                Type = "error"
+            })
+        end
+    end,
+})
+
+TabSettings:AddButton({
+    Name = "📂 โหลดคอนฟิก (Load Config)",
+    Icon = "📂",
+    Callback = function()
+        local ok, err = ConfigManager.Load(currentProfileName, true)
+        if ok then
+            Window:Notify({
+                Title = "Config Loaded",
+                Content = string.format("โหลดและปรับใช้การตั้งค่า '%s' สำเร็จ!", currentProfileName),
+                Type = "success"
+            })
+        else
+            Window:Notify({
+                Title = "Load Error",
+                Content = tostring(err),
+                Type = "error"
+            })
+        end
+    end,
+})
+
+TabSettings:AddButton({
+    Name = "🔄 รีเซ็ตค่าเริ่มต้น (Reset to Defaults)",
+    Icon = "🔄",
+    Callback = function()
+        for k, v in pairs(DefaultCleanConfig) do
+            if type(v) == "table" then
+                Config[k] = table.clone(v)
+            else
+                Config[k] = v
+            end
+        end
+        for k, handle in pairs(UIHandles) do
+            if handle and handle.Set and Config[k] ~= nil then
+                pcall(function() handle:Set(Config[k]) end)
+            end
+        end
+        Window:Notify({
+            Title = "Config Reset",
+            Content = "รีเซ็ตการตั้งค่ากลับสู่ค่าเริ่มต้นเรียบร้อย!",
+            Type = "info"
+        })
+    end,
+})
+
+TabSettings:AddButton({
+    Name = "🗑️ ลบไฟล์คอนฟิก (Delete Config)",
+    Icon = "🗑️",
+    Callback = function()
+        local ok, err = ConfigManager.Delete(currentProfileName)
+        if ok then
+            Window:Notify({
+                Title = "Config Deleted",
+                Content = string.format("ลบไฟล์คอนฟิก '%s' เรียบร้อย!", currentProfileName),
+                Type = "info"
+            })
+        else
+            Window:Notify({
+                Title = "Delete Error",
+                Content = tostring(err),
+                Type = "error"
+            })
+        end
     end,
 })
 

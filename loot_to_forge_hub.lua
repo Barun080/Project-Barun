@@ -1500,6 +1500,7 @@ local TabFarming = Window:MakeTab({ Name = "Farming & Stage", Icon = "rbxassetid
 local TabForge   = Window:MakeTab({ Name = "Forge & Gear",    Icon = "rbxassetid://4483345998" })
 local TabCombat  = Window:MakeTab({ Name = "Combat & Train",  Icon = "rbxassetid://4483345998" })
 local TabMisc    = Window:MakeTab({ Name = "Misc & Upgrades", Icon = "rbxassetid://4483345998" })
+local TabConfig  = Window:MakeTab({ Name = "Settings & Save",  Icon = "rbxassetid://4483345998" })
 
 -- ─── Tab: Farming & Stage ─────────────────────────────────────────
 TabFarming:AddSection({ Name = "Stage Automation" })
@@ -1668,6 +1669,111 @@ TabMisc:AddToggle({
 })
 
 -- ═══════════════════════════════════════════════════════════════════
+
+-- ═════════════════════════════════════════════════════════════════════
+-- TAB: SETTINGS & CONFIGURATION PROFILES (SAVE & LOAD)
+-- ═════════════════════════════════════════════════════════════════════
+local ConfigManager = {}
+do
+    local BASE_DIR = "ProjectBarun"
+    local GAME_DIR = "ProjectBarun/LootToForge"
+    local DEFAULT_NAME = "default"
+
+    local function ensureFolders()
+        pcall(function()
+            if makefolder then
+                if not (isfolder and isfolder(BASE_DIR)) then makefolder(BASE_DIR) end
+                if not (isfolder and isfolder(GAME_DIR)) then makefolder(GAME_DIR) end
+            end
+        end)
+    end
+
+    local function getPath(name)
+        name = (name and name ~= "") and name or DEFAULT_NAME
+        name = name:gsub("[^%w_%-]", "")
+        if name == "" then name = DEFAULT_NAME end
+        return GAME_DIR .. "/" .. name .. ".json"
+    end
+
+    function ConfigManager.Save(name)
+        ensureFolders()
+        if not writefile then return false, "No writefile" end
+        local path = getPath(name)
+        local ok, encoded = pcall(function() return HttpService:JSONEncode(Settings) end)
+        if not ok or not encoded then return false, "JSON Encode failed" end
+        local wOk, wErr = pcall(function() writefile(path, encoded) end)
+        return wOk, wOk and path or tostring(wErr)
+    end
+
+    function ConfigManager.Load(name)
+        ensureFolders()
+        if not (isfile and readfile) then return false, "No isfile/readfile" end
+        local path = getPath(name)
+        if not isfile(path) then return false, "File not found" end
+        local rOk, content = pcall(function() return readfile(path) end)
+        if not rOk or not content or content == "" then return false, "Read failed" end
+        local dOk, decoded = pcall(function() return HttpService:JSONDecode(content) end)
+        if not dOk or type(decoded) ~= "table" then return false, "JSON Decode failed" end
+        for k, v in pairs(decoded) do
+            Settings[k] = v
+        end
+        return true, path
+    end
+end
+
+TabConfig:AddSection({ Name = "💾 Configuration Profiles" })
+
+local currentProfile = "default"
+
+TabConfig:AddTextbox({
+    Name = "Profile Name (ชื่อคอนฟิก)",
+    Default = "default",
+    TextDisappear = false,
+    Callback = function(val)
+        currentProfile = (val and val:gsub("%s+", "") ~= "") and val:gsub("%s+", "") or "default"
+    end
+})
+
+TabConfig:AddButton({
+    Name = "💾 Save Config (บันทึกคอนฟิก)",
+    Callback = function()
+        local ok, path = ConfigManager.Save(currentProfile)
+        if ok then
+            OrionLib:MakeNotification({
+                Name = "Config Saved",
+                Content = "บันทึกการตั้งค่าลงไฟล์ " .. currentProfile .. " สำเร็จ!",
+                Time = 4
+            })
+        else
+            OrionLib:MakeNotification({
+                Name = "Save Failed",
+                Content = tostring(path),
+                Time = 4
+            })
+        end
+    end
+})
+
+TabConfig:AddButton({
+    Name = "📂 Load Config (โหลดคอนฟิก)",
+    Callback = function()
+        local ok, path = ConfigManager.Load(currentProfile)
+        if ok then
+            OrionLib:MakeNotification({
+                Name = "Config Loaded",
+                Content = "โหลดการตั้งค่าจากไฟล์ " .. currentProfile .. " เรียบร้อย!",
+                Time = 4
+            })
+        else
+            OrionLib:MakeNotification({
+                Name = "Load Failed",
+                Content = tostring(path),
+                Time = 4
+            })
+        end
+    end
+})
+
 -- 7. EXECUTION THREADS
 -- ═══════════════════════════════════════════════════════════════════
 
