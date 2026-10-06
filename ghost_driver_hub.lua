@@ -2030,8 +2030,8 @@
         PoliceBustedActivated= false,     -- Flag indicating target cash reached and 100% protection active
 
         -- Auto Farming & Economy (Grand Loop 96,000+ studs / 26.8 km!)
-        AutoDriveFarm        = false,     -- Safe default: user activates via GUI when seated
-        FarmDriveSpeed       = 170,      -- Safe, legitimate high-speed farm speed
+        AutoDriveFarm        = true,     -- Default ON: ฟาร์มอัตโนมัติทันทีที่รันสคริป
+        FarmDriveSpeed       = 240,      -- High-speed stable farm speed
         FarmPercent          = 1.0,      -- Full loop or custom route percent
         FarmLane             = "Lane 2 (Center)",
         LoopMode             = "Infinite Loop (วิ่งวนลูปไฮเวย์รอบโลกต่อเนื่อง)",
@@ -2046,7 +2046,7 @@
         PerformanceMode      = false,    -- GPU/CPU saver (disables 3D rendering for overnight AFK)
 
         -- Selected Car to Spawn
-        SelectedCar          = "Voss RT8",
+        SelectedCar          = "Shelly LZ1",
 
         -- Advanced Smooth Physics & Adaptive Cornering Engine
         AdaptiveCornering    = true,     -- เข้าโค้งเนียนสมูท ป้องกันหลุดโค้ง
@@ -2138,8 +2138,18 @@
     end
 
     -- ═══════════════════════════════════════════════════════════════════
-    -- 2. VEHICLE RESOLVER HELPERS
+    -- 2. VEHICLE RESOLVER HELPERS & RESILIENT AUTO-MOUNT
     -- ═══════════════════════════════════════════════════════════════════
+    local function updateSelectedCarFromCar(car)
+        if not car then return end
+        local pName = LocalPlayer.Name
+        local raw = car.Name
+        local clean = raw:gsub("^" .. pName .. "_", ""):gsub("^" .. pName, "")
+        if #clean >= 2 then
+            Settings.SelectedCar = clean
+        end
+    end
+
     local function getPlayerCar()
         local pName = LocalPlayer.Name
         local char = LocalPlayer.Character
@@ -2148,6 +2158,7 @@
         if hum and hum.SeatPart and hum.SeatPart:IsA("VehicleSeat") then
             local carModel = hum.SeatPart:FindFirstAncestorOfClass("Model")
             if carModel and carModel ~= char then
+                updateSelectedCarFromCar(carModel)
                 return carModel
             end
         end
@@ -2157,6 +2168,7 @@
                 if model.Name == pName .. "_" .. (Settings.SelectedCar or "") 
                 or model.Name:find(pName) 
                 or model:GetAttribute("Owner") == pName then
+                    updateSelectedCarFromCar(model)
                     return model
                 end
             end
@@ -2166,6 +2178,7 @@
         if cars then
             for _, model in ipairs(cars:GetChildren()) do
                 if model:IsA("Model") and (model.Name:find(pName) or model:GetAttribute("Owner") == pName) then
+                    updateSelectedCarFromCar(model)
                     return model
                 end
             end
@@ -2178,6 +2191,69 @@
         if not car then return nil end
         local seat = car:FindFirstChild("DriveSeat") or car:FindFirstChildWhichIsA("VehicleSeat", true)
         return seat
+    end
+
+    local function mountDriveSeat(seat)
+        if not seat then return false end
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hum or hum.Health <= 0 or not hrp then return false end
+        if hum.SeatPart == seat then return true end
+
+        if LocalPlayer.RequestStreamAroundAsync then
+            pcall(function()
+                LocalPlayer:RequestStreamAroundAsync(seat.Position, 2)
+            end)
+        end
+
+        if seat.Occupant and seat.Occupant ~= hum then
+            pcall(function()
+                if seat.Occupant.Health <= 0 then
+                    seat.Occupant.SeatPart = nil
+                end
+            end)
+        end
+
+        hrp.CFrame = seat.CFrame + Vector3.new(0, 2.0, 0)
+        task.wait(0.08)
+        seat:Sit(hum)
+        return hum.SeatPart == seat
+    end
+
+    local function ensureCarAndSeat()
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 or not hrp then return nil, nil end
+
+        local car = getPlayerCar()
+        local seat = getDriveSeat()
+
+        local needSpawn = false
+        if not car or not seat then
+            needSpawn = true
+        elseif (seat.Position - hrp.Position).Magnitude > 1500 and hum.SeatPart ~= seat then
+            -- Player respawned at city lobby far away from abandoned car
+            needSpawn = true
+        end
+
+        if needSpawn and Remote_SpawnCar then
+            if Remote_RemoveCar then
+                pcall(function() Remote_RemoveCar:FireServer() end)
+            end
+            task.wait(0.5)
+            local carToSpawn = Settings.SelectedCar or "Shelly LZ1"
+            pcall(function() Remote_SpawnCar:FireServer(carToSpawn) end)
+            task.wait(1.4)
+            car = getPlayerCar()
+            seat = getDriveSeat()
+        end
+
+        if car and seat and hum.SeatPart ~= seat then
+            mountDriveSeat(seat)
+        end
+        return car, seat
     end
 
     -- ═══════════════════════════════════════════════════════════════════
@@ -2498,30 +2574,11 @@
     end
 
     function FarmManager.StepDrive()
-        local car = getPlayerCar()
-        if not car then
-            if Remote_SpawnCar then
-                Remote_SpawnCar:FireServer(Settings.SelectedCar or "Wulfbrecht RZ7")
-                task.wait(1.5)
-                car = getPlayerCar()
-            end
-        end
+        local car, seat = ensureCarAndSeat()
+        if not car or not seat then return end
 
-        if not car then return end
-
-        local seat = getDriveSeat()
         local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if not seat or not hum then return end
-
-        -- 2. Ensure player is seated
-        if hum.SeatPart ~= seat then
-            local char = LocalPlayer.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            if hrp then hrp.CFrame = seat.CFrame + Vector3.new(0, 1.5, 0) end
-            seat:Sit(hum)
-            task.wait(0.2)
-            return
-        end
+        if not hum or hum.SeatPart ~= seat then return end
 
         -- Ensure rigid chassis lock is active on current vehicle (Throttled for performance)
         if Settings.RigidChassisLock and (FarmManager.LastLockedCar ~= car or tick() - (FarmManager.LastRigidLockTick or 0) > 2.5) then
@@ -2606,7 +2663,9 @@
 
             -- If car has a detached/broken wheel, respawn fresh car immediately!
             if hasBrokenWheel and Remote_SpawnCar then
-                Remote_SpawnCar:FireServer(Settings.SelectedCar or "Wulfbrecht RZ7")
+                if Remote_RemoveCar then pcall(function() Remote_RemoveCar:FireServer() end) end
+                task.wait(0.5)
+                Remote_SpawnCar:FireServer(Settings.SelectedCar or "Shelly LZ1")
                 task.wait(1.5)
                 return
             end
@@ -2619,9 +2678,9 @@
             end
             local flatDir = Vector3.new(frame.Direction.X, 0, frame.Direction.Z)
             if flatDir.Magnitude < 0.001 then flatDir = Vector3.new(0, 0, -1) else flatDir = flatDir.Unit end
+            car:PivotTo(CFrame.lookAt(safePt, safePt + flatDir))
             seat.AssemblyLinearVelocity = flatDir * 120 + Vector3.new(0, 8, 0)
             seat.AssemblyAngularVelocity = Vector3.zero
-            car:PivotTo(CFrame.lookAt(safePt, safePt + flatDir))
             task.wait(0.12)
             return
         end
@@ -3191,26 +3250,10 @@
                 Settings.AutoDriveFarm = true
                 Settings.NoCollisionTraffic = true
                 Settings.GhostGodMode = true
+                FarmManager.Start()
             else
                 Settings.AutoEscapePolice = false
-                Settings.AutoDriveFarm = false
                 Settings.PoliceBustedActivated = false
-                local seat = getDriveSeat()
-                if seat then
-                    seat.AssemblyLinearVelocity = Vector3.zero
-                    seat.AssemblyAngularVelocity = Vector3.zero
-                    seat.Throttle = 0
-                    seat.ThrottleFloat = 0
-                    seat.SteerFloat = 0
-                end
-                local car = getPlayerCar()
-                if car then
-                    local vals = car:FindFirstChild("Values")
-                    if vals then
-                        local pb = vals:FindFirstChild("PBrake") or vals:FindFirstChild("Handbrake")
-                        if pb and pb:IsA("BoolValue") then pb.Value = true end
-                    end
-                end
             end
         end
     })
@@ -3583,7 +3626,21 @@
         FarmManager.Start()
     end
 
-    -- Watchdog Supervisor: Continuously monitors health, auto-revives worker, unfreezes 0 MPH
+    -- Character Respawn Lifecycle Listener (Auto-remount immediately on death/respawn)
+    LocalPlayer.CharacterAdded:Connect(function(newChar)
+        if not _G.GhostDriverRunning or _G.GhostDriverActiveToken ~= myToken then return end
+        task.wait(1.2)
+        if Settings.AutoDriveFarm then
+            safe(function()
+                ensureCarAndSeat()
+                if not FarmManager.WorkerThread or coroutine.status(FarmManager.WorkerThread) == "dead" then
+                    FarmManager.Start()
+                end
+            end)
+        end
+    end)
+
+    -- Watchdog Supervisor: Continuously monitors health, auto-revives worker, unfreezes 0 MPH, and mounts car
     task.spawn(function()
         local zeroSpeedTicks = 0
         while _G.GhostDriverRunning and _G.GhostDriverActiveToken == myToken do
@@ -3595,11 +3652,15 @@
                     FarmManager.Start()
                 end
 
-                -- 2. Detect & recover car stuck at 0 MPH with brakes engaged
+                -- 2. Detect unseated or missing car state & automatically resolve
                 local car = getPlayerCar()
                 local seat = getDriveSeat()
                 local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-                if car and seat and hum and hum.SeatPart == seat then
+
+                if not car or not seat or (hum and hum.SeatPart ~= seat) then
+                    ensureCarAndSeat()
+                    zeroSpeedTicks = 0
+                elseif car and seat and hum and hum.SeatPart == seat then
                     local speed = seat.AssemblyLinearVelocity.Magnitude
                     if speed < 5 then
                         zeroSpeedTicks = zeroSpeedTicks + 1
