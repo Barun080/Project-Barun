@@ -2756,263 +2756,103 @@ task.spawn(function()
 end)
 
 -- ═════════════════════════════════════════════════════════════════════
--- 14. BUILD UI INTERFACE (AURORA EDITION v3.0)
+-- 14. BUILD UI INTERFACE (STANDARD 5-PILLAR ARCHITECTURE)
 -- ═════════════════════════════════════════════════════════════════════
 local Window = UI:CreateWindow({
     Title = "PROJECT BARUN",
-    Subtitle = "ANIME DICE • PRO HUB v3.0",
-    DefaultTab = "Dashboard",
-    Size = UDim2.fromOffset(680, 500),
+    Subtitle = "ANIME DICE • MASTER HUB v3.5",
+    DefaultTab = "Main Farm",
+    Size = UDim2.fromOffset(680, 510),
     Accent = Color3.fromRGB(56, 189, 248),
 })
 
--- TAB 1: DASHBOARD
-local TabDash = Window:CreateTab({
-    Name = "Dashboard",
-    Icon = "📊",
-    Subtitle = "Real-Time Telemetry & Overview",
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 1: MAIN FARM (ฟาร์มหลัก)
+-- ─────────────────────────────────────────────────────────────────────
+local TabMain = Window:CreateTab({
+    Name = "Main Farm",
+    Icon = "🎲",
+    Subtitle = "Core Gameplay Loop & Telemetry",
 })
 
-TabDash:AddSection("LIVE TELEMETRY")
+TabMain:AddSection("LIVE TELEMETRY")
+local StatRolls = TabMain:AddStatCard({ Title = "Total Rolls", Value = "0", Subtext = "Dice rolled this session", Progress = 0 })
+local StatCash = TabMain:AddStatCard({ Title = "Player Wallet", Value = "0", Subtext = "Cash in wallet", Progress = 0.5 })
+local StatRebirth = TabMain:AddStatCard({ Title = "Rebirths", Value = "0", Subtext = "Rebirth session count", Progress = 0 })
+local StatPotions = TabMain:AddStatCard({ Title = "Potions Used", Value = "0", Subtext = "Auto consumed this session", Progress = 0 })
+local StatTowerStatus = TabMain:AddStatCard({ Title = "Tower Status", Value = "Standby", Subtext = "Selected: Dragon Tower" })
 
-local StatRolls = TabDash:AddStatCard({
-    Title = "Total Rolls",
-    Value = "0",
-    Subtext = "Dice rolled this session",
-    Progress = 0,
-})
-
-local StatCash = TabDash:AddStatCard({
-    Title = "Player Wallet",
-    Value = "0",
-    Subtext = "Cash in wallet",
-    Progress = 0.5,
-})
-
-local StatRebirth = TabDash:AddStatCard({
-    Title = "Rebirths",
-    Value = "0",
-    Subtext = "Rebirth session count",
-    Progress = 0,
-})
-
-local StatPotions = TabDash:AddStatCard({
-    Title = "Potions Used",
-    Value = "0",
-    Subtext = "Auto consumed this session",
-    Progress = 0,
-})
-
-local StatTowerStatus = TabDash:AddStatCard({
-    Title = "Tower Status",
-    Value = "Standby",
-    Subtext = "Selected: Dragon Tower",
-})
-
-TabDash:AddSection("QUICK TOGGLES")
-
-TabDash:AddToggle({
-    Name = "Fast Auto Roll",
-    Desc = "เปิดทอยลูกเต๋าอัตโนมัติความเร็วสูง",
+TabMain:AddSection("DICE ROLLING (ทอยเต๋าอัตโนมัติ)")
+TabMain:AddToggle({
+    Name = "Auto Roll (เปิดทอยลูกเต๋าอัตโนมัติ)",
+    Desc = "ทอยต่อเนื่องความเร็วสูงด้วยแพ็กเก็ตปลอดภัย",
     Default = Config.AutoRoll,
     Callback = function(v)
         Config.AutoRoll = v
         Window:Notify({ Title = "Auto Roll", Content = v and "Started auto rolling!" or "Paused.", Type = v and "success" or "warning" })
     end,
 })
+TabMain:AddToggle({
+    Name = "Skip Cutscene & Screen Shakes",
+    Desc = "ตัดแอนิเมชันลูกเต๋า 100% หน้าจอไม่สั่นเวียนหัว",
+    Default = Config.SkipCutscene,
+    Callback = function(v)
+        Config.SkipCutscene = v
+        SetupCutsceneBypass()
+        Window:Notify({ Title = "Cutscene Bypass", Content = v and "Cutscenes disabled!" or "Restored.", Type = "info" })
+    end,
+})
+TabMain:AddSlider({
+    Name = "Roll Speed Delay (ความเร็วในการทอย)",
+    Min = 0.01,
+    Max = 0.5,
+    Default = Config.RollSpeedDelay,
+    Increment = 0.01,
+    Format = "%.2fs",
+    Callback = function(v) Config.RollSpeedDelay = v end,
+})
+TabMain:AddButton({
+    Name = "Roll Dice 1x Now (ทดลองทอย 1 ครั้ง)",
+    Icon = "🎲",
+    Callback = function()
+        if RollService and RollService.RF:FindFirstChild("RollDice") then
+            RollService.RF.RollDice:InvokeServer()
+        end
+        Window:Notify({ Title = "Roll Dice", Content = "Roll completed!", Type = "info" })
+    end,
+})
 
-TabDash:AddToggle({
-    Name = "Auto Farm Plot (ดูดเงินทุกสล็อต)",
-    Desc = "เปิดระบบดูดเงินทุกสล็อตบนเกาะอัตโนมัติ",
+TabMain:AddSection("ISLAND & PLOT BALANCE (เกาะ & สล็อตดูดเงิน)")
+TabMain:AddToggle({
+    Name = "Auto Farm Plot (เปิดระบบทำงานบนเกาะ)",
+    Desc = "เปิดระบบดูดเงินทุกสล็อตบนเกาะ + สวมใส่ตัวผลิตเงินสูงสุด",
     Default = Config.AutoFarmPlot,
     Callback = function(v)
         Config.AutoFarmPlot = v
         Window:Notify({ Title = "Auto Farm Plot", Content = v and "Plot farming active!" or "Paused.", Type = v and "success" or "warning" })
     end,
 })
-
-TabDash:AddToggle({
-    Name = "Auto Potions (ใช้น้ำยาอัตโนมัติ)",
-    Desc = "เปิดใช้งานน้ำยาตามที่ตั้งค่าไว้",
-    Default = Config.AutoUsePotions,
-    Callback = function(v)
-        Config.AutoUsePotions = v
-        Window:Notify({ Title = "Auto Potions", Content = v and "Potions active!" or "Paused.", Type = v and "success" or "warning" })
-    end,
-})
-
-TabDash:AddToggle({
-    Name = "Auto Rebirth (จุติอัตโนมัติ)",
-    Desc = "เปิดจุติอัตโนมัติเมื่อเงินครบ",
-    Default = Config.AutoRebirth,
-    Callback = function(v)
-        Config.AutoRebirth = v
-        Window:Notify({ Title = "Auto Rebirth", Content = v and "Rebirth active!" or "Paused.", Type = v and "success" or "warning" })
-    end,
-})
-
-TabDash:AddToggle({
-    Name = "Skip Cutscene & Screen Shake",
-    Desc = "ตัดฉากทอยลูกเต๋า 100% หน้าจอไม่สั่น ไม่เวียนหัว",
-    Default = Config.SkipCutscene,
-    Callback = function(v)
-        Config.SkipCutscene = v
-        SetupCutsceneBypass()
-        Window:Notify({ Title = "Cutscene Bypass", Content = v and "Cutscenes bypassed 100%!" or "Restored.", Type = "info" })
-    end,
-})
-
--- TAB 2: UPGRADES & REBIRTH (NEW 2K LOGIC)
-local TabRebirth = Window:CreateTab({
-    Name = "Upgrades & Rebirth",
-    Icon = "⚡",
-    Subtitle = "Auto Rebirth & Skill Tree Purchasing",
-})
-
-TabRebirth:AddSection("AUTO REBIRTH ENGINE")
-
-TabRebirth:AddToggle({
-    Name = "Auto Rebirth (จุติอัตโนมัติ)",
-    Desc = "ตรวจสอบเงินและจุติอัตโนมัติทันทีที่ถึงราคา",
-    Default = Config.AutoRebirth,
-    Callback = function(v)
-        Config.AutoRebirth = v
-    end,
-})
-
-TabRebirth:AddSlider({
-    Name = "Target Rebirth (จุติถึงขั้นเป้าหมาย)",
-    Min = 1,
-    Max = 12,
-    Default = Config.TargetRebirth,
-    Increment = 1,
-    Format = "Rebirth %d",
-    Callback = function(v)
-        Config.TargetRebirth = v
-    end,
-})
-
-TabRebirth:AddSection("SKILL TREE UPGRADE ENGINE")
-
-TabRebirth:AddToggle({
-    Name = "Auto Buy Upgrades (ซื้ออัปเกรดอัตโนมัติ)",
-    Desc = "ซื้อความสามารถใน Skill Tree อัตโนมัติ เรียงตามราคาที่ถูกที่สุดก่อน",
-    Default = Config.AutoUpgrades,
-    Callback = function(v)
-        Config.AutoUpgrades = v
-        Window:Notify({ Title = "Auto Upgrades", Content = v and "Upgrades purchasing started!" or "Paused.", Type = v and "success" or "warning" })
-    end,
-})
-
-TabRebirth:AddToggle({
-    Name = "Focus: Luck & Fortune (เน้นอัปโชคและดวง)",
-    Desc = "ซื้อสายโชคและดวงก่อนเป็นอันดับแรก",
-    Default = Config.SelectedUpgradeCategories["Luck & Fortune"],
-    Callback = function(v)
-        Config.SelectedUpgradeCategories["Luck & Fortune"] = v
-    end,
-})
-
-TabRebirth:AddToggle({
-    Name = "Focus: Roll Speed (เน้นความเร็วหมุน)",
-    Desc = "ซื้อสายเพิ่มความเร็วทอยลูกเต๋าก่อน",
-    Default = Config.SelectedUpgradeCategories["Roll Speed"],
-    Callback = function(v)
-        Config.SelectedUpgradeCategories["Roll Speed"] = v
-    end,
-})
-
-TabRebirth:AddToggle({
-    Name = "Focus: Money (เน้นผลิตเงิน)",
-    Desc = "ซื้อสายเพิ่มเงินก่อน",
-    Default = Config.SelectedUpgradeCategories["Money"],
-    Callback = function(v)
-        Config.SelectedUpgradeCategories["Money"] = v
-    end,
-})
-
-TabRebirth:AddSection("DICE SHOP AUTOMATION")
-
-TabRebirth:AddToggle({
-    Name = "Auto Buy New Dice (ซื้อลูกเต๋าใหม่)",
-    Desc = "ซื้อลูกเต๋าที่ยังไม่มีในร้านค้าเมื่อเงินถึงอัตโนมัติ",
-    Default = Config.AutoBuyDice,
-    Callback = function(v)
-        Config.AutoBuyDice = v
-    end,
-})
-
--- TAB 3: ISLAND / PLOT
-local TabPlot = Window:CreateTab({
-    Name = "Island / Plot",
-    Icon = "🏡",
-    Subtitle = "Slot Balance Suction & Precondition Upgrades",
-})
-
-TabPlot:AddSection("ISLAND AUTOMATION")
-
-TabPlot:AddToggle({
-    Name = "Auto Farm Plot",
-    Desc = "เปิดระบบทำงานบนเกาะ (ดูดเงินทุกสล็อต + สวมใส่ตัวแรงสุด)",
-    Default = Config.AutoFarmPlot,
-    Callback = function(v)
-        Config.AutoFarmPlot = v
-    end,
-})
-
-TabPlot:AddToggle({
+TabMain:AddToggle({
     Name = "Auto Collect Money (ดูดเงิน 24 สล็อต)",
     Desc = "ส่งคำสั่ง CollectBalance ดูดเงินเข้าตัวทุกสล็อต ปลอดภัย ไม่เด้งป๊อปอัป",
     Default = Config.AutoCollectChest,
-    Callback = function(v)
-        Config.AutoCollectChest = v
-    end,
+    Callback = function(v) Config.AutoCollectChest = v end,
 })
-
-TabPlot:AddToggle({
+TabMain:AddToggle({
     Name = "Auto Equip Best Plot Units",
     Desc = "คัดสรรและสวมใส่อนิเมะตัวที่ผลิตเงินสูงสุดลงแท่นอัตโนมัติ",
     Default = Config.AutoEquipBestPlot,
-    Callback = function(v)
-        Config.AutoEquipBestPlot = v
-    end,
+    Callback = function(v) Config.AutoEquipBestPlot = v end,
 })
-
-TabPlot:AddSection("SMART SLOT UPGRADE ENGINE")
-
-TabPlot:AddToggle({
-    Name = "Auto Upgrade Slots (เช็คราคาเงินจริง)",
-    Desc = "ตรวจสอบเงินก่อนอัปเกรดเลเวลช่องวางยูนิต ป้องกันระบบค้าง",
-    Default = Config.AutoUpgradeSlots,
-    Callback = function(v)
-        Config.AutoUpgradeSlots = v
-    end,
-})
-
-TabPlot:AddSlider({
-    Name = "Target Slot Level (อัปถึงเลเวลเป้าหมาย)",
-    Min = 1,
-    Max = 100,
-    Default = Config.TargetSlotLevel,
-    Increment = 1,
-    Format = "Lv. %d",
-    Callback = function(v)
-        Config.TargetSlotLevel = v
-    end,
-})
-
-TabPlot:AddSection("MANUAL PLOT ACTIONS")
-
-TabPlot:AddButton({
-    Name = "Force Collect All Money Now (ดูดเงินทุกสล็อต)",
+TabMain:AddButton({
+    Name = "Force Collect All Money Now (ดูดเงินทุกสล็อตทันที)",
     Icon = "💰",
     Callback = function()
         CollectAllMoney()
         Window:Notify({ Title = "Collect Money", Content = "Directly sucked balance from all slots!", Type = "success" })
     end,
 })
-
-TabPlot:AddButton({
+TabMain:AddButton({
     Name = "Sweep All Slots (เดินกวาดแตะทุกสล็อต 1 วิ)",
     Icon = "🧹",
     Callback = function()
@@ -3037,9 +2877,8 @@ TabPlot:AddButton({
         Window:Notify({ Title = "Sweep Slots", Content = "Swept all slots on your island!", Type = "success" })
     end,
 })
-
-TabPlot:AddButton({
-    Name = "Teleport to Island Spawn",
+TabMain:AddButton({
+    Name = "Teleport to Island Spawn (วาร์ปไปเกาะตนเอง)",
     Icon = "📍",
     Callback = function()
         TeleportToPlot()
@@ -3047,170 +2886,63 @@ TabPlot:AddButton({
     end,
 })
 
--- TAB 4: POTIONS & BOOSTS
-local TabPotions = Window:CreateTab({
-    Name = "Potions / Boosts",
-    Icon = "🧪",
-    Subtitle = "Smart Potion Usage with BuffBar Detection",
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 2: ECONOMY (เศรษฐกิจ & คลัง)
+-- ─────────────────────────────────────────────────────────────────────
+local TabEconomy = Window:CreateTab({
+    Name = "Economy",
+    Icon = "💰",
+    Subtitle = "Auto Sell, Safe Storage & Potions",
 })
 
-TabPotions:AddSection("AUTO POTION ENGINE")
-
-TabPotions:AddToggle({
-    Name = "Auto Consume Potions (เปิดระบบใช้น้ำยาอัตโนมัติ)",
-    Desc = "กดใช้น้ำยาทุกชนิดที่เลือกไว้ในลิสต์ตามรอบเวลา",
-    Default = Config.AutoUsePotions,
-    Callback = function(v)
-        Config.AutoUsePotions = v
-    end,
-})
-
-TabPotions:AddDropdown({
-    Name = "Usage Condition (เงื่อนไขการใช้)",
-    Options = {"When Expired", "Always"},
-    Default = Config.ItemUseCondition,
-    Callback = function(v)
-        Config.ItemUseCondition = v
-    end,
-})
-
-TabPotions:AddSlider({
-    Name = "Usage Interval (ความถี่ในการกดใช้)",
-    Min = 2,
-    Max = 60,
-    Default = Config.PotionInterval,
-    Increment = 1,
-    Format = "%d วินาที",
-    Callback = function(v)
-        Config.PotionInterval = v
-    end,
-})
-
-TabPotions:AddSection("LUCK POTIONS")
-for _, pName in ipairs({"Luck IV", "Luck III", "Luck II", "Luck I"}) do
-    TabPotions:AddToggle({
-        Name = "Use " .. pName,
-        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
-        Default = Config.ActivePotions[pName] or false,
-        Callback = function(v) Config.ActivePotions[pName] = v end,
-    })
-end
-
-TabPotions:AddSection("INCOME POTIONS")
-for _, pName in ipairs({"Income IV", "Income III", "Income II", "Income I"}) do
-    TabPotions:AddToggle({
-        Name = "Use " .. pName,
-        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
-        Default = Config.ActivePotions[pName] or false,
-        Callback = function(v) Config.ActivePotions[pName] = v end,
-    })
-end
-
-TabPotions:AddSection("DAMAGE POTIONS")
-for _, pName in ipairs({"Damage IV", "Damage III", "Damage II", "Damage I"}) do
-    TabPotions:AddToggle({
-        Name = "Use " .. pName,
-        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
-        Default = Config.ActivePotions[pName] or false,
-        Callback = function(v) Config.ActivePotions[pName] = v end,
-    })
-end
-
-TabPotions:AddSection("SPECIAL BOOSTS")
-for _, pName in ipairs({"Shadow Speed IV", "Shadow Luck IV", "Shadow Income IV", "Dragon Luck III", "Slayer Luck III"}) do
-    TabPotions:AddToggle({
-        Name = "Use " .. pName,
-        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
-        Default = Config.ActivePotions[pName] or false,
-        Callback = function(v) Config.ActivePotions[pName] = v end,
-    })
-end
-
-TabPotions:AddSection("MANUAL CONTROLS")
-TabPotions:AddDropdown({
-    Name = "Choose Potion",
-    Options = AllPotionsList,
-    Default = Config.SelectedCustomPotion,
-    Callback = function(v) Config.SelectedCustomPotion = v end,
-})
-
-TabPotions:AddButton({
-    Name = "Consume Selected Potion 1x",
-    Icon = "🧪",
-    Callback = function()
-        UsePotion(Config.SelectedCustomPotion)
-        Window:Notify({ Title = "Potion Used", Content = "Consumed " .. tostring(Config.SelectedCustomPotion), Type = "info" })
-    end,
-})
-
--- TAB 5: AUTO SELL & GRADES (NEW 2K LOGIC)
-local TabSell = Window:CreateTab({
-    Name = "Auto Sell & Grades",
-    Icon = "💎",
-    Subtitle = "Safe Unit Selling & Grade Reroll Engine",
-})
-
-TabSell:AddSection("AUTO SELL UNITS ENGINE")
-
-TabSell:AddToggle({
-    Name = "Auto Sell Units (ขายตัวละครอัตโนมัติ)",
-    Desc = "ขายตัวละครตามระดับ Rarity ที่เลือกเป็นชุดละ 50 ตัว",
+TabEconomy:AddSection("AUTO SELL UNITS ENGINE")
+TabEconomy:AddToggle({
+    Name = "Auto Sell Units (เปิดระบบขายตัวละครอัตโนมัติ)",
+    Desc = "ขายตัวละครตามระดับ Rarity ที่เลือกเป็นชุดละ 50 ตัว ปลอดภัย",
     Default = Config.AutoSellUnits,
-    Callback = function(v)
-        Config.AutoSellUnits = v
-    end,
+    Callback = function(v) Config.AutoSellUnits = v end,
 })
-
-TabSell:AddToggle({
+TabEconomy:AddToggle({
     Name = "Sell Common (ขายระดับปกติ)",
     Default = Config.SelectedSellRarities["Common"],
     Callback = function(v) Config.SelectedSellRarities["Common"] = v end,
 })
-
-TabSell:AddToggle({
+TabEconomy:AddToggle({
     Name = "Sell Uncommon (ขายระดับไม่ธรรมดา)",
     Default = Config.SelectedSellRarities["Uncommon"],
     Callback = function(v) Config.SelectedSellRarities["Uncommon"] = v end,
 })
-
-TabSell:AddToggle({
+TabEconomy:AddToggle({
     Name = "Sell Rare (ขายระดับหายาก)",
     Default = Config.SelectedSellRarities["Rare"],
     Callback = function(v) Config.SelectedSellRarities["Rare"] = v end,
 })
-
-TabSell:AddSection("SAFETY PROTECTIONS")
-
-TabSell:AddToggle({
-    Name = "Protect Plotted Units (ห้ามขายตัวบนเกาะ)",
+TabEconomy:AddToggle({
+    Name = "Safety: Protect Plotted Units (ห้ามขายตัวบนเกาะ)",
     Desc = "ปลอดภัย 100% ตัวที่วางบนเกาะจะไม่ถูกขายเด็ดขาด",
     Default = Config.ProtectPlottedUnits,
     Callback = function(v) Config.ProtectPlottedUnits = v end,
 })
-
-TabSell:AddToggle({
-    Name = "Protect Tower Team (ห้ามขายทีมหอคอย)",
+TabEconomy:AddToggle({
+    Name = "Safety: Protect Tower Team (ห้ามขายทีมหอคอย)",
     Desc = "ตัวที่อยู่ในทีมหอคอยจะไม่ถูกขายเด็ดขาด",
     Default = Config.ProtectTowerTeam,
     Callback = function(v) Config.ProtectTowerTeam = v end,
 })
-
-TabSell:AddToggle({
-    Name = "Protect Locked Units (ห้ามขายตัวที่ล็อคไว้)",
+TabEconomy:AddToggle({
+    Name = "Safety: Protect Locked Units (ห้ามขายตัวที่ล็อคไว้)",
     Desc = "ตัวที่กดปุ่มล็อคแม่กุญแจไว้จะไม่ถูกขาย",
     Default = Config.ProtectLockedUnits,
     Callback = function(v) Config.ProtectLockedUnits = v end,
 })
-
-TabSell:AddToggle({
-    Name = "Protect Grade S+ Units (ห้ามขายเกรด S ขึ้นไป)",
+TabEconomy:AddToggle({
+    Name = "Safety: Protect Grade S+ Units (ห้ามขายเกรด S ขึ้นไป)",
     Desc = "ตัวที่มีเกรด S, S+, Z, 神 จะปลอดภัยเสมอ",
     Default = Config.ProtectGradeSPlus,
     Callback = function(v) Config.ProtectGradeSPlus = v end,
 })
-
-TabSell:AddButton({
-    Name = "Force Sell Selected Units Now",
+TabEconomy:AddButton({
+    Name = "Force Sell Selected Units Now (ขายตัวตามเงื่อนไขทันที)",
     Icon = "💰",
     Callback = function()
         local count = sellSelectedUnits()
@@ -3218,43 +2950,102 @@ TabSell:AddButton({
     end,
 })
 
-TabSell:AddSection("GRADE REROLL ENGINE")
+TabEconomy:AddSection("SMART POTION ENGINE (ยาน้ำ & บัฟอัตโนมัติ)")
+TabEconomy:AddToggle({
+    Name = "Auto Consume Potions (เปิดระบบใช้น้ำยาอัตโนมัติ)",
+    Desc = "กดใช้น้ำยาทุกชนิดที่เลือกไว้ในลิสต์ตามรอบเวลา",
+    Default = Config.AutoUsePotions,
+    Callback = function(v) Config.AutoUsePotions = v end,
+})
+TabEconomy:AddDropdown({
+    Name = "Usage Condition (เงื่อนไขการใช้)",
+    Options = {"When Expired", "Always"},
+    Default = Config.ItemUseCondition,
+    Callback = function(v) Config.ItemUseCondition = v end,
+})
+TabEconomy:AddSlider({
+    Name = "Usage Interval (ความถี่ในการกดใช้)",
+    Min = 2,
+    Max = 60,
+    Default = Config.PotionInterval,
+    Increment = 1,
+    Format = "%d วินาที",
+    Callback = function(v) Config.PotionInterval = v end,
+})
 
-TabSell:AddToggle({
-    Name = "Auto Reroll Grade (สุ่มเกรดอัตโนมัติ)",
-    Desc = "สุ่มเกรดตัวละครด้วย Gem จนกว่าจะถึงเกรดเป้าหมาย",
-    Default = Config.AutoRerollGrade,
-    Callback = function(v)
-        Config.AutoRerollGrade = v
+TabEconomy:AddSection("LUCK POTIONS")
+for _, pName in ipairs({"Luck IV", "Luck III", "Luck II", "Luck I"}) do
+    TabEconomy:AddToggle({
+        Name = "Use " .. pName,
+        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
+        Default = Config.ActivePotions[pName] or false,
+        Callback = function(v) Config.ActivePotions[pName] = v end,
+    })
+end
+
+TabEconomy:AddSection("INCOME POTIONS")
+for _, pName in ipairs({"Income IV", "Income III", "Income II", "Income I"}) do
+    TabEconomy:AddToggle({
+        Name = "Use " .. pName,
+        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
+        Default = Config.ActivePotions[pName] or false,
+        Callback = function(v) Config.ActivePotions[pName] = v end,
+    })
+end
+
+TabEconomy:AddSection("DAMAGE POTIONS")
+for _, pName in ipairs({"Damage IV", "Damage III", "Damage II", "Damage I"}) do
+    TabEconomy:AddToggle({
+        Name = "Use " .. pName,
+        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
+        Default = Config.ActivePotions[pName] or false,
+        Callback = function(v) Config.ActivePotions[pName] = v end,
+    })
+end
+
+TabEconomy:AddSection("SPECIAL BOOSTS")
+for _, pName in ipairs({"Shadow Speed IV", "Shadow Luck IV", "Shadow Income IV", "Dragon Luck III", "Slayer Luck III"}) do
+    TabEconomy:AddToggle({
+        Name = "Use " .. pName,
+        Desc = "กดใช้น้ำยา " .. pName .. " อัตโนมัติ",
+        Default = Config.ActivePotions[pName] or false,
+        Callback = function(v) Config.ActivePotions[pName] = v end,
+    })
+end
+
+TabEconomy:AddSection("MANUAL POTION TESTING")
+TabEconomy:AddDropdown({
+    Name = "Choose Potion",
+    Options = AllPotionsList,
+    Default = Config.SelectedCustomPotion,
+    Callback = function(v) Config.SelectedCustomPotion = v end,
+})
+TabEconomy:AddButton({
+    Name = "Consume Selected Potion 1x (ทดลองกดยา 1 ครั้ง)",
+    Icon = "🧪",
+    Callback = function()
+        UsePotion(Config.SelectedCustomPotion)
+        Window:Notify({ Title = "Potion Used", Content = "Consumed " .. tostring(Config.SelectedCustomPotion), Type = "info" })
     end,
 })
 
-TabSell:AddDropdown({
-    Name = "Target Grade (เกรดเป้าหมาย)",
-    Options = {"S", "S+", "Z", "Z+", "神"},
-    Default = Config.TargetGrade,
-    Callback = function(v) Config.TargetGrade = v end,
-})
-
--- TAB 6: TOWERS
-local TabTowers = Window:CreateTab({
-    Name = "Towers",
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 3: CONTENT (คอนเทนต์ & กิจกรรม)
+-- ─────────────────────────────────────────────────────────────────────
+local TabContent = Window:CreateTab({
+    Name = "Content",
     Icon = "🏰",
-    Subtitle = "Tower Dungeon Auto Clearer & In-Game Accelerator",
+    Subtitle = "Towers Dungeon & Grade Reroll",
 })
 
-TabTowers:AddSection("TOWER DUNGEON AUTOMATION")
-
-TabTowers:AddToggle({
-    Name = "Auto Towers",
+TabContent:AddSection("TOWER DUNGEON AUTOMATION")
+TabContent:AddToggle({
+    Name = "Auto Towers (ลงหอคอยอัตโนมัติ)",
     Desc = "ลงหอคอยอัตโนมัติ จัดทีมที่ดีที่สุด และเคลียร์ชั้นต่อเนื่อง",
     Default = Config.AutoTowers,
-    Callback = function(v)
-        Config.AutoTowers = v
-    end,
+    Callback = function(v) Config.AutoTowers = v end,
 })
-
-TabTowers:AddDropdown({
+TabContent:AddDropdown({
     Name = "Select Tower (เลือกระดับหอคอย)",
     Options = TowerList,
     Default = Config.SelectedTower,
@@ -3263,8 +3054,7 @@ TabTowers:AddDropdown({
         Window:Notify({ Title = "Tower Selected", Content = "Target Tower: " .. tostring(selected), Type = "info" })
     end,
 })
-
-TabTowers:AddSlider({
+TabContent:AddSlider({
     Name = "Target Floor (เคลียร์ถึงชั้นเป้าหมาย)",
     Min = 1,
     Max = 100,
@@ -3273,8 +3063,7 @@ TabTowers:AddSlider({
     Format = "%d",
     Callback = function(v) Config.TargetTowerFloor = v end,
 })
-
-TabTowers:AddSlider({
+TabContent:AddSlider({
     Name = "Floor Clear Speed (ดีเลย์เคลียร์ชั้น)",
     Min = 0.1,
     Max = 1.0,
@@ -3283,27 +3072,22 @@ TabTowers:AddSlider({
     Format = "%.2fs",
     Callback = function(v) Config.AutoTowerFloorDelay = v end,
 })
-
-TabTowers:AddToggle({
+TabContent:AddToggle({
     Name = "Hide Tower Screen (ซ่อนหน้าจอต่อสู้หอคอย)",
     Desc = "ซ่อนหน้าจอต่อสู้หอคอยเพื่อความลื่นไหลและประหยัด FPS",
     Default = Config.HideTowerScreen,
     Callback = function(v) Config.HideTowerScreen = v end,
 })
-
-TabTowers:AddSection("MANUAL CONTROLS")
-
-TabTowers:AddButton({
-    Name = "Equip Best Tower Team",
+TabContent:AddButton({
+    Name = "Equip Best Tower Team (ใส่ทีมหอคอยที่ดีที่สุด)",
     Icon = "👑",
     Callback = function()
         if EquipBestTowerTeamRE then EquipBestTowerTeamRE:FireServer() end
         Window:Notify({ Title = "Tower Team", Content = "Equipped best tower units!", Type = "success" })
     end,
 })
-
-TabTowers:AddButton({
-    Name = "Cancel Current Tower",
+TabContent:AddButton({
+    Name = "Cancel Current Tower (ออกจากหอคอยทันที)",
     Icon = "⏹",
     Callback = function()
         if CancelTowerRF then CancelTowerRF:InvokeServer() end
@@ -3311,63 +3095,148 @@ TabTowers:AddButton({
     end,
 })
 
--- TAB 7: ROLLING
-local TabRolling = Window:CreateTab({
-    Name = "Rolling",
-    Icon = "🎲",
-    Subtitle = "Fast Dice & Cutscene Bypass",
+TabContent:AddSection("GRADE REROLL ENGINE")
+TabContent:AddToggle({
+    Name = "Auto Reroll Grade (สุ่มเกรดอัตโนมัติ)",
+    Desc = "สุ่มเกรดตัวละครด้วย Gem จนกว่าจะถึงเกรดเป้าหมาย",
+    Default = Config.AutoRerollGrade,
+    Callback = function(v) Config.AutoRerollGrade = v end,
+})
+TabContent:AddDropdown({
+    Name = "Target Grade (เกรดเป้าหมาย)",
+    Options = {"S", "S+", "Z", "Z+", "神"},
+    Default = Config.TargetGrade,
+    Callback = function(v) Config.TargetGrade = v end,
+})
+TabContent:AddTextbox({
+    Name = "Target Unit Key (คีย์ตัวละครที่จะสุ่มเกรด)",
+    Default = Config.TargetGradeUnitKey,
+    Placeholder = "เช่น 1_UnitKey จากคลัง",
+    Callback = function(v) Config.TargetGradeUnitKey = v end,
 })
 
-TabRolling:AddSection("DICE ROLLING ENGINE")
-
-TabRolling:AddToggle({
-    Name = "Auto Roll",
-    Desc = "ทอยลูกเต๋าอัตโนมัติความเร็วสูง",
-    Default = Config.AutoRoll,
-    Callback = function(v) Config.AutoRoll = v end,
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 4: PROGRESSION (พัฒนาการ & อัปเกรด)
+-- ─────────────────────────────────────────────────────────────────────
+local TabProgression = Window:CreateTab({
+    Name = "Progression",
+    Icon = "📈",
+    Subtitle = "Rebirth, Skill Tree & Upgrades",
 })
 
-TabRolling:AddToggle({
-    Name = "Skip Cutscene & Screen Shakes",
-    Desc = "ตัดแอนิเมชันลูกเต๋า 100% หน้าจอไม่สั่นเวียนหัว",
-    Default = Config.SkipCutscene,
-    Callback = function(v)
-        Config.SkipCutscene = v
-        SetupCutsceneBypass()
-        Window:Notify({ Title = "Cutscene Bypass", Content = v and "Cutscenes disabled!" or "Restored.", Type = "info" })
-    end,
+TabProgression:AddSection("AUTO REBIRTH ENGINE")
+TabProgression:AddToggle({
+    Name = "Auto Rebirth (จุติอัตโนมัติ)",
+    Desc = "ตรวจสอบเงินและจุติอัตโนมัติทันทีที่ถึงราคา",
+    Default = Config.AutoRebirth,
+    Callback = function(v) Config.AutoRebirth = v end,
 })
-
-TabRolling:AddSlider({
-    Name = "Roll Speed Delay",
-    Min = 0.01,
-    Max = 0.5,
-    Default = Config.RollSpeedDelay,
-    Increment = 0.01,
-    Format = "%.2fs",
-    Callback = function(v) Config.RollSpeedDelay = v end,
+TabProgression:AddSlider({
+    Name = "Target Rebirth (จุติถึงขั้นเป้าหมาย)",
+    Min = 1,
+    Max = 12,
+    Default = Config.TargetRebirth,
+    Increment = 1,
+    Format = "Rebirth %d",
+    Callback = function(v) Config.TargetRebirth = v end,
 })
-
-TabRolling:AddButton({
-    Name = "Roll Dice 1x Now",
-    Icon = "🎲",
+TabProgression:AddButton({
+    Name = "Rebirth 1x Now (ทดลองกดจุติทันที 1 ครั้ง)",
+    Icon = "⚡",
     Callback = function()
-        if RollService and RollService.RF:FindFirstChild("RollDice") then
-            RollService.RF.RollDice:InvokeServer()
-        end
-        Window:Notify({ Title = "Roll Dice", Content = "Roll completed!", Type = "info" })
+        checkAndRebirth()
+        Window:Notify({ Title = "Rebirth", Content = "Sent rebirth request!", Type = "info" })
     end,
 })
 
--- TAB 8: TELEPORTS
-local TabTeleports = Window:CreateTab({
-    Name = "Teleports",
-    Icon = "🌐",
-    Subtitle = "Instant Teleport to Map Zones",
+TabProgression:AddSection("SKILL TREE UPGRADE ENGINE")
+TabProgression:AddToggle({
+    Name = "Auto Buy Upgrades (ซื้ออัปเกรดอัตโนมัติ)",
+    Desc = "ซื้อความสามารถใน Skill Tree อัตโนมัติ เรียงตามราคาที่ถูกที่สุดก่อน",
+    Default = Config.AutoUpgrades,
+    Callback = function(v)
+        Config.AutoUpgrades = v
+        Window:Notify({ Title = "Auto Upgrades", Content = v and "Upgrades purchasing started!" or "Paused.", Type = v and "success" or "warning" })
+    end,
+})
+TabProgression:AddToggle({
+    Name = "Focus: Luck & Fortune (เน้นอัปโชคและดวง)",
+    Desc = "ซื้อสายโชคและดวงก่อนเป็นอันดับแรก",
+    Default = Config.SelectedUpgradeCategories["Luck & Fortune"],
+    Callback = function(v) Config.SelectedUpgradeCategories["Luck & Fortune"] = v end,
+})
+TabProgression:AddToggle({
+    Name = "Focus: Roll Speed (เน้นความเร็วหมุน)",
+    Desc = "ซื้อสายเพิ่มความเร็วทอยลูกเต๋าก่อน",
+    Default = Config.SelectedUpgradeCategories["Roll Speed"],
+    Callback = function(v) Config.SelectedUpgradeCategories["Roll Speed"] = v end,
+})
+TabProgression:AddToggle({
+    Name = "Focus: Money (เน้นผลิตเงิน)",
+    Desc = "ซื้อสายเพิ่มเงินก่อน",
+    Default = Config.SelectedUpgradeCategories["Money"],
+    Callback = function(v) Config.SelectedUpgradeCategories["Money"] = v end,
 })
 
-TabTeleports:AddSection("WORLD ZONES")
+TabProgression:AddSection("DICE SHOP AUTOMATION")
+TabProgression:AddToggle({
+    Name = "Auto Buy New Dice (ซื้อลูกเต๋าใหม่)",
+    Desc = "ซื้อลูกเต๋าที่ยังไม่มีในร้านค้าเมื่อเงินถึงอัตโนมัติ",
+    Default = Config.AutoBuyDice,
+    Callback = function(v) Config.AutoBuyDice = v end,
+})
 
+TabProgression:AddSection("SMART SLOT UPGRADE ENGINE")
+TabProgression:AddToggle({
+    Name = "Auto Upgrade Slots (เช็คราคาเงินจริง)",
+    Desc = "ตรวจสอบเงินก่อนอัปเกรดเลเวลช่องวางยูนิต ป้องกันระบบค้าง",
+    Default = Config.AutoUpgradeSlots,
+    Callback = function(v) Config.AutoUpgradeSlots = v end,
+})
+TabProgression:AddSlider({
+    Name = "Target Slot Level (อัปถึงเลเวลเป้าหมาย)",
+    Min = 1,
+    Max = 100,
+    Default = Config.TargetSlotLevel,
+    Increment = 1,
+    Format = "Lv. %d",
+    Callback = function(v) Config.TargetSlotLevel = v end,
+})
+
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 5: SETTINGS (ผู้เล่น, วาร์ป & ตั้งค่า)
+-- ─────────────────────────────────────────────────────────────────────
+local TabSettings = Window:CreateTab({
+    Name = "Settings",
+    Icon = "⚙️",
+    Subtitle = "Defense, Teleports & Script Controls",
+})
+
+TabSettings:AddSection("ANTI-DISCONNECT DEFENSE")
+TabSettings:AddToggle({
+    Name = "Triple-Layer Anti-AFK (ป้องกันหลุด 24 ชม.)",
+    Desc = "ทำลายสคริปต์เตะ 19 นาทีของเกม + บล็อก Idled 20 นาที 100%",
+    Default = Config.AntiAFK,
+    Callback = function(v) Config.AntiAFK = v end,
+})
+
+TabSettings:AddSection("FREE REWARDS")
+TabSettings:AddToggle({
+    Name = "Auto Claim Free Rewards (Daily, Offline, Spins)",
+    Desc = "กดรับ Daily Reward, Offline Earnings, และหมุนวงล้อฟรีอัตโนมัติ",
+    Default = Config.AutoClaimRewards,
+    Callback = function(v) Config.AutoClaimRewards = v end,
+})
+TabSettings:AddButton({
+    Name = "Claim All Free Gifts Now (กดรับของขวัญฟรีทันที)",
+    Icon = "🎁",
+    Callback = function()
+        ClaimAllRewards()
+        Window:Notify({ Title = "Gifts", Content = "Claimed Daily, Offline, and Wheel Spins!", Type = "success" })
+    end,
+})
+
+TabSettings:AddSection("WORLD TELEPORTS")
 local ZonesList = {
     { Name = "Central Hub Area", Icon = "🏛️", Pos = Vector3.new(285, 4, 136) },
     { Name = "Shop Area", Icon = "🛒", Pos = Vector3.new(285, 4, -273) },
@@ -3381,9 +3250,8 @@ local ZonesList = {
     { Name = "Grades Machine", Icon = "⭐", Pos = Vector3.new(245, 12, 84) },
     { Name = "Trading Zone", Icon = "🤝", Pos = Vector3.new(247, 12, 6) },
 }
-
 for _, zone in ipairs(ZonesList) do
-    TabTeleports:AddButton({
+    TabSettings:AddButton({
         Name = "Teleport: " .. zone.Name,
         Icon = zone.Icon,
         Callback = function()
@@ -3398,46 +3266,9 @@ for _, zone in ipairs(ZonesList) do
     })
 end
 
--- TAB 9: MISC & DEFENSE
-local TabMisc = Window:CreateTab({
-    Name = "Misc & Defense",
-    Icon = "🎁",
-    Subtitle = "Anti-AFK & Free Rewards Automation",
-})
-
-TabMisc:AddSection("ANTI-DISCONNECT DEFENSE")
-
-TabMisc:AddToggle({
-    Name = "Triple-Layer Anti-AFK (ป้องกันหลุด 24 ชม.)",
-    Desc = "ทำลายสคริปต์เตะ 19 นาทีของเกม + บล็อก Idled 20 นาที 100%",
-    Default = Config.AntiAFK,
-    Callback = function(v)
-        Config.AntiAFK = v
-    end,
-})
-
-TabMisc:AddSection("FREE REWARDS")
-
-TabMisc:AddToggle({
-    Name = "Auto Claim Free Rewards (Daily, Offline, Spins)",
-    Desc = "กดรับ Daily Reward, Offline Earnings, และหมุนวงล้อฟรีอัตโนมัติ",
-    Default = Config.AutoClaimRewards,
-    Callback = function(v) Config.AutoClaimRewards = v end,
-})
-
-TabMisc:AddButton({
-    Name = "Claim All Free Gifts Now",
-    Icon = "🎁",
-    Callback = function()
-        ClaimAllRewards()
-        Window:Notify({ Title = "Gifts", Content = "Claimed Daily, Offline, and Wheel Spins!", Type = "success" })
-    end,
-})
-
-TabMisc:AddSection("SCRIPT CONTROLS")
-
-TabMisc:AddButton({
-    Name = "Unload & Close Hub",
+TabSettings:AddSection("SCRIPT CONTROLS")
+TabSettings:AddButton({
+    Name = "Unload & Close Hub (ถอนการติดตั้งสคริปต์)",
     Icon = "✕",
     Callback = function()
         _G.AnimeDice_Cleanup()
