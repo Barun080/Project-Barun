@@ -1910,7 +1910,8 @@ function UI:CreateWindow(config)
     end)
 
     return WindowObj
-end\n\n
+end
+
 -- ═════════════════════════════════════════════════════════════════════
 -- 💎 PROJECT BARUN — ANIME DICE [UPD 7] GOD SCRIPT ENGINE
 -- ═════════════════════════════════════════════════════════════════════
