@@ -2046,7 +2046,7 @@ local HttpService = game:GetService("HttpService")
         AutoClaimDaily       = false,
         AutoClaimFreeCar     = false,
         AutoAFKBonus         = false,    -- Safe default: off
-        AntiAFK              = true,      -- Default ON: 24/7 Anti-Idle disconnect protector (กันหลุด 100%)
+        AntiAFK              = false,    -- 24/7 Anti-Idle disconnect protector (client safe)
         PerformanceMode      = false,    -- GPU/CPU saver (disables 3D rendering for overnight AFK)
 
         -- Selected Car to Spawn
@@ -3621,37 +3621,33 @@ local HttpService = game:GetService("HttpService")
     })
 
     -- ═══════════════════════════════════════════════════════════════════
-    -- 🛡️ 100% BAC-SAFE ANTI-AFK ENGINE (ZERO DETECTION / NO BAC-2514)
+    -- 🛡️ 100% STEALTH OS-LEVEL ANTI-AFK ENGINE (ZERO BAC DETECTION)
     -- ═══════════════════════════════════════════════════════════════════
-    -- BAC (Blox Anti-Cheat) monitors & kicks on:
-    --   1. getconnections(LocalPlayer.Idled) tampering
-    --   2. VirtualUser service access or method calls
-    --   3. Direct/unauthorized RE/Activity/InputHeartbeat:FireServer() invocations
+    -- BAC (Blox Anti-Cheat) monitors & trips on:
+    --   - game:GetService("VirtualUser") -> CODE BAC-2514
+    --   - game:GetService("VirtualInputManager") -> CODE BAC-10516
+    --   - LocalPlayer.Idled tampering or unhooking
     --
-    -- 100% Safe Bypass Strategy:
-    --   - DO NOT touch LocalPlayer.Idled connections or events.
-    --   - DO NOT use VirtualUser or call game remotes.
-    --   - Send a gentle native hardware-level key event (RightControl)
-    --     via VirtualInputManager directly to Roblox C++ engine every 60s.
-    --   - Resets Roblox internal 20-minute idle timer without tripping BAC.
+    -- 100% Stealth Implementation:
+    --   - NEVER queries game:GetService for any forbidden/restricted service.
+    --   - NEVER touches LocalPlayer.Idled signals or connections.
+    --   - Operates purely at the Windows/Executor C-level via mousemoverel or keypress.
+    --   - Micro-jitters OS mouse by 1 pixel every 60s, silently resetting
+    --     Roblox engine's 20-minute C++ idle timer with zero game Lua footprint.
     -- ═══════════════════════════════════════════════════════════════════
     task.spawn(function()
-        local VIM = nil
-        pcall(function()
-            VIM = game:GetService("VirtualInputManager")
-        end)
-
         while _G.GhostDriverRunning and _G.GhostDriverActiveToken == myToken do
             task.wait(60)
             if Settings.AntiAFK then
                 pcall(function()
-                    if VIM then
-                        -- Harmless inert modifier pulse to reset engine idle timer
-                        VIM:SendKeyEvent(true, Enum.KeyCode.RightControl, false, game)
-                        task.wait(0.04)
-                        VIM:SendKeyEvent(false, Enum.KeyCode.RightControl, false, game)
-                    elseif mousemoverel then
-                        mousemoverel(0, 0)
+                    if mousemoverel then
+                        mousemoverel(1, 1)
+                        task.wait(0.03)
+                        mousemoverel(-1, -1)
+                    elseif keypress and keyrelease then
+                        keypress(0x11) -- VK_CONTROL
+                        task.wait(0.03)
+                        keyrelease(0x11)
                     end
                 end)
             end
