@@ -2046,7 +2046,7 @@ local HttpService = game:GetService("HttpService")
         AutoClaimDaily       = false,
         AutoClaimFreeCar     = false,
         AutoAFKBonus         = false,    -- Safe default: off
-        AntiAFK              = false,     -- 24/7 Anti-Idle disconnect protector (client safe)
+        AntiAFK              = true,      -- Default ON: 24/7 Anti-Idle disconnect protector (กันหลุด 100%)
         PerformanceMode      = false,    -- GPU/CPU saver (disables 3D rendering for overnight AFK)
 
         -- Selected Car to Spawn
@@ -3589,7 +3589,25 @@ local HttpService = game:GetService("HttpService")
     local Dash_Traffic  = TabDash:AddLabel("🛡️ AI Traffic Evaded: 0 Cars")
     local Dash_Status   = TabDash:AddLabel("🟢 System Status: Active Grand Loop Farm")
 
-    TabDash:AddSection({ Name = "⚙️ Overnight AFK Controls" })
+    TabDash:AddSection({ Name = "⚙️ Overnight AFK Controls (ฟาร์มข้ามคืน 24/7)" })
+
+    TabDash:AddToggle({
+        Name = "🛡️ 24/7 Anti-AFK (กันหลุด/กันเตะ AFK 20 นาที 100%)",
+        Default = Settings.AntiAFK,
+        Callback = function(Value)
+            Settings.AntiAFK = Value
+            SaveConfig()
+            if Value then
+                pcall(function()
+                    OrionLib:MakeNotification({
+                        Name = "🛡️ Anti-AFK เปิดใช้งาน",
+                        Content = "ระบบกันหลุด 24/7 ทำงานแล้ว สามารถเปิดฟาร์มทิ้งไว้ข้ามคืนได้เลย!",
+                        Time = 4
+                    })
+                end)
+            end
+        end
+    })
 
     TabDash:AddToggle({
         Name = "GPU/CPU Saver Mode (ปิดเรนเดอร์ 3D พักการ์ดจอ สำหรับฟาร์มข้ามคืน)",
@@ -3602,18 +3620,57 @@ local HttpService = game:GetService("HttpService")
         end
     })
 
-    -- Safe Anti-Idle & Heartbeat Keepalive (Replaces dangerous LocalPlayer.Idled:Connect / VirtualUser to bypass BAC)
+    -- ═══════════════════════════════════════════════════════════════════
+    -- 🛡️ 4-LAYER BULLETPROOF ANTI-AFK & 24/7 KEEP-ALIVE ENGINE
+    -- Layer 1: Disable Roblox Engine Idled Kick Connections
+    -- Layer 2: VirtualUser Input Interception on Idled Trigger
+    -- Layer 3: Periodic Micro-Pulse Keepalive (Every 35s)
+    -- Layer 4: In-Game Activity Remote Heartbeat Pulse
+    -- ═══════════════════════════════════════════════════════════════════
+    local VirtualUser = nil
+    pcall(function() VirtualUser = game:GetService("VirtualUser") end)
+
+    -- Layer 1 & 2: Idled Connection Disabler & Event Trap
+    pcall(function()
+        if getconnections then
+            for _, conn in ipairs(getconnections(LocalPlayer.Idled)) do
+                pcall(function()
+                    if conn.Disable then conn:Disable() end
+                    if conn.Disconnect then conn:Disconnect() end
+                end)
+            end
+        end
+
+        LocalPlayer.Idled:Connect(function()
+            if Settings.AntiAFK and VirtualUser then
+                pcall(function()
+                    VirtualUser:CaptureController()
+                    VirtualUser:ClickButton2(Vector2.zero)
+                end)
+            end
+        end)
+    end)
+
+    -- Layer 3 & 4: Periodic Keepalive Pulse Loop
     task.spawn(function()
         local heartbeatRemote = NetFolder and NetFolder:FindFirstChild("RE/Activity/InputHeartbeat")
         while _G.GhostDriverRunning and _G.GhostDriverActiveToken == myToken do
+            task.wait(35)
             if Settings.AntiAFK then
-                pcall(function()
-                    if heartbeatRemote then
+                -- Simulate subtle user input so Roblox internal 20-minute idle timer never increments
+                if VirtualUser then
+                    pcall(function()
+                        VirtualUser:CaptureController()
+                        VirtualUser:ClickButton2(Vector2.new(10, 10))
+                    end)
+                end
+                -- Send game's custom activity heartbeat remote
+                if heartbeatRemote then
+                    pcall(function()
                         heartbeatRemote:FireServer()
-                    end
-                end)
+                    end)
+                end
             end
-            task.wait(15)
         end
     end)
 
@@ -3873,6 +3930,17 @@ local HttpService = game:GetService("HttpService")
     })
 
     -- ─── Tab: Settings & Config System ───────────────────────────────
+    TabConfig:AddSection({ Name = "🛡️ Security & Anti-Disconnect" })
+
+    TabConfig:AddToggle({
+        Name = "🛡️ 24/7 Anti-AFK Protection (กันหลุดและกันตัดการเชื่อมต่อ)",
+        Default = Settings.AntiAFK,
+        Callback = function(Value)
+            Settings.AntiAFK = Value
+            SaveConfig()
+        end
+    })
+
     TabConfig:AddSection({ Name = "💾 Configuration Profile Management" })
 
     TabConfig:AddButton({
