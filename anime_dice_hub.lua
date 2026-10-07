@@ -2057,12 +2057,14 @@ local DiceModule        = nil
 local GroupRewardConfig = nil
 local BoostController   = nil
 local BoostConfig       = nil
+local EntryController   = nil
 local TowerController   = nil
 local UIReferences      = nil
 
 pcall(function() DataController    = require(Features.Data.DataController) end)
 pcall(function() UnitUtil          = require(Features.Inventory.Kinds.Unit.UnitUtil) end)
 pcall(function() EntryRegistry     = require(Features.Inventory.EntryRegistry) end)
+pcall(function() EntryController   = require(Features.Inventory.EntryController) end)
 pcall(function() GradesModule      = require(Features.Grades.Grades) end)
 pcall(function() TreeStructure     = require(Features.Upgrades.TreeStructure) end)
 pcall(function() RebirthsModule    = require(Features.Rebirth.Rebirths) end)
@@ -2080,38 +2082,73 @@ pcall(function() UIReferences      = require(Features.UI.UIReferences) end)
 -- ── 2.1 2K SMART BOOSTS & BUFF HELPERS ─────────────────────────────────
 local function getAllBoostNames()
     local names = {}
+    local nameSet = {}
+
+    -- 1. In-game BoostConfig entries
     pcall(function()
         if BoostConfig and BoostConfig.entries then
             for name, _ in pairs(BoostConfig.entries) do
-                table.insert(names, name)
+                if not nameSet[name] then
+                    nameSet[name] = true
+                    table.insert(names, name)
+                end
             end
         end
     end)
-    table.sort(names)
-    if #names == 0 then
-        names = {
-            "Cursed Damage I", "Cursed Damage II", "Cursed Damage III",
-            "Cursed Income I", "Cursed Income II", "Cursed Income III",
-            "Cursed Luck I", "Cursed Luck II", "Cursed Luck III",
-            "Damage I", "Damage II", "Damage III", "Damage IV",
-            "Dragon Damage I", "Dragon Damage II", "Dragon Damage III",
-            "Dragon Income I", "Dragon Income II", "Dragon Income III",
-            "Dragon Luck I", "Dragon Luck II", "Dragon Luck III",
-            "Income I", "Income II", "Income III", "Income IV",
-            "Leaf Damage I", "Leaf Damage II", "Leaf Damage III",
-            "Leaf Income I", "Leaf Income II", "Leaf Income III",
-            "Leaf Luck I", "Leaf Luck II", "Leaf Luck III",
-            "Luck I", "Luck II", "Luck III", "Luck IV",
-            "Pirate Damage I", "Pirate Damage II", "Pirate Damage III",
-            "Pirate Income I", "Pirate Income II", "Pirate Income III",
-            "Pirate Luck I", "Pirate Luck II", "Pirate Luck III",
-            "Shadow Income I", "Shadow Income II", "Shadow Income III", "Shadow Income IV",
-            "Shadow Luck I", "Shadow Luck II", "Shadow Luck III", "Shadow Luck IV",
-            "Shadow Speed I", "Shadow Speed II", "Shadow Speed III", "Shadow Speed IV",
-            "Slayer Damage III", "Slayer Income III", "Slayer Luck III",
-            "Speed I", "Speed II", "Speed III", "Speed IV"
-        }
+
+    -- 2. Comprehensive canonical game potions (all worlds & tiers)
+    local masterPotions = {
+        "Cursed Damage I", "Cursed Damage II", "Cursed Damage III", "Cursed Damage IV",
+        "Cursed Income I", "Cursed Income II", "Cursed Income III", "Cursed Income IV",
+        "Cursed Luck I", "Cursed Luck II", "Cursed Luck III", "Cursed Luck IV",
+        "Damage I", "Damage II", "Damage III", "Damage IV",
+        "Dragon Damage I", "Dragon Damage II", "Dragon Damage III", "Dragon Damage IV",
+        "Dragon Income I", "Dragon Income II", "Dragon Income III", "Dragon Income IV",
+        "Dragon Luck I", "Dragon Luck II", "Dragon Luck III", "Dragon Luck IV",
+        "Income I", "Income II", "Income III", "Income IV",
+        "Leaf Damage I", "Leaf Damage II", "Leaf Damage III", "Leaf Damage IV",
+        "Leaf Income I", "Leaf Income II", "Leaf Income III", "Leaf Income IV",
+        "Leaf Luck I", "Leaf Luck II", "Leaf Luck III", "Leaf Luck IV",
+        "Luck I", "Luck II", "Luck III", "Luck IV",
+        "Pirate Damage I", "Pirate Damage II", "Pirate Damage III", "Pirate Damage IV",
+        "Pirate Income I", "Pirate Income II", "Pirate Income III", "Pirate Income IV",
+        "Pirate Luck I", "Pirate Luck II", "Pirate Luck III", "Pirate Luck IV",
+        "Shadow Damage I", "Shadow Damage II", "Shadow Damage III", "Shadow Damage IV",
+        "Shadow Income I", "Shadow Income II", "Shadow Income III", "Shadow Income IV",
+        "Shadow Luck I", "Shadow Luck II", "Shadow Luck III", "Shadow Luck IV",
+        "Shadow Speed I", "Shadow Speed II", "Shadow Speed III", "Shadow Speed IV",
+        "Slayer Damage I", "Slayer Damage II", "Slayer Damage III", "Slayer Damage IV",
+        "Slayer Income I", "Slayer Income II", "Slayer Income III", "Slayer Income IV",
+        "Slayer Luck I", "Slayer Luck II", "Slayer Luck III", "Slayer Luck IV",
+        "Speed I", "Speed II", "Speed III", "Speed IV"
+    }
+    for _, p in ipairs(masterPotions) do
+        if not nameSet[p] then
+            nameSet[p] = true
+            table.insert(names, p)
+        end
     end
+
+    -- 3. Dynamic scan from player's inventory for any newly added/special event items
+    pcall(function()
+        local inv = DataController and DataController.Inventory and DataController.Inventory()
+        if type(inv) == "table" then
+            for id, it in pairs(inv) do
+                if type(it) == "table" then
+                    local iName = it.name or it.Name or it.displayName or it.DisplayName
+                    if iName and not nameSet[iName] then
+                        local cfg = EntryRegistry and EntryRegistry.getEntryConfig and EntryRegistry.getEntryConfig(iName)
+                        if cfg and (cfg.kind == "Boost" or cfg.type == "Boost") then
+                            nameSet[iName] = true
+                            table.insert(names, iName)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    table.sort(names)
     return names
 end
 
@@ -2121,7 +2158,7 @@ local function getActiveBuffsSummary()
         local bb = LP.PlayerGui:FindFirstChild("BuffBar", true)
         if bb then
             for _, child in ipairs(bb:GetChildren()) do
-                if child.Name:sub(1, 6) == "Boost_" then
+                if child:IsA("GuiObject") and child.Name:sub(1, 6) == "Boost_" then
                     local bName = child.Name:sub(7)
                     local lbl = child:FindFirstChildOfClass("TextLabel")
                     local timer = (lbl and lbl.Text ~= "" and lbl.Text) or "Active"
@@ -2130,6 +2167,18 @@ local function getActiveBuffsSummary()
             end
         end
     end)
+    if #activeList == 0 then
+        pcall(function()
+            if BuffController and (BuffController.buffs or BuffController.activeBuffs) then
+                local bTable = BuffController.buffs or BuffController.activeBuffs
+                if type(bTable) == "table" then
+                    for k, v in pairs(bTable) do
+                        table.insert(activeList, tostring(k))
+                    end
+                end
+            end
+        end)
+    end
     if #activeList == 0 then
         return "No active boosts"
     end
@@ -2261,8 +2310,9 @@ local Config = {
 
     -- Potions & Boosts
     AutoUsePotions = false,
-    PotionInterval = 10,
-    ItemUseCondition = "When Expired", -- "When Expired" or "Always"
+    AutoUseAllOwned = false,
+    PotionInterval = 2,
+    ItemUseCondition = "กดใช้ทันที / ซ้อนเวลา (Always Use)",
     SelectedCustomPotion = "Luck IV",
     ActivePotions = {
         ["Luck IV"] = false,
@@ -2655,30 +2705,197 @@ task.spawn(function()
     end
 end)
 
--- ── 8. SMART POTIONS ENGINE (2K ADVANCED INVENTORY & BUFFBAR RADAR) ─
+-- ── 8. SMART POTIONS ENGINE (2K BULLETPROOF INVENTORY & BUFFBAR RADAR) ─
+local function normalizeBoostKey(str)
+    local s = string.lower(tostring(str or ""))
+    s = string.gsub(s, "[%s_%-]+", "")
+    s = string.gsub(s, "iv$", "4")
+    s = string.gsub(s, "iii$", "3")
+    s = string.gsub(s, "ii$", "2")
+    s = string.gsub(s, "i$", "1")
+    return s
+end
+
 local function isBoostActive(boostName)
+    if not boostName or boostName == "" then return false end
     local active = false
+
+    -- 1. Query BuffController (Flamework Buff controller)
     pcall(function()
-        local buffBar = LP.PlayerGui:FindFirstChild("BuffBar", true)
-        if buffBar and buffBar:FindFirstChild("Boost_" .. boostName) then
-            active = true
+        if BuffController then
+            if BuffController.GetBuff then
+                local b = BuffController:GetBuff(boostName) or BuffController.GetBuff(boostName)
+                if b then active = true return end
+            end
+            local bTable = BuffController.buffs or BuffController.activeBuffs
+            if type(bTable) == "table" then
+                if bTable[boostName] or bTable["Boost_" .. boostName] then
+                    active = true
+                    return
+                end
+                local targetNorm = normalizeBoostKey(boostName)
+                for k, _ in pairs(bTable) do
+                    if normalizeBoostKey(k) == targetNorm then
+                        active = true
+                        return
+                    end
+                end
+            end
         end
     end)
+    if active then return true end
+
+    -- 2. Query BuffBar GUI in PlayerGui
+    pcall(function()
+        local bb = LP.PlayerGui:FindFirstChild("BuffBar", true)
+        if bb then
+            -- Exact direct match
+            if bb:FindFirstChild("Boost_" .. boostName) or bb:FindFirstChild(boostName) then
+                active = true
+                return
+            end
+
+            local targetNorm = normalizeBoostKey(boostName)
+            for _, child in ipairs(bb:GetChildren()) do
+                if child:IsA("GuiObject") then
+                    local cNorm = normalizeBoostKey(child.Name)
+                    if cNorm == "boost" .. targetNorm or cNorm == targetNorm then
+                        active = true
+                        return
+                    end
+
+                    local attr = child:GetAttribute("BoostName") or child:GetAttribute("Name") or child:GetAttribute("Buff")
+                    if attr and normalizeBoostKey(attr) == targetNorm then
+                        active = true
+                        return
+                    end
+
+                    for _, desc in ipairs(child:GetDescendants()) do
+                        if desc:IsA("TextLabel") and desc.Text ~= "" then
+                            local tNorm = normalizeBoostKey(desc.Text)
+                            if string.find(tNorm, targetNorm, 1, true) then
+                                active = true
+                                return
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
     return active
 end
 
-local function UsePotion(potionName)
-    if not potionName then return false end
+local function resolveInventoryItem(inv, targetName)
+    if not targetName or targetName == "" then return nil, nil, 0 end
+
+    -- 1. EntryController:GetAmount check
+    local ecAmount = 0
+    pcall(function()
+        if EntryController and EntryController.GetAmount then
+            local a = EntryController:GetAmount(targetName) or EntryController.GetAmount(targetName)
+            if a and tonumber(a) then
+                ecAmount = tonumber(a)
+            end
+        end
+    end)
+
+    if not inv or type(inv) ~= "table" then
+        pcall(function()
+            inv = DataController and DataController.Inventory and DataController.Inventory()
+        end)
+    end
+
+    if type(inv) == "table" then
+        -- 2. Direct key lookup
+        if inv[targetName] and type(inv[targetName]) == "table" then
+            local it = inv[targetName]
+            local amt = tonumber(it.amount) or (tonumber(it.Count) or (tonumber(it.quantity) or ecAmount))
+            return targetName, it, (amt > 0 and amt or (ecAmount > 0 and ecAmount or 1))
+        end
+
+        -- 3. Exact matching on item.name / item.id / slot id
+        for id, item in pairs(inv) do
+            if type(item) == "table" then
+                local iName = item.name or item.Name or item.displayName or item.DisplayName
+                local iId = item.id or item.Id or id
+                if iName == targetName or tostring(iId) == targetName or tostring(id) == targetName then
+                    local amt = tonumber(item.amount) or (tonumber(item.Count) or (tonumber(item.quantity) or ecAmount))
+                    return id, item, (amt > 0 and amt or (ecAmount > 0 and ecAmount or 1))
+                end
+            end
+        end
+
+        -- 4. Normalized fuzzy match (roman numerals, casing, underscores)
+        local targetNorm = normalizeBoostKey(targetName)
+        for id, item in pairs(inv) do
+            if type(item) == "table" then
+                local iName = item.name or item.Name or item.displayName or item.DisplayName or ""
+                local iId = item.id or item.Id or id or ""
+                if normalizeBoostKey(iName) == targetNorm or normalizeBoostKey(iId) == targetNorm or normalizeBoostKey(id) == targetNorm then
+                    local amt = tonumber(item.amount) or (tonumber(item.Count) or (tonumber(item.quantity) or ecAmount))
+                    return id, item, (amt > 0 and amt or (ecAmount > 0 and ecAmount or 1))
+                end
+            end
+        end
+    end
+
+    if ecAmount > 0 then
+        return targetName, { name = targetName, amount = ecAmount }, ecAmount
+    end
+
+    return nil, nil, 0
+end
+
+local function UsePotion(potionName, itemId)
+    if not potionName and not itemId then return false end
     local success = false
+    local targetName = potionName or itemId
+
+    -- Try BoostController.UseBoost with potion name
     pcall(function()
         if BoostController and BoostController.UseBoost then
-            BoostController.UseBoost(potionName)
-            success = true
-        elseif BoostUseRE then
-            BoostUseRE:FireServer(potionName)
+            BoostController.UseBoost(targetName)
             success = true
         end
     end)
+
+    -- If failed or not present, try direct remote event
+    if not success then
+        pcall(function()
+            if BoostUseRE then
+                BoostUseRE:FireServer(targetName)
+                success = true
+            end
+        end)
+    end
+
+    -- If item ID is different, also try invoking with itemId
+    if not success and itemId and itemId ~= targetName then
+        pcall(function()
+            if BoostController and BoostController.UseBoost then
+                BoostController.UseBoost(itemId)
+                success = true
+            elseif BoostUseRE then
+                BoostUseRE:FireServer(itemId)
+                success = true
+            end
+        end)
+    end
+
+    -- Dynamic fallback remote search
+    if not success then
+        pcall(function()
+            local bNet = Network and (Network:FindFirstChild("BoostService") or Network:FindFirstChild("Boosts"))
+            local re = bNet and bNet:FindFirstChild("RE") and bNet.RE:FindFirstChild("Use")
+            if re then
+                re:FireServer(targetName)
+                success = true
+            end
+        end)
+    end
+
     if success then
         State.TotalPotionsUsedSession = State.TotalPotionsUsedSession + 1
     end
@@ -2690,12 +2907,90 @@ local function selectOwnedPotions()
     pcall(function()
         local inv = DataController and DataController.Inventory and DataController.Inventory()
         if type(inv) ~= "table" then return end
+
+        local allNames = getAllBoostNames()
+        local allSet = {}
+        for _, n in ipairs(allNames) do
+            allSet[n] = n
+            allSet[normalizeBoostKey(n)] = n
+        end
+
         for id, item in pairs(inv) do
-            if type(item) == "table" and item.name and tonumber(item.amount) and tonumber(item.amount) > 0 then
-                local cfg = EntryRegistry and EntryRegistry.getEntryConfig and EntryRegistry.getEntryConfig(item.name)
-                if cfg and cfg.kind == "Boost" then
-                    Config.ActivePotions[item.name] = true
-                    count = count + 1
+            if type(item) == "table" then
+                local amt = tonumber(item.amount) or (tonumber(item.Count) or (tonumber(item.quantity) or 0))
+                if amt > 0 then
+                    local iName = item.name or item.Name or item.displayName or item.DisplayName
+                    local matched = nil
+
+                    if iName and allSet[iName] then
+                        matched = allSet[iName]
+                    elseif iName then
+                        matched = allSet[normalizeBoostKey(iName)]
+                    end
+
+                    if not matched and iName and EntryRegistry and EntryRegistry.getEntryConfig then
+                        local cfg = EntryRegistry.getEntryConfig(iName)
+                        if cfg and (cfg.kind == "Boost" or cfg.type == "Boost") then
+                            matched = iName
+                        end
+                    end
+
+                    if matched then
+                        Config.ActivePotions[matched] = true
+                        count = count + 1
+                    end
+                end
+            end
+        end
+    end)
+    return count
+end
+
+local function isBoostItem(item, name)
+    if not item and not name then return false end
+    if item and type(item) == "table" then
+        if item.kind == "Boost" or item.type == "Boost" or item.category == "Boost" then
+            return true
+        end
+    end
+    local targetName = name or (item and (item.name or item.Name or item.displayName or item.DisplayName))
+    if not targetName then return false end
+    if EntryRegistry and EntryRegistry.getEntryConfig then
+        local cfg = EntryRegistry.getEntryConfig(targetName)
+        if cfg and (cfg.kind == "Boost" or cfg.type == "Boost") then
+            return true
+        end
+    end
+    if BoostConfig and BoostConfig.entries and BoostConfig.entries[targetName] then
+        return true
+    end
+    local norm = normalizeBoostKey(targetName)
+    local all = getAllBoostNames()
+    for _, b in ipairs(all) do
+        if normalizeBoostKey(b) == norm then
+            return true
+        end
+    end
+    return false
+end
+
+local function useAllOwnedPotionsNow()
+    local count = 0
+    pcall(function()
+        local inv = DataController and DataController.Inventory and DataController.Inventory()
+        if type(inv) ~= "table" then return end
+        for id, item in pairs(inv) do
+            if type(item) == "table" then
+                local amt = tonumber(item.amount) or (tonumber(item.Count) or (tonumber(item.quantity) or 0))
+                if amt > 0 then
+                    local iName = item.name or item.Name or item.displayName or item.DisplayName
+                    if iName and isBoostItem(item, iName) then
+                        local ok = UsePotion(iName, id)
+                        if ok then
+                            count = count + 1
+                            task.wait(0.12)
+                        end
+                    end
                 end
             end
         end
@@ -2707,13 +3002,11 @@ local function useSelectedItemsNow()
     local count = 0
     pcall(function()
         local inv = DataController and DataController.Inventory and DataController.Inventory()
-        if type(inv) ~= "table" then return end
         for itemName, isSelected in pairs(Config.ActivePotions) do
             if isSelected then
-                local itemData = inv[itemName]
-                local amount = itemData and tonumber(itemData.amount) or 0
+                local id, itemData, amount = resolveInventoryItem(inv, itemName)
                 if amount > 0 then
-                    local ok = UsePotion(itemName)
+                    local ok = UsePotion(itemName, id)
                     if ok then
                         count = count + 1
                         task.wait(0.12)
@@ -2727,28 +3020,61 @@ end
 
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
-        if Config.AutoUsePotions then
+        if Config.AutoUsePotions or Config.AutoUseAllOwned then
             pcall(function()
                 local inv = DataController and DataController.Inventory and DataController.Inventory()
                 if type(inv) ~= "table" then return end
 
-                for potionName, enabled in pairs(Config.ActivePotions) do
-                    if enabled and Running and _G.AnimeDiceActiveToken == myToken then
-                        local itemData = inv[potionName]
-                        local amount = itemData and tonumber(itemData.amount) or 0
-                        if amount > 0 then
-                            local shouldConsume = false
-                            if Config.ItemUseCondition == "Always" or Config.ItemUseCondition == "Always (กดใช้ทันที / ซ้อนเวลา)" then
-                                shouldConsume = true
-                            else
-                                if not isBoostActive(potionName) then
-                                    shouldConsume = true
+                local condition = tostring(Config.ItemUseCondition or "")
+                local isAlways = (condition == "Always")
+                    or string.find(condition, "Always", 1, true) ~= nil
+                    or string.find(condition, "ซ้อนเวลา", 1, true) ~= nil
+                    or Config.AutoUseAllOwned
+
+                if Config.AutoUseAllOwned then
+                    -- Mode 1: Instant Auto Use for ANY potion present in inventory
+                    for id, item in pairs(inv) do
+                        if type(item) == "table" and Running and _G.AnimeDiceActiveToken == myToken then
+                            local amt = tonumber(item.amount) or (tonumber(item.Count) or (tonumber(item.quantity) or 0))
+                            if amt > 0 then
+                                local iName = item.name or item.Name or item.displayName or item.DisplayName
+                                if iName and isBoostItem(item, iName) then
+                                    local shouldConsume = false
+                                    if isAlways then
+                                        shouldConsume = true
+                                    else
+                                        if not isBoostActive(iName) then
+                                            shouldConsume = true
+                                        end
+                                    end
+
+                                    if shouldConsume then
+                                        UsePotion(iName, id)
+                                        task.wait(0.12)
+                                    end
                                 end
                             end
+                        end
+                    end
+                else
+                    -- Mode 2: Auto Use only specifically selected potions
+                    for potionName, enabled in pairs(Config.ActivePotions) do
+                        if enabled and Running and _G.AnimeDiceActiveToken == myToken then
+                            local id, itemData, amount = resolveInventoryItem(inv, potionName)
+                            if amount > 0 then
+                                local shouldConsume = false
+                                if isAlways then
+                                    shouldConsume = true
+                                else
+                                    if not isBoostActive(potionName) then
+                                        shouldConsume = true
+                                    end
+                                end
 
-                            if shouldConsume then
-                                UsePotion(potionName)
-                                task.wait(0.15)
+                                if shouldConsume then
+                                    UsePotion(potionName, id)
+                                    task.wait(0.15)
+                                end
                             end
                         end
                     end
@@ -3038,8 +3364,9 @@ local DefaultCleanConfig = {
     TargetGrade = "S",
     TargetGradeUnitKey = "",
     AutoUsePotions = false,
-    PotionInterval = 10,
-    ItemUseCondition = "When Expired",
+    AutoUseAllOwned = false,
+    PotionInterval = 2,
+    ItemUseCondition = "กดใช้ทันที / ซ้อนเวลา (Always Use)",
     SelectedCustomPotion = "Luck IV",
     ActivePotions = {
         ["Luck IV"] = false,
@@ -3467,15 +3794,29 @@ TabEconomy:AddButton({
 })
 
 TabEconomy:AddSection("ระบบใช้ไอเทมอัตโนมัติ (Auto Use Items)")
+UIHandles.AutoUseAllOwned = TabEconomy:AddToggle({
+    Name = "ใช้น้ำยาทันทีที่มีในกระเป๋า (Auto Use All Owned)",
+    Desc = "ตรวจพบบัฟหรือน้ำยาใดๆ ในกระเป๋าจะกดใช้ทันทีอัตโนมัติ (ไม่ต้องคอยติ๊กเลือกทีละขวด)",
+    Default = Config.AutoUseAllOwned,
+    Callback = function(v)
+        Config.AutoUseAllOwned = v
+        Window:Notify({
+            Title = "2K Auto Boost",
+            Content = v and "เปิดระบบใช้น้ำยาทันทีที่มีในกระเป๋าแล้ว" or "ปิดระบบใช้น้ำยาทันทีที่มีในกระเป๋า",
+            Type = v and "success" or "warning"
+        })
+    end,
+})
+
 UIHandles.AutoUsePotions = TabEconomy:AddToggle({
-    Name = "ใช้ไอเทมอัตโนมัติ (Auto Use Items)",
-    Desc = "กดใช้ไอเทมและบัฟที่เลือกจากในคลัง",
+    Name = "ใช้เฉพาะไอเทมที่เลือก (Auto Use Selected Items)",
+    Desc = "กดใช้เฉพาะไอเทมและบัฟที่ติ๊กเลือกจากรายการด้านล่าง",
     Default = Config.AutoUsePotions,
     Callback = function(v)
         Config.AutoUsePotions = v
         Window:Notify({
             Title = "2K Auto Boost",
-            Content = v and "เปิดระบบใช้ไอเทมอัตโนมัติแล้ว" or "ปิดระบบใช้ไอเทมอัตโนมัติ",
+            Content = v and "เปิดระบบใช้ไอเทมที่เลือกแล้ว" or "ปิดระบบใช้ไอเทมที่เลือก",
             Type = v and "success" or "warning"
         })
     end,
@@ -3493,15 +3834,16 @@ UIHandles.ActivePotions = TabEconomy:AddDropdown({
         Config.ActivePotions = val
     end,
 })
+PotionDropdownHandle = UIHandles.ActivePotions
 
 UIHandles.ItemUseCondition = TabEconomy:AddDropdown({
     Name = "เงื่อนไขการใช้ (Condition)",
     Desc = "กำหนดจังหวะการกดใช้ไอเทม",
     Options = {
-        "ใช้เมื่อบัฟหมด (When Expired)",
-        "กดใช้ทันที / ซ้อนเวลา (Always Use)"
+        "กดใช้ทันที / ซ้อนเวลา (Always Use)",
+        "ใช้เมื่อบัฟหมด (When Expired)"
     },
-    Default = Config.ItemUseCondition or "ใช้เมื่อบัฟหมด (When Expired)",
+    Default = Config.ItemUseCondition or "กดใช้ทันที / ซ้อนเวลา (Always Use)",
     Callback = function(v)
         Config.ItemUseCondition = v
     end,
@@ -3519,6 +3861,20 @@ UIHandles.PotionInterval = TabEconomy:AddSlider({
 })
 
 TabEconomy:AddSection("เครื่องมือด่วน (Quick Actions)")
+TabEconomy:AddButton({
+    Name = "กดใช้น้ำยาทั้งหมดในกระเป๋าทันที (Use All In Bag Now)",
+    Desc = "กดใช้ขวดยาทุกชนิดที่มีอยู่ในกระเป๋าตอนนี้ทันทีอย่างละ 1 ครั้ง",
+    Icon = "⚡",
+    Callback = function()
+        local count = useAllOwnedPotionsNow()
+        Window:Notify({
+            Title = "2K Script",
+            Content = count > 0 and string.format("กดใช้น้ำยาในกระเป๋าสำเร็จ %d ชนิด", count) or "ไม่มีน้ำยาในกระเป๋า",
+            Type = count > 0 and "success" or "warning"
+        })
+    end,
+})
+
 TabEconomy:AddButton({
     Name = "เลือกเฉพาะไอเทมที่มีในคลัง (Select Owned)",
     Desc = "ติ๊กเลือกไอเทมทั้งหมดที่มีจำนวนมากกว่า 0 ในคลัง",
@@ -3598,7 +3954,7 @@ UIHandles.SelectedTower = TabContent:AddDropdown({
 TabContent:AddSlider({
     Name = "Target Floor (เคลียร์ถึงชั้นเป้าหมาย)",
     Min = 1,
-    Max = 100,
+    Max = 150,
     Default = Config.TargetTowerFloor,
     Increment = 1,
     Format = "%d",
