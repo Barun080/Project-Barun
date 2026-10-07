@@ -2027,8 +2027,10 @@ local HttpService = game:GetService("HttpService")
         NoCollisionTraffic   = false,     -- Default ON: ทะลุรถ AI & ผู้เล่น
         GhostGodMode         = false,     -- Default ON: ตัวถังรถเป็นผี ทะลุกำแพง/สิ่งกีดขวาง
         AutoEscapePolice     = false,     -- Auto Escape Police Pursuit mode
+        PoliceChaseDifficulty= 5,         -- เลือกระดับความยากตำรวจ (1 - 5 ดาว)
         PoliceTargetCash     = 50000,     -- Target cash goal before activating 100% Anti-Busted
         PoliceBustedActivated= false,     -- Flag indicating target cash reached and 100% protection active
+        PoliceEvadeHeight    = 35,        -- ความสูงลอยตัวหนีตำรวจ 100%
 
         -- Auto Farming & Economy (Grand Loop 96,000+ studs / 26.8 km!)
         AutoDriveFarm        = false,     -- Default ON: ฟาร์มอัตโนมัติทันทีที่รันสคริป
@@ -2074,7 +2076,9 @@ local HttpService = game:GetService("HttpService")
                     NoCollisionTraffic = Settings.NoCollisionTraffic,
                     GhostGodMode = Settings.GhostGodMode,
                     AutoEscapePolice = Settings.AutoEscapePolice,
+                    PoliceChaseDifficulty = Settings.PoliceChaseDifficulty,
                     PoliceTargetCash = Settings.PoliceTargetCash,
+                    PoliceEvadeHeight = Settings.PoliceEvadeHeight,
                     FarmDriveSpeed = Settings.FarmDriveSpeed,
                     HyperDriveMode = Settings.HyperDriveMode,
                     FarmLane = Settings.FarmLane,
@@ -2114,6 +2118,7 @@ local HttpService = game:GetService("HttpService")
                     -- MANDATORY: Always keep active automations and physics locks disabled upon load
                     Settings.AutoDriveFarm       = false
                     Settings.AutoEscapePolice     = false
+                    Settings.PoliceBustedActivated= false
                     Settings.RigidChassisLock     = false
                     Settings.HoverSuspension      = false
                     Settings.GhostGodMode         = false
@@ -2148,6 +2153,17 @@ local HttpService = game:GetService("HttpService")
     local function safe(fn)
         local ok, err = pcall(fn)
         if not ok then warn("[GhostDriver] " .. tostring(err)) end
+    end
+
+    local function formatNumber(n)
+        n = math.floor(tonumber(n) or 0)
+        local formatted = tostring(n)
+        while true do
+            local k
+            formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", "%1,%2")
+            if k == 0 then break end
+        end
+        return formatted
     end
 
     -- ═══════════════════════════════════════════════════════════════════
@@ -2515,9 +2531,12 @@ local HttpService = game:GetService("HttpService")
         end
     end
 
-    function FarmManager.Stop()
+    function FarmManager.Stop(keepPoliceRunning)
         Settings.AutoDriveFarm = false
-        Settings.AutoEscapePolice = false
+        if not keepPoliceRunning then
+            Settings.AutoEscapePolice = false
+            Settings.PoliceBustedActivated = false
+        end
         Settings.RigidChassisLock = false
         Settings.HoverSuspension = false
         FarmManager.WasDriving = false
@@ -3110,6 +3129,331 @@ local HttpService = game:GetService("HttpService")
     end
 
     -- ═══════════════════════════════════════════════════════════════════
+    -- 🚓 POLICE MANAGER: AUTO CHASE LOOP & SAFE ESCAPE ENGINE
+    -- ═══════════════════════════════════════════════════════════════════
+    local PoliceStatusLabel = nil
+    local PoliceCashLabel   = nil
+
+    local PoliceManager = {
+        IsRunning = false,
+        WorkerTask = nil,
+        CurrentPhase = "Standby",
+        LastEarnedCash = 0,
+        TotalEscapedRuns = 0,
+        TotalCashEarned = 0,
+    }
+
+    function PoliceManager.Stop()
+        PoliceManager.IsRunning = false
+        Settings.AutoEscapePolice = false
+        Settings.PoliceBustedActivated = false
+        PoliceManager.CurrentPhase = "Standby"
+
+        if PoliceManager.WorkerTask then
+            pcall(task.cancel, PoliceManager.WorkerTask)
+            PoliceManager.WorkerTask = nil
+        end
+
+        -- Stop farming immediately
+        FarmManager.Stop(false)
+
+        -- Zero out velocities and unfreeze vehicle
+        safe(function()
+            local car = getPlayerCar()
+            local seat = getDriveSeat()
+            if car then
+                for _, part in ipairs(car:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.AssemblyLinearVelocity = Vector3.zero
+                        part.AssemblyAngularVelocity = Vector3.zero
+                        if part.Anchored then part.Anchored = false end
+                    end
+                end
+            end
+            if seat then
+                seat.AssemblyLinearVelocity = Vector3.zero
+                seat.AssemblyAngularVelocity = Vector3.zero
+            end
+        end)
+
+        pcall(function()
+            if PoliceStatusLabel and PoliceStatusLabel.Set then
+                PoliceStatusLabel:Set("🛡️ Status: Standby (ระบบหยุดทำงานแล้ว)")
+            end
+            if PoliceCashLabel and PoliceCashLabel.Set then
+                PoliceCashLabel:Set("💰 Chase Cash: $0 / $" .. formatNumber(Settings.PoliceTargetCash or 50000))
+            end
+        end)
+    end
+
+    function PoliceManager.Start()
+        PoliceManager.Stop()
+        Settings.AutoEscapePolice = true
+        PoliceManager.IsRunning = true
+
+        PoliceManager.WorkerTask = task.spawn(function()
+            local tc = require(ReplicatedStorage.Controllers.TeleportController)
+            local rems = require(ReplicatedStorage.Controllers.PoliceRemotes)
+            local diffController = require(ReplicatedStorage.Controllers.PoliceDifficultyController)
+            local padPos = Vector3.new(-3639.55322265625, 137.8258514404297, -188.5594940185547)
+
+            while _G.GhostDriverRunning and _G.GhostDriverActiveToken == myToken and Settings.AutoEscapePolice and PoliceManager.IsRunning do
+                -- ── PHASE 1: Vehicle Readiness & Mount ──
+                PoliceManager.CurrentPhase = "Preparing Vehicle"
+                pcall(function()
+                    if PoliceStatusLabel and PoliceStatusLabel.Set then
+                        PoliceStatusLabel:Set("🚗 กำลังเตรียมความพร้อมรถยนต์...")
+                    end
+                end)
+
+                local car, seat = ensureCarAndSeat()
+                if not car or not seat then
+                    if Remote_SpawnCar then
+                        pcall(function() Remote_SpawnCar:FireServer(Settings.SelectedCar or "Shelly LZ1") end)
+                    end
+                    task.wait(1.5)
+                    car, seat = ensureCarAndSeat()
+                end
+
+                if not Settings.AutoEscapePolice or not PoliceManager.IsRunning then break end
+
+                -- ── PHASE 2: Go to PolicePad & Trigger Difficulty Prompt ──
+                PoliceManager.CurrentPhase = "Moving to Pad"
+                pcall(function()
+                    if PoliceStatusLabel and PoliceStatusLabel.Set then
+                        PoliceStatusLabel:Set("📍 เดินทางไปยังจุดเริ่มตำรวจ (Police Pad)...")
+                    end
+                end)
+
+                -- Teleport to Dealership first if far from lobby to ensure map chunks stream in
+                local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if hrp and (hrp.Position - padPos).Magnitude > 250 then
+                    pcall(function() tc:Teleport("Dealership") end)
+                    task.wait(1.0)
+                    car, seat = ensureCarAndSeat()
+                end
+
+                if not Settings.AutoEscapePolice or not PoliceManager.IsRunning then break end
+
+                -- Position firmly on PolicePad
+                car = getPlayerCar()
+                if car and car.PrimaryPart then
+                    car:PivotTo(CFrame.new(padPos + Vector3.new(0, 2.5, 0)) * CFrame.Angles(0, math.rad(-90), 0))
+                    for _, pt in ipairs(car:GetDescendants()) do
+                        if pt:IsA("BasePart") then
+                            pt.AssemblyLinearVelocity = Vector3.zero
+                            pt.AssemblyAngularVelocity = Vector3.zero
+                        end
+                    end
+                end
+
+                -- Hold still on pad for 1.8 - 2.2 seconds until prompt opens
+                local padWaitStart = tick()
+                while tick() - padWaitStart < 2.2 do
+                    if not Settings.AutoEscapePolice or not PoliceManager.IsRunning then break end
+                    if car and car.PrimaryPart then
+                        car.PrimaryPart.AssemblyLinearVelocity = Vector3.zero
+                        car.PrimaryPart.AssemblyAngularVelocity = Vector3.zero
+                    end
+                    task.wait(0.2)
+                end
+
+                if not Settings.AutoEscapePolice or not PoliceManager.IsRunning then break end
+
+                -- ── PHASE 3: Select Difficulty & Start Cop Chase ──
+                local chosenDiff = math.clamp(tonumber(Settings.PoliceChaseDifficulty) or 5, 1, 5)
+                PoliceManager.CurrentPhase = "Starting Chase"
+                pcall(function()
+                    if PoliceStatusLabel and PoliceStatusLabel.Set then
+                        PoliceStatusLabel:Set(string.format("⭐ เลือกระดับความยาก: %d ดาว...", chosenDiff))
+                    end
+                end)
+
+                -- Select difficulty in controller
+                diffController.selected = chosenDiff
+                if diffController.Paint then diffController:Paint() end
+
+                -- Send difficulty pick remote
+                rems.PoliceDifficultyPick:FireServer(chosenDiff)
+                if diffController.Hide then diffController:Hide() end
+
+                -- Trigger Buy button click if frame exists
+                local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+                local diffGui = pGui and pGui:FindFirstChild("CopChaseDifficulty")
+                local frame = diffGui and diffGui:FindFirstChild("CopChaseDifficulty")
+                local buy = frame and frame:FindFirstChild("Buy")
+                if buy and firesignal then
+                    pcall(function() firesignal(buy.Activated) end)
+                end
+
+                -- Wait for chase initialization (Wanted > 0 or status == CHASE)
+                local startChaseWait = tick()
+                while tick() - startChaseWait < 3.0 do
+                    if not Settings.AutoEscapePolice or not PoliceManager.IsRunning then break end
+                    local w = LocalPlayer:GetAttribute("Wanted") or 0
+                    local s = LocalPlayer:GetAttribute("PoliceStatus") or ""
+                    if w > 0 or s == "CHASE" then break end
+                    task.wait(0.2)
+                end
+
+                if not Settings.AutoEscapePolice or not PoliceManager.IsRunning then break end
+
+                -- ── PHASE 4: Run / Farm Cash Until Target Amount ──
+                PoliceManager.CurrentPhase = "Farming Chase Cash"
+                Settings.PoliceBustedActivated = false
+                Settings.AutoDriveFarm = true
+                Settings.NoCollisionTraffic = true
+                Settings.GhostGodMode = true
+                FarmManager.Start()
+
+                local targetCash = tonumber(Settings.PoliceTargetCash) or 50000
+                local chaseStartTime = tick()
+
+                while Settings.AutoEscapePolice and PoliceManager.IsRunning do
+                    local wanted = LocalPlayer:GetAttribute("Wanted") or 0
+                    local chaseCash = LocalPlayer:GetAttribute("PoliceChaseCash") or 0
+                    local bustedMeter = LocalPlayer:GetAttribute("Busted") or 0
+                    local status = LocalPlayer:GetAttribute("PoliceStatus") or ""
+
+                    -- If chase unexpectedly ended prematurely after > 6s
+                    if wanted == 0 and status ~= "CHASE" and tick() - chaseStartTime > 6 then
+                        break
+                    end
+
+                    pcall(function()
+                        if PoliceStatusLabel and PoliceStatusLabel.Set then
+                            PoliceStatusLabel:Set(string.format("🚨 ฟาร์มหนีตำรวจ (%d⭐) | เงิน: $%s / $%s (ล้อม: %.0f%%)",
+                                chosenDiff,
+                                formatNumber(chaseCash),
+                                formatNumber(targetCash),
+                                bustedMeter * 100
+                            ))
+                        end
+                        if PoliceCashLabel and PoliceCashLabel.Set then
+                            PoliceCashLabel:Set(string.format("💰 Chase Cash: $%s / $%s", formatNumber(chaseCash), formatNumber(targetCash)))
+                        end
+                    end)
+
+                    -- Anti-Busted safety valve: if police try to box in (bustedMeter > 0.35)
+                    if bustedMeter > 0.35 then
+                        local c = getPlayerCar()
+                        if c and c.PrimaryPart then
+                            c:PivotTo(c.PrimaryPart.CFrame + Vector3.new(0, 5, 0))
+                        end
+                    end
+
+                    -- Check if target cash reached!
+                    if chaseCash >= targetCash then
+                        Settings.PoliceBustedActivated = true
+                        pcall(function()
+                            OrionLib:MakeNotification({
+                                Name = "🎯 Target Cash Reached!",
+                                Content = string.format("เงินครบ $%s แล้ว! -> เปิดระบบหนีพ้น 100%!", formatNumber(chaseCash)),
+                                Image = "rbxassetid://4483345998",
+                                Time = 4
+                            })
+                        end)
+                        break
+                    end
+
+                    task.wait(0.25)
+                end
+
+                if not Settings.AutoEscapePolice or not PoliceManager.IsRunning then break end
+
+                -- ── PHASE 5: Activate 100% Safe Evade ("เปิดระบบไม่โดนจับ 100%") ──
+                PoliceManager.CurrentPhase = "Safe Evading (100% Immunity)"
+                pcall(function()
+                    if PoliceStatusLabel and PoliceStatusLabel.Set then
+                        PoliceStatusLabel:Set("🛡️ เปิดระบบไม่โดนจับ 100%! กำลังหลบพ้นตำรวจ...")
+                    end
+                end)
+
+                -- Stop ground drive without canceling police automation
+                FarmManager.Stop(true)
+
+                -- Lift car to safe evade height (Settings.PoliceEvadeHeight or 35 studs)
+                local safeHeight = tonumber(Settings.PoliceEvadeHeight) or 35
+                local currentCar = getPlayerCar()
+                if currentCar and currentCar.PrimaryPart then
+                    currentCar:PivotTo(currentCar.PrimaryPart.CFrame + Vector3.new(0, safeHeight, 0))
+                    for _, pt in ipairs(currentCar:GetDescendants()) do
+                        if pt:IsA("BasePart") then
+                            pt.AssemblyLinearVelocity = Vector3.zero
+                            pt.AssemblyAngularVelocity = Vector3.zero
+                        end
+                    end
+                end
+
+                -- Wait for 100% Evade completion (PoliceEvadeProgress >= 1.0 or Status == "EVADED")
+                local evadeStart = tick()
+                while Settings.AutoEscapePolice and PoliceManager.IsRunning do
+                    local status = LocalPlayer:GetAttribute("PoliceStatus") or ""
+                    local evadeMeter = LocalPlayer:GetAttribute("PoliceEvadeProgress") or 0
+                    local bustedScreen = LocalPlayer:GetAttribute("PoliceBustedScreenActive")
+
+                    pcall(function()
+                        if PoliceStatusLabel and PoliceStatusLabel.Set then
+                            PoliceStatusLabel:Set(string.format("🛡️ กำลังหนีพ้น 100%... หลบพ้น: %.0f%%", evadeMeter * 100))
+                        end
+                    end)
+
+                    -- Keep vehicle firmly hovered in air
+                    if currentCar and currentCar.PrimaryPart then
+                        currentCar.PrimaryPart.AssemblyLinearVelocity = Vector3.zero
+                        currentCar.PrimaryPart.AssemblyAngularVelocity = Vector3.zero
+                    end
+
+                    if status == "EVADED" or evadeMeter >= 1.0 or bustedScreen or tick() - evadeStart > 22 then
+                        break
+                    end
+                    task.wait(0.3)
+                end
+
+                if not Settings.AutoEscapePolice or not PoliceManager.IsRunning then break end
+
+                -- ── PHASE 6: Collect Cash & Conclude Cutscene / Results ──
+                PoliceManager.CurrentPhase = "Claiming Rewards"
+                task.wait(1.0)
+
+                safe(function()
+                    local b = require(ReplicatedStorage.Controllers.PoliceBustedController)
+                    local cutsceneData = debug.getupvalues(b.beginCutscene)[1]
+                    local earned = (cutsceneData and cutsceneData.Cash) or (LocalPlayer:GetAttribute("PoliceChaseCash")) or 0
+                    PoliceManager.LastEarnedCash = earned
+                    PoliceManager.TotalCashEarned = PoliceManager.TotalCashEarned + earned
+                    PoliceManager.TotalEscapedRuns = PoliceManager.TotalEscapedRuns + 1
+
+                    if cutsceneData and cutsceneData.Id then
+                        rems.PoliceBusted:FireServer("Ready", cutsceneData.Id)
+                    end
+                    LocalPlayer:SetAttribute("PoliceBustedScreenActive", false)
+
+                    local bUI = LocalPlayer.PlayerGui:FindFirstChild("PoliceBustedUI")
+                    if bUI then bUI.Enabled = false end
+
+                    pcall(function()
+                        OrionLib:MakeNotification({
+                            Name = "🎉 หนีตำรวจสำเร็จ 100%!",
+                            Content = string.format("รับเงินรางวัล: +$%s (รอบที่ %d) -> กำลังเริ่มรอบใหม่!", formatNumber(earned), PoliceManager.TotalEscapedRuns),
+                            Image = "rbxassetid://4483345998",
+                            Time = 5
+                        })
+                    end)
+                end)
+
+                task.wait(1.5)
+
+                -- ── PHASE 7: Loop Back ("หนีเสร็จก็เริ่มใหม่") ──
+                -- Repeats to Phase 1 automatically!
+            end
+
+            -- Clean stop
+            PoliceManager.Stop()
+        end)
+    end
+
+    -- ═══════════════════════════════════════════════════════════════════
     -- 3. UI SETUP (Orion Glassy)
     -- ═══════════════════════════════════════════════════════════════════
     local Window = OrionLib:MakeWindow({
@@ -3288,28 +3632,32 @@ local HttpService = game:GetService("HttpService")
     })
 
     -- ─── Tab: Police & Defense ────────────────────────────────────────
-    TabPolice:AddSection({ Name = "🚨 Auto Escape Police (หนีตำรวจ & ล็อคเงินเป้าหมาย)" })
+    TabPolice:AddSection({ Name = "🚨 Auto Escape Police (ระบบหนีตำรวจอัตโนมัติ • วนลูปต่อเนื่อง)" })
 
     TabPolice:AddToggle({
-        Name = "Auto Escape Police (เปิดระบบหนีตำรวจอัตโนมัติ)",
+        Name = "⚡ Auto Escape Police (เริ่มอัตโนมัติ • วิ่งจนครบเงิน • หนีเสร็จเริ่มใหม่)",
         Default = Settings.AutoEscapePolice,
         Callback = function(Value)
-            Settings.AutoEscapePolice = Value
             if Value then
-                Settings.PoliceBustedActivated = false
-                Settings.AutoDriveFarm = true
-                Settings.NoCollisionTraffic = true
-                Settings.GhostGodMode = true
-                FarmManager.Start()
+                PoliceManager.Start()
             else
-                Settings.AutoEscapePolice = false
-                Settings.PoliceBustedActivated = false
+                PoliceManager.Stop()
             end
         end
     })
 
+    TabPolice:AddSlider({
+        Name = "Police Difficulty (เลือกระดับความยาก 1 - 5 ดาว)",
+        Min = 1, Max = 5, Default = Settings.PoliceChaseDifficulty or 5, Color = Color3.fromRGB(255, 170, 0),
+        Increment = 1, ValueName = "⭐",
+        Callback = function(Value)
+            Settings.PoliceChaseDifficulty = math.clamp(math.floor(Value), 1, 5)
+            SaveConfig()
+        end
+    })
+
     TabPolice:AddTextbox({
-        Name = "Target Cash ($) (ตั้งเป้าหมายเงินที่ต้องการหนี)",
+        Name = "Target Cash ($) (ตั้งเป้าหมายเงินที่ต้องการต่อรอบ)",
         Default = tostring(Settings.PoliceTargetCash or 50000),
         TextDisappear = false,
         Callback = function(Value)
@@ -3317,11 +3665,32 @@ local HttpService = game:GetService("HttpService")
             if n and n > 0 then
                 Settings.PoliceTargetCash = n
                 Settings.PoliceBustedActivated = false
+                SaveConfig()
             end
         end
     })
 
-    local PoliceStatusLabel = TabPolice:AddLabel("🛡️ Status: Standby")
+    TabPolice:AddSlider({
+        Name = "Evade Safe Height (ความสูงลอยตัวหนีตำรวจ 100%)",
+        Min = 20, Max = 60, Default = Settings.PoliceEvadeHeight or 35, Color = Color3.fromRGB(34, 211, 238),
+        Increment = 5, ValueName = "studs",
+        Callback = function(Value)
+            Settings.PoliceEvadeHeight = Value
+            SaveConfig()
+        end
+    })
+
+    TabPolice:AddToggle({
+        Name = "Instant Anti-Busted (กันตำรวจจับ 100% ตลอดเวลา)",
+        Default = Settings.AntiBusted,
+        Callback = function(Value)
+            Settings.AntiBusted = Value
+            SaveConfig()
+        end
+    })
+
+    PoliceStatusLabel = TabPolice:AddLabel("🛡️ Status: Standby")
+    PoliceCashLabel   = TabPolice:AddLabel("💰 Chase Cash: $0 / $" .. formatNumber(Settings.PoliceTargetCash or 50000))
 
     -- ─── Tab: Farm & Economy ──────────────────────────────────────────
     TabFarm:AddSection({ Name = "⚡ Auto Farm" })
@@ -3500,59 +3869,20 @@ local HttpService = game:GetService("HttpService")
         end
     end)
 
-    -- Loop 2: Auto Police Escape & Dynamic Anti-Busted Engine
+    -- Loop 2: Police Busted Screen Interceptor & Anti-Busted Guard
     task.spawn(function()
-        -- Hook / Intercept PoliceBusted UI
         pcall(function()
             local pGui = LocalPlayer:WaitForChild("PlayerGui", 5)
             local bustedUI = pGui and pGui:FindFirstChild("PoliceBustedUI")
             if bustedUI then
                 bustedUI:GetPropertyChangedSignal("Enabled"):Connect(function()
                     local isProtected = Settings.AntiBusted or (Settings.AutoEscapePolice and Settings.PoliceBustedActivated)
-                    if isProtected and bustedUI.Enabled then
+                    if isProtected and bustedUI.Enabled and not PoliceManager.IsRunning then
                         bustedUI.Enabled = false
                     end
                 end)
             end
         end)
-
-        local leaderstats = LocalPlayer:WaitForChild("leaderstats", 10)
-        local cashVal = leaderstats and leaderstats:WaitForChild("Cash", 10)
-
-        while _G.GhostDriverRunning and _G.GhostDriverActiveToken == myToken do
-            safe(function()
-                if Settings.AutoEscapePolice then
-                    local curCash = cashVal and cashVal.Value or Telemetry.CurrentCash or 0
-                    local target = Settings.PoliceTargetCash or 50000
-
-                    -- When earned cash / current cash reaches or exceeds target
-                    if curCash >= target and not Settings.PoliceBustedActivated then
-                        Settings.PoliceBustedActivated = true
-                        Settings.AntiBusted = true -- Activate 100% immune from arrest
-
-                        -- Dismiss any currently open Busted Screen immediately
-                        local pGui = LocalPlayer:FindFirstChild("PlayerGui")
-                        local bustedUI = pGui and pGui:FindFirstChild("PoliceBustedUI")
-                        if bustedUI then bustedUI.Enabled = false end
-
-                        -- Ensure AutoDriveFarm is engaged to drive safely until route completion
-                        if not Settings.AutoDriveFarm then
-                            Settings.AutoDriveFarm = true
-                        end
-
-                        pcall(function()
-                            OrionLib:MakeNotification({
-                                Name = "🚨 Police Target Reached!",
-                                Content = string.format("เงินถึงเป้าแล้ว ($%s) -> เปิดระบบกันจับ 100% วิ่งจนจบลูป!", tostring(target)),
-                                Image = "rbxassetid://4483345998",
-                                Time = 5
-                            })
-                        end)
-                    end
-                end
-            end)
-            task.wait(0.5)
-        end
     end)
 
     -- Loop 3: Universal Vehicle & Barrier No-Collision Engine (Anti-Crash & Ghosting)
@@ -3826,15 +4156,7 @@ local HttpService = game:GetService("HttpService")
                         Dash_Status:Set("🟢 Status: " .. Telemetry.StatusText)
                     end
                     if PoliceStatusLabel and PoliceStatusLabel.Set then
-                        if Settings.AutoEscapePolice then
-                            local targetStr = tostring(Settings.PoliceTargetCash or 50000)
-                            local curStr = tostring(curCash)
-                            if Settings.PoliceBustedActivated then
-                                PoliceStatusLabel:Set("🛡️ Status: เป้าสำเร็จ ($" .. targetStr .. ") -> กันจับ 100% วิ่งจนจบลูป!")
-                            else
-                                PoliceStatusLabel:Set("🚨 Status: กำลังหนีตำรวจ... (เงิน: $" .. curStr .. " / $" .. targetStr .. ")")
-                            end
-                        else
+                        if not Settings.AutoEscapePolice or not PoliceManager.IsRunning then
                             PoliceStatusLabel:Set("🛡️ Status: Standby (ยังไม่ได้เปิดระบบ)")
                         end
                     end
