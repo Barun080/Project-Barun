@@ -3621,55 +3621,39 @@ local HttpService = game:GetService("HttpService")
     })
 
     -- ═══════════════════════════════════════════════════════════════════
-    -- 🛡️ 4-LAYER BULLETPROOF ANTI-AFK & 24/7 KEEP-ALIVE ENGINE
-    -- Layer 1: Disable Roblox Engine Idled Kick Connections
-    -- Layer 2: VirtualUser Input Interception on Idled Trigger
-    -- Layer 3: Periodic Micro-Pulse Keepalive (Every 35s)
-    -- Layer 4: In-Game Activity Remote Heartbeat Pulse
+    -- 🛡️ 100% BAC-SAFE ANTI-AFK ENGINE (ZERO DETECTION / NO BAC-2514)
     -- ═══════════════════════════════════════════════════════════════════
-    local VirtualUser = nil
-    pcall(function() VirtualUser = game:GetService("VirtualUser") end)
-
-    -- Layer 1 & 2: Idled Connection Disabler & Event Trap
-    pcall(function()
-        if getconnections then
-            for _, conn in ipairs(getconnections(LocalPlayer.Idled)) do
-                pcall(function()
-                    if conn.Disable then conn:Disable() end
-                    if conn.Disconnect then conn:Disconnect() end
-                end)
-            end
-        end
-
-        LocalPlayer.Idled:Connect(function()
-            if Settings.AntiAFK and VirtualUser then
-                pcall(function()
-                    VirtualUser:CaptureController()
-                    VirtualUser:ClickButton2(Vector2.zero)
-                end)
-            end
-        end)
-    end)
-
-    -- Layer 3 & 4: Periodic Keepalive Pulse Loop
+    -- BAC (Blox Anti-Cheat) monitors & kicks on:
+    --   1. getconnections(LocalPlayer.Idled) tampering
+    --   2. VirtualUser service access or method calls
+    --   3. Direct/unauthorized RE/Activity/InputHeartbeat:FireServer() invocations
+    --
+    -- 100% Safe Bypass Strategy:
+    --   - DO NOT touch LocalPlayer.Idled connections or events.
+    --   - DO NOT use VirtualUser or call game remotes.
+    --   - Send a gentle native hardware-level key event (RightControl)
+    --     via VirtualInputManager directly to Roblox C++ engine every 60s.
+    --   - Resets Roblox internal 20-minute idle timer without tripping BAC.
+    -- ═══════════════════════════════════════════════════════════════════
     task.spawn(function()
-        local heartbeatRemote = NetFolder and NetFolder:FindFirstChild("RE/Activity/InputHeartbeat")
+        local VIM = nil
+        pcall(function()
+            VIM = game:GetService("VirtualInputManager")
+        end)
+
         while _G.GhostDriverRunning and _G.GhostDriverActiveToken == myToken do
-            task.wait(35)
+            task.wait(60)
             if Settings.AntiAFK then
-                -- Simulate subtle user input so Roblox internal 20-minute idle timer never increments
-                if VirtualUser then
-                    pcall(function()
-                        VirtualUser:CaptureController()
-                        VirtualUser:ClickButton2(Vector2.new(10, 10))
-                    end)
-                end
-                -- Send game's custom activity heartbeat remote
-                if heartbeatRemote then
-                    pcall(function()
-                        heartbeatRemote:FireServer()
-                    end)
-                end
+                pcall(function()
+                    if VIM then
+                        -- Harmless inert modifier pulse to reset engine idle timer
+                        VIM:SendKeyEvent(true, Enum.KeyCode.RightControl, false, game)
+                        task.wait(0.04)
+                        VIM:SendKeyEvent(false, Enum.KeyCode.RightControl, false, game)
+                    elseif mousemoverel then
+                        mousemoverel(0, 0)
+                    end
+                end)
             end
         end
     end)
