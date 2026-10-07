@@ -2967,6 +2967,23 @@ local HttpService = game:GetService("HttpService")
             targetMPH = math.max(targetMPH, 500)
         end
         local speedMPH = math.clamp(targetMPH, 80, 650)
+
+        -- 🚓 Adaptive Pursuit Cruise Engine: Keeps police AI in pursuit until target cash is reached
+        if PoliceManager and PoliceManager.IsRunning then
+            local evadeMeter = tonumber(LocalPlayer:GetAttribute("PoliceEvadeProgress")) or 0
+            local bustedMeter = tonumber(LocalPlayer:GetAttribute("Busted")) or 0
+
+            if evadeMeter > 0.18 then
+                -- Cops are falling behind! Slow down so police catch up and reset evade meter to 0
+                speedMPH = 50
+            elseif bustedMeter > 0.32 then
+                -- Cops are getting dangerously close to busting! Accelerate to maintain a safe 60-80 studs buffer
+                speedMPH = 165
+            else
+                -- Ideal chase cruise speed: 110 MPH (police AI easily keeps pace right behind our car)
+                speedMPH = 110
+            end
+        end
         
         -- 1 MPH = 1.467 studs/s (Real Uncapped Velocity)
         local forwardSpeed = speedMPH * 1.467
@@ -3206,6 +3223,16 @@ local HttpService = game:GetService("HttpService")
                     end
                 end)
 
+                -- Wait until any old wanted / chase state is completely cleared
+                local oldStateWait = tick()
+                while tick() - oldStateWait < 4.0 do
+                    if not Settings.AutoEscapePolice or not PoliceManager.IsRunning then break end
+                    local w = LocalPlayer:GetAttribute("Wanted") or 0
+                    local s = LocalPlayer:GetAttribute("PoliceStatus") or ""
+                    if w == 0 and s ~= "CHASE" then break end
+                    task.wait(0.3)
+                end
+
                 local car, seat = ensureCarAndSeat()
                 if not car or not seat then
                     if Remote_SpawnCar then
@@ -3225,11 +3252,11 @@ local HttpService = game:GetService("HttpService")
                     end
                 end)
 
-                -- Teleport to Dealership first if far from lobby to ensure map chunks stream in
+                -- Teleport to Dealership first if far from lobby to ensure map chunks stream in cleanly
                 local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if hrp and (hrp.Position - padPos).Magnitude > 250 then
+                if hrp and (hrp.Position - padPos).Magnitude > 200 then
                     pcall(function() tc:Teleport("Dealership") end)
-                    task.wait(1.0)
+                    task.wait(2.0) -- Allow lobby map chunks to fully stream in
                     car, seat = ensureCarAndSeat()
                 end
 
@@ -3247,20 +3274,41 @@ local HttpService = game:GetService("HttpService")
                     end
                 end
 
-                -- Hold still on pad for 1.8 - 2.2 seconds until prompt opens
+                -- Hold still on pad and wait for server to offer cop chase prompt
+                pcall(function()
+                    if PoliceStatusLabel and PoliceStatusLabel.Set then
+                        PoliceStatusLabel:Set("⏳ จอดนิ่งบนแท่น (รอเปิดหน้าต่างเลือกระดับ)...")
+                    end
+                end)
+
+                local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+                local promptOpened = false
                 local padWaitStart = tick()
-                while tick() - padWaitStart < 2.2 do
+
+                while tick() - padWaitStart < 6.0 do
                     if not Settings.AutoEscapePolice or not PoliceManager.IsRunning then break end
                     if car and car.PrimaryPart then
                         car.PrimaryPart.AssemblyLinearVelocity = Vector3.zero
                         car.PrimaryPart.AssemblyAngularVelocity = Vector3.zero
                     end
-                    task.wait(0.2)
+                    local diffGui = pGui and pGui:FindFirstChild("CopChaseDifficulty")
+                    local frame = diffGui and diffGui:FindFirstChild("CopChaseDifficulty")
+                    if frame and frame.Visible then
+                        promptOpened = true
+                        break
+                    end
+                    -- If after 3.0s the prompt isn't visible, gently nudge position to re-trigger pad Touched
+                    if tick() - padWaitStart > 3.0 and math.floor(tick() * 2) % 2 == 0 then
+                        if car and car.PrimaryPart then
+                            car:PivotTo(CFrame.new(padPos + Vector3.new(0.8, 2.5, 0)) * CFrame.Angles(0, math.rad(-90), 0))
+                        end
+                    end
+                    task.wait(0.25)
                 end
 
                 if not Settings.AutoEscapePolice or not PoliceManager.IsRunning then break end
 
-                -- ── PHASE 3: Select Difficulty & Start Cop Chase ──
+                -- ── PHASE 3: Select Difficulty & Confirm Start ──
                 local chosenDiff = math.clamp(tonumber(Settings.PoliceChaseDifficulty) or 5, 1, 5)
                 PoliceManager.CurrentPhase = "Starting Chase"
                 pcall(function()
@@ -3273,30 +3321,62 @@ local HttpService = game:GetService("HttpService")
                 diffController.selected = chosenDiff
                 if diffController.Paint then diffController:Paint() end
 
-                -- Send difficulty pick remote
-                rems.PoliceDifficultyPick:FireServer(chosenDiff)
-                if diffController.Hide then diffController:Hide() end
-
-                -- Trigger Buy button click if frame exists
-                local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+                -- Trigger Buy button click & fire pick remote
                 local diffGui = pGui and pGui:FindFirstChild("CopChaseDifficulty")
                 local frame = diffGui and diffGui:FindFirstChild("CopChaseDifficulty")
                 local buy = frame and frame:FindFirstChild("Buy")
                 if buy and firesignal then
                     pcall(function() firesignal(buy.Activated) end)
+                else
+                    rems.PoliceDifficultyPick:FireServer(chosenDiff)
+                    if diffController.Hide then diffController:Hide() end
                 end
 
-                -- Wait for chase initialization (Wanted > 0 or status == CHASE)
-                local startChaseWait = tick()
-                while tick() - startChaseWait < 3.0 do
+                -- Explicit server confirmation check (Crucial for reliable start!)
+                pcall(function()
+                    if PoliceStatusLabel and PoliceStatusLabel.Set then
+                        PoliceStatusLabel:Set("⏳ กำลังรอการยืนยันเริ่มแข่งจากเซิร์ฟเวอร์...")
+                    end
+                end)
+
+                local confirmed = false
+                local confirmStart = tick()
+                while tick() - confirmStart < 5.0 do
                     if not Settings.AutoEscapePolice or not PoliceManager.IsRunning then break end
                     local w = LocalPlayer:GetAttribute("Wanted") or 0
                     local s = LocalPlayer:GetAttribute("PoliceStatus") or ""
-                    if w > 0 or s == "CHASE" then break end
+                    if w > 0 or s == "CHASE" then
+                        confirmed = true
+                        break
+                    end
+                    -- If still waiting after 2.5s, retry firing remote
+                    if tick() - confirmStart > 2.5 and (tick() - confirmStart) < 2.8 then
+                        rems.PoliceDifficultyPick:FireServer(chosenDiff)
+                    end
+                    -- Keep vehicle still on pad until server confirmation
+                    if car and car.PrimaryPart then
+                        car.PrimaryPart.AssemblyLinearVelocity = Vector3.zero
+                        car.PrimaryPart.AssemblyAngularVelocity = Vector3.zero
+                    end
                     task.wait(0.2)
                 end
 
-                if not Settings.AutoEscapePolice or not PoliceManager.IsRunning then break end
+                if not confirmed then
+                    pcall(function()
+                        if PoliceStatusLabel and PoliceStatusLabel.Set then
+                            PoliceStatusLabel:Set("⚠️ การแข่งยังไม่เริ่ม กำลังลองจัดตำแหน่งแท่นใหม่...")
+                        end
+                    end)
+                    task.wait(1.5)
+                    -- Loop will re-enter Phase 1 & 2 without prematurely speeding away
+                    continue
+                end
+
+                pcall(function()
+                    if PoliceStatusLabel and PoliceStatusLabel.Set then
+                        PoliceStatusLabel:Set(string.format("🏎️ เริ่มการแข่งสำเร็จ (%d ดาว)! กำลังลงไฮเวย์...", chosenDiff))
+                    end
+                end)
 
                 -- ── PHASE 4: Run / Farm Cash Until Target Amount ──
                 PoliceManager.CurrentPhase = "Farming Chase Cash"
@@ -3313,6 +3393,7 @@ local HttpService = game:GetService("HttpService")
                     local wanted = LocalPlayer:GetAttribute("Wanted") or 0
                     local chaseCash = LocalPlayer:GetAttribute("PoliceChaseCash") or 0
                     local bustedMeter = LocalPlayer:GetAttribute("Busted") or 0
+                    local evadeMeter = LocalPlayer:GetAttribute("PoliceEvadeProgress") or 0
                     local status = LocalPlayer:GetAttribute("PoliceStatus") or ""
 
                     -- If chase unexpectedly ended prematurely after > 6s
@@ -3322,10 +3403,11 @@ local HttpService = game:GetService("HttpService")
 
                     pcall(function()
                         if PoliceStatusLabel and PoliceStatusLabel.Set then
-                            PoliceStatusLabel:Set(string.format("🚨 ฟาร์มหนีตำรวจ (%d⭐) | เงิน: $%s / $%s (ล้อม: %.0f%%)",
+                            PoliceStatusLabel:Set(string.format("🚨 ฟาร์มหนีตำรวจ (%d⭐) | เงิน: $%s / $%s (หนี: %.0f%% | ล้อม: %.0f%%)",
                                 chosenDiff,
                                 formatNumber(chaseCash),
                                 formatNumber(targetCash),
+                                evadeMeter * 100,
                                 bustedMeter * 100
                             ))
                         end
@@ -3333,6 +3415,14 @@ local HttpService = game:GetService("HttpService")
                             PoliceCashLabel:Set(string.format("💰 Chase Cash: $%s / $%s", formatNumber(chaseCash), formatNumber(targetCash)))
                         end
                     end)
+
+                    -- Evade suppression: If cops are falling behind (evadeMeter > 0.22), cushion speed so they stay close!
+                    if evadeMeter > 0.22 then
+                        local seatPart = getDriveSeat()
+                        if seatPart then
+                            seatPart.AssemblyLinearVelocity = seatPart.AssemblyLinearVelocity * 0.7
+                        end
+                    end
 
                     -- Anti-Busted safety valve: if police try to box in (bustedMeter > 0.35)
                     if bustedMeter > 0.35 then
@@ -3435,17 +3525,20 @@ local HttpService = game:GetService("HttpService")
                     pcall(function()
                         OrionLib:MakeNotification({
                             Name = "🎉 หนีตำรวจสำเร็จ 100%!",
-                            Content = string.format("รับเงินรางวัล: +$%s (รอบที่ %d) -> กำลังเริ่มรอบใหม่!", formatNumber(earned), PoliceManager.TotalEscapedRuns),
+                            Content = string.format("รับเงินรางวัล: +$%s (รอบที่ %d) -> กำลังรอเริ่มรอบใหม่!", formatNumber(earned), PoliceManager.TotalEscapedRuns),
                             Image = "rbxassetid://4483345998",
                             Time = 5
                         })
                     end)
                 end)
 
-                task.wait(1.5)
-
-                -- ── PHASE 7: Loop Back ("หนีเสร็จก็เริ่มใหม่") ──
-                -- Repeats to Phase 1 automatically!
+                -- ── PHASE 7: Cool Down & Server State Reset ("หนีเสร็จก็เริ่มใหม่") ──
+                pcall(function()
+                    if PoliceStatusLabel and PoliceStatusLabel.Set then
+                        PoliceStatusLabel:Set("⏳ รอเซิร์ฟเวอร์สรุปผลและรีเซ็ตสถานะ (3 วิ)...")
+                    end
+                end)
+                task.wait(3.5) -- Give server generous time to conclude session and reset attributes
             end
 
             -- Clean stop
