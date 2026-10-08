@@ -125,7 +125,7 @@ end
 local function txt(props, children)
     local p = {
         Font = Theme.FontRegular,
-        TextSize = 12,
+        TextSize = 11,
         TextColor3 = Theme.TextBody,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Center,
@@ -218,7 +218,7 @@ function UI:CreateWindow(config)
     config = config or {}
     local TitleText    = config.Title or "PROJECT BARUN"
     local SubtitleText = config.Subtitle or "PB CYBER ENGINE v3.0"
-    local WindowSize   = config.Size or UDim2.new(0, 720, 0, 480)
+    local WindowSize   = config.Size or UDim2.new(0, 840, 0, 520)
     local WindowName   = config.Name or "ApexScriptHub"
     local ToggleKey    = config.ToggleKey or Enum.KeyCode.RightShift
 
@@ -468,10 +468,10 @@ function UI:CreateWindow(config)
         Name = "Title",
         Text = TitleText,
         Font = Theme.FontTitle,
-        TextSize = 16,
+        TextSize = 15,
         TextColor3 = WHITE,
         Position = UDim2.new(0, 64, 0, 11),
-        Size = UDim2.new(0, 220, 0, 18),
+        Size = UDim2.new(0, 260, 0, 18),
         Parent = TopBar,
     }, {
         make("UIGradient", {
@@ -483,10 +483,10 @@ function UI:CreateWindow(config)
         Name = "Subtitle",
         Text = string.upper(SubtitleText),
         Font = Theme.FontBold,
-        TextSize = 9,
+        TextSize = 8.5,
         TextColor3 = Theme.AccentCyan,
         Position = UDim2.new(0, 64, 0, 31),
-        Size = UDim2.new(0, 220, 0, 14),
+        Size = UDim2.new(0, 260, 0, 14),
         Parent = TopBar,
     })
 
@@ -511,7 +511,7 @@ function UI:CreateWindow(config)
             Name = "PerfText",
             Text = "60 FPS  •  38 ms",
             Font = Theme.FontSemi,
-            TextSize = 11,
+            TextSize = 10,
             TextColor3 = Theme.TextBody,
             TextXAlignment = Enum.TextXAlignment.Center,
             Position = UDim2.new(0, 22, 0, 0),
@@ -775,7 +775,7 @@ function UI:CreateWindow(config)
 
     local Sidebar = make("Frame", {
         Name = "Sidebar",
-        Size = UDim2.new(0, 180, 1, -12),
+        Size = UDim2.new(0, 200, 1, -12),
         Position = UDim2.new(0, 10, 0, 4),
         BackgroundColor3 = Theme.SidebarBg,
         BackgroundTransparency = 0.3,
@@ -825,7 +825,7 @@ function UI:CreateWindow(config)
             Name = "PlayerName",
             Text = LocalPlayer.DisplayName,
             Font = Theme.FontSemi,
-            TextSize = 12,
+            TextSize = 11,
             TextColor3 = Theme.TextTitle,
             TextTruncate = Enum.TextTruncate.AtEnd,
             Position = UDim2.new(0, 46, 0, 7),
@@ -835,7 +835,7 @@ function UI:CreateWindow(config)
             Name = "PlayerTag",
             Text = "@" .. LocalPlayer.Name,
             Font = Theme.FontRegular,
-            TextSize = 10,
+            TextSize = 9.5,
             TextColor3 = Theme.TextDim,
             TextTruncate = Enum.TextTruncate.AtEnd,
             Position = UDim2.new(0, 46, 0, 23),
@@ -855,8 +855,8 @@ function UI:CreateWindow(config)
 
     local ContentHolder = make("Frame", {
         Name = "ContentHolder",
-        Size = UDim2.new(1, -208, 1, -12),
-        Position = UDim2.new(0, 200, 0, 4),
+        Size = UDim2.new(1, -232, 1, -12),
+        Position = UDim2.new(0, 220, 0, 4),
         BackgroundTransparency = 1,
         Parent = Body,
     })
@@ -921,7 +921,7 @@ function UI:CreateWindow(config)
                 txt({
                     Text = icon,
                     Font = Theme.FontTitle,
-                    TextSize = 14,
+                    TextSize = 13,
                     TextColor3 = color,
                     TextXAlignment = Enum.TextXAlignment.Center,
                     Size = UDim2.new(1, 0, 1, 0),
@@ -931,7 +931,7 @@ function UI:CreateWindow(config)
                 Text = title,
                 Font = Theme.FontTitle,
                 TextColor3 = Theme.TextTitle,
-                TextSize = 13,
+                TextSize = 12,
                 Position = UDim2.new(0, 054, 0, 10),
                 Size = UDim2.new(1, -64, 0, 18),
             }),
@@ -939,7 +939,7 @@ function UI:CreateWindow(config)
                 Text = desc,
                 Font = Theme.FontRegular,
                 TextColor3 = Theme.TextDim,
-                TextSize = 11,
+                TextSize = 10,
                 TextWrapped = true,
                 TextYAlignment = Enum.TextYAlignment.Top,
                 Position = UDim2.new(0, 54, 0, 29),
@@ -1011,7 +1011,7 @@ function UI:CreateWindow(config)
         -- Page header
         make("Frame", {
             Name = "PageHeader",
-            Size = UDim2.new(1, 0, 0, TabSub ~= "" and 46 or 34),
+            Size = UDim2.new(1, 0, 0, TabSub ~= "" and 40 or 28),
             BackgroundTransparency = 1,
             LayoutOrder = -1,
             Parent = TabPage,
@@ -1019,10 +1019,10 @@ function UI:CreateWindow(config)
             txt({
                 Text = TabName,
                 Font = Theme.FontBlack,
-                TextSize = 20,
+                TextSize = 16,
                 TextColor3 = WHITE,
                 Position = UDim2.new(0, 2, 0, 0),
-                Size = UDim2.new(1, 0, 0, 28),
+                Size = UDim2.new(1, 0, 0, 24),
             }, {
                 make("UIGradient", {
                     Color = ColorSequence.new(WHITE, Color3.fromRGB(176, 205, 255)),
@@ -1031,10 +1031,10 @@ function UI:CreateWindow(config)
             txt({
                 Text = TabSub,
                 Font = Theme.FontRegular,
-                TextSize = 11,
+                TextSize = 10,
                 TextColor3 = Theme.TextDim,
-                Position = UDim2.new(0, 2, 0, 27),
-                Size = UDim2.new(1, 0, 0, 16),
+                Position = UDim2.new(0, 2, 0, 24),
+                Size = UDim2.new(1, 0, 0, 14),
                 Visible = TabSub ~= "",
             }),
         })
@@ -1042,7 +1042,7 @@ function UI:CreateWindow(config)
         -- Sidebar tab button
         local TabBtn = make("TextButton", {
             Name = "Tab_" .. TabName,
-            Size = UDim2.new(1, 0, 0, 40),
+            Size = UDim2.new(1, 0, 0, 38),
             BackgroundTransparency = 1,
             Text = "",
             AutoButtonColor = false,
@@ -1076,7 +1076,7 @@ function UI:CreateWindow(config)
                 Name = "Icon",
                 Text = TabIcon,
                 Font = Theme.FontBold,
-                TextSize = 15,
+                TextSize = 14,
                 TextColor3 = Theme.TextDim,
                 TextXAlignment = Enum.TextXAlignment.Center,
                 Position = UDim2.new(0, 10, 0.5, -10),
@@ -1086,10 +1086,10 @@ function UI:CreateWindow(config)
                 Name = "Label",
                 Text = TabName,
                 Font = Theme.FontSemi,
-                TextSize = 13,
+                TextSize = 11.5,
                 TextColor3 = Theme.TextDim,
-                Position = UDim2.new(0, 40, 0, 0),
-                Size = UDim2.new(1, -44, 1, 0),
+                Position = UDim2.new(0, 38, 0, 0),
+                Size = UDim2.new(1, -42, 1, 0),
             }),
         })
 
@@ -1165,7 +1165,7 @@ function UI:CreateWindow(config)
                 txt({
                     Text = string.upper(tostring(secTitle)),
                     Font = Theme.FontTitle,
-                    TextSize = 11,
+                    TextSize = 10,
                     TextColor3 = Theme.AccentCyan,
                     Position = UDim2.new(0, 14, 0, 0),
                     Size = UDim2.new(1, -14, 1, 0),
@@ -1211,7 +1211,7 @@ function UI:CreateWindow(config)
             txt({
                 Text = title,
                 Font = Theme.FontSemi,
-                TextSize = 11,
+                TextSize = 10.5,
                 TextColor3 = Theme.TextDim,
                 Position = UDim2.new(0, 22, 0, 9),
                 Size = UDim2.new(0.6, 0, 0, 16),
@@ -1220,7 +1220,7 @@ function UI:CreateWindow(config)
             txt({
                 Name = "SubLabel",
                 Text = subtitle,
-                TextSize = 10,
+                TextSize = 9.5,
                 TextColor3 = Theme.AccentCyan,
                 Position = UDim2.new(0, 22, 0, 27),
                 Size = UDim2.new(0.6, 0, 0, 16),
@@ -1230,7 +1230,7 @@ function UI:CreateWindow(config)
                 Name = "ValueLabel",
                 Text = tostring(initial),
                 Font = Theme.FontTitle,
-                TextSize = 18,
+                TextSize = 15,
                 TextColor3 = Theme.TextTitle,
                 TextXAlignment = Enum.TextXAlignment.Right,
                 Position = UDim2.new(0.6, 0, 0, 0),
@@ -1282,7 +1282,7 @@ function UI:CreateWindow(config)
             local callback = togConfig.Callback or function() end
 
             local isToggled = default
-            local cardHeight = desc ~= "" and 56 or 46
+            local cardHeight = desc ~= "" and 52 or 44
             local OFF_COLOR = Color3.fromRGB(34, 38, 56)
 
             local ToggleCard = makeCard(TabPage, cardHeight, true)
@@ -1291,19 +1291,19 @@ function UI:CreateWindow(config)
             txt({
                 Text = name,
                 Font = Theme.FontSemi,
-                TextSize = 13,
+                TextSize = 11.5,
                 TextColor3 = Theme.TextTitle,
-                Position = UDim2.new(0, 16, 0, desc ~= "" and 10 or 0),
-                Size = UDim2.new(1, -90, 0, desc ~= "" and 18 or cardHeight),
+                Position = UDim2.new(0, 16, 0, desc ~= "" and 9 or 0),
+                Size = UDim2.new(1, -90, 0, desc ~= "" and 17 or cardHeight),
                 Parent = ToggleCard,
             })
             if desc ~= "" then
                 txt({
                     Text = desc,
-                    TextSize = 10,
+                    TextSize = 9.5,
                     TextColor3 = Theme.TextDim,
-                    Position = UDim2.new(0, 16, 0, 29),
-                    Size = UDim2.new(1, -90, 0, 16),
+                    Position = UDim2.new(0, 16, 0, 27),
+                    Size = UDim2.new(1, -90, 0, 15),
                     Parent = ToggleCard,
                 })
             end
@@ -1420,7 +1420,7 @@ function UI:CreateWindow(config)
             txt({
                 Text = name,
                 Font = Theme.FontSemi,
-                TextSize = 12,
+                TextSize = 11,
                 TextColor3 = Theme.TextTitle,
                 Position = UDim2.new(0, 16, 0, 8),
                 Size = UDim2.new(0.65, 0, 0, 16),
@@ -1430,7 +1430,7 @@ function UI:CreateWindow(config)
                 Name = "ValText",
                 Text = fmtVal(currentVal),
                 Font = Theme.FontTitle,
-                TextSize = 13,
+                TextSize = 11.5,
                 TextColor3 = Theme.AccentCyan,
                 TextXAlignment = Enum.TextXAlignment.Right,
                 Position = UDim2.new(0.65, 0, 0, 8),
@@ -1492,7 +1492,7 @@ function UI:CreateWindow(config)
                     Name = "TipText",
                     Text = fmtVal(currentVal),
                     Font = Theme.FontBold,
-                    TextSize = 10,
+                    TextSize = 9,
                     TextColor3 = WHITE,
                     TextTransparency = 1,
                     TextXAlignment = Enum.TextXAlignment.Center,
@@ -1591,7 +1591,7 @@ function UI:CreateWindow(config)
                 txt({
                     Text = icon,
                     Font = Theme.FontBold,
-                    TextSize = 13,
+                    TextSize = 12,
                     TextColor3 = Theme.AccentCyan,
                     TextXAlignment = Enum.TextXAlignment.Center,
                     Size = UDim2.new(1, 0, 1, 0),
@@ -1602,7 +1602,7 @@ function UI:CreateWindow(config)
                 Name = "Title",
                 Text = name,
                 Font = Theme.FontSemi,
-                TextSize = 12,
+                TextSize = 11.5,
                 TextColor3 = Theme.TextTitle,
                 Position = UDim2.new(0, 46, 0, 0),
                 Size = UDim2.new(1, -80, 1, 0),
@@ -1613,7 +1613,7 @@ function UI:CreateWindow(config)
                 Name = "Chevron",
                 Text = "›",
                 Font = Theme.FontBold,
-                TextSize = 20,
+                TextSize = 16,
                 TextColor3 = Theme.TextDim,
                 TextXAlignment = Enum.TextXAlignment.Right,
                 Position = UDim2.new(1, -30, 0, 0),
@@ -1709,7 +1709,7 @@ function UI:CreateWindow(config)
                 end
             end
 
-            local cardHeight = desc ~= "" and 56 or 46
+            local cardHeight = desc ~= "" and 52 or 44
             local maxScrollH = math.min(#options * 32, 220)
             local expandedH = cardHeight + 8 + maxScrollH
 
@@ -1937,7 +1937,7 @@ function UI:CreateWindow(config)
             txt({
                 Text = name,
                 Font = Theme.FontSemi,
-                TextSize = 12,
+                TextSize = 11.5,
                 TextColor3 = Theme.TextTitle,
                 Position = UDim2.new(0, 16, 0, 0),
                 Size = UDim2.new(0.45, 0, 1, 0),
@@ -1945,14 +1945,14 @@ function UI:CreateWindow(config)
             })
 
             local Input = make("TextBox", {
-                Size = UDim2.new(0, 170, 0, 30),
-                Position = UDim2.new(1, -184, 0.5, -15),
+                Size = UDim2.new(0, 180, 0, 30),
+                Position = UDim2.new(1, -194, 0.5, -15),
                 BackgroundColor3 = Theme.InputBg,
                 Text = tostring(default),
                 PlaceholderText = place,
                 PlaceholderColor3 = Theme.TextDim,
                 Font = Theme.FontRegular,
-                TextSize = 12,
+                TextSize = 11,
                 TextColor3 = Theme.TextTitle,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 ClearTextOnFocus = false,
@@ -4143,7 +4143,7 @@ Window = UI:CreateWindow({
     Title = "PROJECT BARUN",
     Subtitle = "ANIME DICE • MASTER HUB v3.5",
     DefaultTab = "Main Farm",
-    Size = UDim2.fromOffset(680, 510),
+    Size = UDim2.fromOffset(840, 520),
     Accent = Color3.fromRGB(56, 189, 248),
 })
 
