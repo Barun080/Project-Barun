@@ -2358,7 +2358,8 @@ local Config = {
     -- Visuals & Performance
     FPSBooster           = false,
     FullBright           = false,
-    GodAura              = false
+    GodAura              = false,
+}
 
 local State = {
     TotalRollsSession = 0,
