@@ -4823,9 +4823,10 @@ TabContent:AddToggle({
     Callback = function(v) Config.AutoCycleTowers = v end,
 })
 TabContent:AddSection("📊 DUNGEON PRESET TIERS (ระบบกำหนดชั้นอัตโนมัติ)")
-TabContent:AddParagraph({
-    Title = "พรีเซ็ตเพดานชั้นหอคอยอัตโนมัติ (ไม่ต้องตั้งค่าเอง)",
-    Content = "• Dragon / Cursed / Pirate / Leaf / Slayer: 100 ชั้น\n• Shadow Tower: 150 ชั้น\n• Infinity Tower: จบที่ 200 ชั้นอัตโนมัติ (อินลง 200)\nระบบจะเล่นจนสุดเพดานชั้นของแต่ละหอคอยแล้วตัดจบรอบเพื่อรับของรางวัลทันที ไม่ลากยาว"
+TabContent:AddStatCard({
+    Title = "Preset Dungeons Cap",
+    Value = "Infinity: 200 ชั้น | หอคอยทั่วไป: 100 ชั้น",
+    Desc = "Dragon/Cursed/Pirate/Leaf/Slayer 100F • Shadow 150F • Infinity 200F",
 })
 TabContent:AddSlider({
     Name = "Floor Clear Speed (ความเร็วเคลียร์ชั้น - ดีเลย์)",
