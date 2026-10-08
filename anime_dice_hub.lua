@@ -3776,6 +3776,9 @@ task.spawn(function()
                         if CancelTowerRF then
                             pcall(function() CancelTowerRF:InvokeServer() end)
                         end
+                        if Config.AutoCycleTowers == true then
+                            towerCycleIndex = towerCycleIndex + 1
+                        end
                         task.wait(2.0)
                     end
 
@@ -3792,7 +3795,7 @@ task.spawn(function()
                     -- ── STATE B: OUTSIDE TOWER (EQUIP & ENTER REAL TOWER) ──
                     lastSeenFloor = 0
                     local towerName = Config.SelectedTower or "Dragon Tower"
-                    if Config.AutoCycleTowers then
+                    if Config.AutoCycleTowers == true then
                         towerName = TowerList[((towerCycleIndex - 1) % #TowerList) + 1]
                     end
 
@@ -3811,7 +3814,7 @@ task.spawn(function()
                         activateInGameAutoButton()
                     else
                         State.CurrentTowerStatus = string.format("หอคอย '%s' ยังไม่ปลดล็อก กำลังรอรอบถัดไป...", tostring(towerName))
-                        if Config.AutoCycleTowers then
+                        if Config.AutoCycleTowers == true then
                             towerCycleIndex = towerCycleIndex + 1
                         end
                         task.wait(2.5)
@@ -4815,7 +4818,7 @@ local TabContent = Window:CreateTab({
 })
 
 TabContent:AddSection("TOWER DUNGEON SUPREME AUTOMATION")
-TabContent:AddToggle({
+UIHandles.AutoTowers = TabContent:AddToggle({
     Name = "Auto Towers (ลงหอคอยดันเจี้ยนอัตโนมัติ)",
     Desc = "ลงหอคอยอัตโนมัติ จัดทีมที่ดีที่สุด เคลียร์ชั้นต่อเนื่องความเร็วสูง (ลิมิตสูงสุด 200 ชั้น)",
     Default = Config.AutoTowers,
@@ -4824,6 +4827,7 @@ TabContent:AddToggle({
         if not v and CancelTowerRF then
             pcall(function() CancelTowerRF:InvokeServer() end)
         end
+        if AutoSaveConfig then task.spawn(AutoSaveConfig) end
     end,
 })
 UIHandles.SelectedTower = TabContent:AddDropdown({
@@ -4832,14 +4836,19 @@ UIHandles.SelectedTower = TabContent:AddDropdown({
     Default = Config.SelectedTower,
     Callback = function(selected)
         Config.SelectedTower = selected
+        if AutoSaveConfig then task.spawn(AutoSaveConfig) end
         Window:Notify({ Title = "Tower Selected", Content = "Target Tower: " .. tostring(selected), Type = "info" })
     end,
 })
-TabContent:AddToggle({
+UIHandles.AutoCycleTowers = TabContent:AddToggle({
     Name = "Auto Cycle All Towers (ลงวนทุกหอคอยอัตโนมัติ)",
     Desc = "ลงวนทุกหอคอยต่อเนื่องอัตโนมัติ (ครบทั้ง 7 หอคอย: Dragon -> Cursed -> Pirate -> Leaf -> Slayer -> Shadow -> Infinity)",
     Default = Config.AutoCycleTowers,
-    Callback = function(v) Config.AutoCycleTowers = v end,
+    Callback = function(v)
+        Config.AutoCycleTowers = v
+        if AutoSaveConfig then task.spawn(AutoSaveConfig) end
+        Window:Notify({ Title = "Cycle Towers", Content = v and "เปิดโหมดลงวนทุกหอคอย!" or "ปิดโหมดลงวน (จะลงเฉพาะ " .. tostring(Config.SelectedTower) .. " เท่านั้น)", Type = v and "info" or "warning" })
+    end,
 })
 TabContent:AddSection("📊 DUNGEON PRESET TIERS (ระบบกำหนดชั้นอัตโนมัติ)")
 TabContent:AddStatCard({
@@ -4847,32 +4856,44 @@ TabContent:AddStatCard({
     Value = "Infinity: 200 ชั้น | หอคอยทั่วไป: 100 ชั้น",
     Desc = "5 หอคอยแรก: 100F • Shadow: 150F • Infinity: 200F",
 })
-TabContent:AddSlider({
+UIHandles.AutoTowerFloorDelay = TabContent:AddSlider({
     Name = "Floor Clear Speed (ความเร็วเคลียร์ชั้น - ดีเลย์)",
     Min = 0.05,
     Max = 1.0,
     Default = Config.AutoTowerFloorDelay,
     Increment = 0.05,
     Format = "%.2fs",
-    Callback = function(v) Config.AutoTowerFloorDelay = v end,
+    Callback = function(v)
+        Config.AutoTowerFloorDelay = v
+        if AutoSaveConfig then task.spawn(AutoSaveConfig) end
+    end,
 })
-TabContent:AddToggle({
+UIHandles.AutoUseDamagePotionsInTower = TabContent:AddToggle({
     Name = "Auto Potions in Tower (กดใช้น้ำยาบัฟก่อนลงหอคอย)",
     Desc = "กดใช้น้ำยา Damage & Luck อัตโนมัติเพื่อเร่งความเร็วและโบนัสดรอป",
     Default = Config.AutoUseDamagePotionsInTower,
-    Callback = function(v) Config.AutoUseDamagePotionsInTower = v end,
+    Callback = function(v)
+        Config.AutoUseDamagePotionsInTower = v
+        if AutoSaveConfig then task.spawn(AutoSaveConfig) end
+    end,
 })
-TabContent:AddToggle({
+UIHandles.AutoRetryFailedFloor = TabContent:AddToggle({
     Name = "Auto Retry Failed Floor (ลองเคลียร์ชั้นที่ติดขัดซ้ำอัตโนมัติ)",
     Desc = "หากชั้นไหนสะดุด จะลองส่งแพ็กเก็ตเคลียร์ซ้ำ 3 ครั้งแทนการหลุดออกจากหอคอย",
     Default = Config.AutoRetryFailedFloor,
-    Callback = function(v) Config.AutoRetryFailedFloor = v end,
+    Callback = function(v)
+        Config.AutoRetryFailedFloor = v
+        if AutoSaveConfig then task.spawn(AutoSaveConfig) end
+    end,
 })
-TabContent:AddToggle({
+UIHandles.HideTowerScreen = TabContent:AddToggle({
     Name = "Hide Tower Screen (ซ่อนหน้าจอต่อสู้หอคอย)",
     Desc = "ซ่อนหน้าจอต่อสู้หอคอยเพื่อความลื่นไหลและประหยัด FPS",
     Default = Config.HideTowerScreen,
-    Callback = function(v) Config.HideTowerScreen = v end,
+    Callback = function(v)
+        Config.HideTowerScreen = v
+        if AutoSaveConfig then task.spawn(AutoSaveConfig) end
+    end,
 })
 
 TabContent:AddSection("QUICK TOWER COMMANDS (ปุ่มคำสั่งด่วน)")
