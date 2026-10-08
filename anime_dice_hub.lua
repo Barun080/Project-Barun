@@ -283,12 +283,12 @@ function UI:CreateWindow(config)
         Parent = Root,
     })
 
-    -- Chassis is a CanvasGroup => rounded clipping + group fade
-    local Main = make("CanvasGroup", {
+    -- Chassis is a hardware-accelerated Frame (Zero GPU re-rasterization overhead)
+    local Main = make("Frame", {
         Name = "MainChassis",
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
-        GroupTransparency = 1,
+        ClipsDescendants = true,
         Parent = Root,
     }, {
         corner(16),
@@ -684,12 +684,10 @@ function UI:CreateWindow(config)
             Root.Visible = true
             RootScale.Scale = 0.9
             tw(RootScale, { Scale = 1 }, 0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-            tw(Main, { GroupTransparency = 0 }, 0.3)
             tw(BorderStroke, { Transparency = 0 }, 0.4)
             tw(Shadow, { ImageTransparency = 0.4 }, 0.4)
         else
             tw(RootScale, { Scale = 0.88 }, 0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-            tw(Main, { GroupTransparency = 1 }, 0.2)
             tw(BorderStroke, { Transparency = 1 }, 0.2)
             tw(Shadow, { ImageTransparency = 1 }, 0.2)
             task.wait(0.22)
@@ -721,7 +719,6 @@ function UI:CreateWindow(config)
         task.spawn(function()
             busy = true
             tw(RootScale, { Scale = 0.85 }, 0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-            tw(Main, { GroupTransparency = 1 }, 0.22)
             tw(BorderStroke, { Transparency = 1 }, 0.2)
             tw(Shadow, { ImageTransparency = 1 }, 0.2)
             task.wait(0.26)
@@ -731,26 +728,12 @@ function UI:CreateWindow(config)
 
     -- ─── Single shared animation + telemetry loop ────────────────────
     do
-        local t, acc, frames = 0, 0, 0
+        local t, acc, frames, animAcc = 0, 0, 0, 0
         local Stats = game:GetService("Stats")
         bind(RunService.Heartbeat, function(dt)
-            t += dt
-
-            OrbitGrad.Rotation = (t * 42) % 360
-
-            local pulse = (math.sin(t * 2.2) + 1) / 2
-            LogoStroke.Transparency = 0.45 - pulse * 0.3
-            LogoStroke.Color = Theme.AccentCyan:Lerp(Theme.AccentPrimary, pulse)
-            BadgeStroke.Transparency = 0.4 - pulse * 0.3
-            BadgeStroke.Color = Theme.AccentCyan:Lerp(Theme.AccentPrimary, pulse)
-
-            -- shimmer sweeps every ~4.5s
-            local cycle = (t % 4.5) / 4.5
-            Shimmer.Position = UDim2.new(cycle * 1.4 - 0.2, -45, 0, 0)
-
             frames += 1
             acc += dt
-            if acc >= 0.8 then
+            if acc >= 1.0 then
                 local fps = math.floor(frames / acc + 0.5)
                 frames, acc = 0, 0
                 local ping = 0
@@ -759,7 +742,26 @@ function UI:CreateWindow(config)
                 end)
                 local color = fps >= 50 and Theme.Success or (fps >= 30 and Theme.Warning or Theme.Danger)
                 PerfPill.PerfText.Text = string.format("%d FPS  •  %d ms", fps, ping)
-                tw(PerfPill.Dot, { BackgroundColor3 = color }, 0.3)
+                PerfPill.Dot.BackgroundColor3 = color
+            end
+
+            -- Pause expensive GUI animations entirely if UI is not active/visible
+            if not visible and not FloatingBadge.Visible then return end
+
+            t += dt
+            animAcc += dt
+            if animAcc >= 0.033 then -- Throttle shader rotations to 30 FPS cap
+                animAcc = 0
+                OrbitGrad.Rotation = (t * 36) % 360
+
+                local pulse = (math.sin(t * 2.0) + 1) / 2
+                LogoStroke.Transparency = 0.45 - pulse * 0.3
+                LogoStroke.Color = Theme.AccentCyan:Lerp(Theme.AccentPrimary, pulse)
+                BadgeStroke.Transparency = 0.4 - pulse * 0.3
+                BadgeStroke.Color = Theme.AccentCyan:Lerp(Theme.AccentPrimary, pulse)
+
+                local cycle = (t % 4.5) / 4.5
+                Shimmer.Position = UDim2.new(cycle * 1.4 - 0.2, -45, 0, 0)
             end
         end)
     end
@@ -2486,7 +2488,7 @@ local Config = {
     SelectedTower               = TowerList[1],
     TargetTowerFloor            = 200,
     AutoTowerFloorDelay         = 0.15,
-    HideTowerScreen             = false,
+    HideTowerScreen             = true,
     AutoCycleTowers             = false,
     AutoUseDamagePotionsInTower = true,
     AutoRetryFailedFloor        = true,
@@ -2662,24 +2664,6 @@ local function CollectAllMoney()
         end
     end)
 
-    pcall(function()
-        local plotCtrl = Features and Features:FindFirstChild("Plot") and require(Features.Plot.PlotController)
-        local p = plotCtrl and plotCtrl.plot
-        local char = LP.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-
-        if p and p:FindFirstChild("Slots") and hrp and firetouchinterest then
-            for _, slot in ipairs(p.Slots:GetChildren()) do
-                local bal = slot:FindFirstChild("Balance")
-                local hitbox = bal and bal:FindFirstChild("Hitbox")
-                if hitbox then
-                    firetouchinterest(hrp, hitbox, 0)
-                    firetouchinterest(hrp, hitbox, 1)
-                end
-            end
-        end
-    end)
-
     State.TotalChestCollected = State.TotalChestCollected + 1
 end
 
@@ -2745,7 +2729,7 @@ task.spawn(function()
             if Config.AutoUpgradeSlots then
                 levelUpAllSlots()
             end
-            task.wait(1.5)
+            task.wait(3.0)
         else
             task.wait(0.5)
         end
@@ -3612,16 +3596,18 @@ task.spawn(function()
                 end
             end)
 
-            local burstCount = Config.BurstRolls and math.clamp(tonumber(Config.BurstRollCount) or 3, 1, 10) or 1
-            for b = 1, burstCount do
-                local success = pcall(function()
-                    RollService.RF.RollDice:InvokeServer()
-                end)
-                if success then
-                    State.TotalRollsSession = State.TotalRollsSession + 1
+            local burstCount = Config.BurstRolls and math.clamp(tonumber(Config.BurstRollCount) or 3, 1, 5) or 1
+            if burstCount > 1 then
+                for b = 1, burstCount do
+                    task.spawn(function()
+                        pcall(function() RollService.RF.RollDice:InvokeServer() end)
+                    end)
                 end
+            else
+                pcall(function() RollService.RF.RollDice:InvokeServer() end)
             end
-            task.wait(duration)
+            State.TotalRollsSession = State.TotalRollsSession + burstCount
+            task.wait(math.max(duration, 0.1))
         else
             task.wait(0.3)
         end
@@ -3650,10 +3636,10 @@ local function speedUpTowerCombat()
             local uvs = debug.getupvalues(TowerController.startTower)
             local uv4 = uvs and uvs[4]
             if uv4 and uv4.ActionWaitTime then
-                uv4.ActionWaitTime.damageEnemy = 0.05
-                uv4.ActionWaitTime.damagePlayer = 0.05
-                uv4.ActionWaitTime.floorStarted = 0.05
-                uv4.ActionWaitTime.floorCompleted = 0.05
+                uv4.ActionWaitTime.damageEnemy = 0.15
+                uv4.ActionWaitTime.damagePlayer = 0.15
+                uv4.ActionWaitTime.floorStarted = 0.12
+                uv4.ActionWaitTime.floorCompleted = 0.12
             end
         end
     end)
@@ -3786,7 +3772,7 @@ task.spawn(function()
                     local root = LP.PlayerGui:FindFirstChild("Root")
                     local screen = root and root.Tower and root.Tower:FindFirstChild("Screen")
                     local hidden = screen and screen.Parent and screen.Parent:FindFirstChild("Hidden")
-                    if Config.HideTowerScreen and screen and screen.Visible and hidden and firesignal then
+                    if (Config.HideTowerScreen or true) and screen and screen.Visible and hidden and firesignal then
                         pcall(function() firesignal(hidden.Activated) end)
                     end
 

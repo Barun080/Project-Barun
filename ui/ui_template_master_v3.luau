@@ -282,12 +282,12 @@ function UI:CreateWindow(config)
         Parent = Root,
     })
 
-    -- Chassis is a CanvasGroup => rounded clipping + group fade
-    local Main = make("CanvasGroup", {
+    -- Chassis is a hardware-accelerated Frame (Zero GPU re-rasterization overhead)
+    local Main = make("Frame", {
         Name = "MainChassis",
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
-        GroupTransparency = 1,
+        ClipsDescendants = true,
         Parent = Root,
     }, {
         corner(16),
@@ -683,12 +683,10 @@ function UI:CreateWindow(config)
             Root.Visible = true
             RootScale.Scale = 0.9
             tw(RootScale, { Scale = 1 }, 0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-            tw(Main, { GroupTransparency = 0 }, 0.3)
             tw(BorderStroke, { Transparency = 0 }, 0.4)
             tw(Shadow, { ImageTransparency = 0.4 }, 0.4)
         else
             tw(RootScale, { Scale = 0.88 }, 0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-            tw(Main, { GroupTransparency = 1 }, 0.2)
             tw(BorderStroke, { Transparency = 1 }, 0.2)
             tw(Shadow, { ImageTransparency = 1 }, 0.2)
             task.wait(0.22)
@@ -720,7 +718,6 @@ function UI:CreateWindow(config)
         task.spawn(function()
             busy = true
             tw(RootScale, { Scale = 0.85 }, 0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-            tw(Main, { GroupTransparency = 1 }, 0.22)
             tw(BorderStroke, { Transparency = 1 }, 0.2)
             tw(Shadow, { ImageTransparency = 1 }, 0.2)
             task.wait(0.26)
@@ -730,26 +727,12 @@ function UI:CreateWindow(config)
 
     -- ─── Single shared animation + telemetry loop ────────────────────
     do
-        local t, acc, frames = 0, 0, 0
+        local t, acc, frames, animAcc = 0, 0, 0, 0
         local Stats = game:GetService("Stats")
         bind(RunService.Heartbeat, function(dt)
-            t += dt
-
-            OrbitGrad.Rotation = (t * 42) % 360
-
-            local pulse = (math.sin(t * 2.2) + 1) / 2
-            LogoStroke.Transparency = 0.45 - pulse * 0.3
-            LogoStroke.Color = Theme.AccentCyan:Lerp(Theme.AccentPrimary, pulse)
-            BadgeStroke.Transparency = 0.4 - pulse * 0.3
-            BadgeStroke.Color = Theme.AccentCyan:Lerp(Theme.AccentPrimary, pulse)
-
-            -- shimmer sweeps every ~4.5s
-            local cycle = (t % 4.5) / 4.5
-            Shimmer.Position = UDim2.new(cycle * 1.4 - 0.2, -45, 0, 0)
-
             frames += 1
             acc += dt
-            if acc >= 0.8 then
+            if acc >= 1.0 then
                 local fps = math.floor(frames / acc + 0.5)
                 frames, acc = 0, 0
                 local ping = 0
@@ -758,7 +741,26 @@ function UI:CreateWindow(config)
                 end)
                 local color = fps >= 50 and Theme.Success or (fps >= 30 and Theme.Warning or Theme.Danger)
                 PerfPill.PerfText.Text = string.format("%d FPS  •  %d ms", fps, ping)
-                tw(PerfPill.Dot, { BackgroundColor3 = color }, 0.3)
+                PerfPill.Dot.BackgroundColor3 = color
+            end
+
+            -- Pause expensive GUI animations entirely if UI is not active/visible
+            if not visible and not FloatingBadge.Visible then return end
+
+            t += dt
+            animAcc += dt
+            if animAcc >= 0.033 then -- Throttle shader rotations to 30 FPS cap
+                animAcc = 0
+                OrbitGrad.Rotation = (t * 36) % 360
+
+                local pulse = (math.sin(t * 2.0) + 1) / 2
+                LogoStroke.Transparency = 0.45 - pulse * 0.3
+                LogoStroke.Color = Theme.AccentCyan:Lerp(Theme.AccentPrimary, pulse)
+                BadgeStroke.Transparency = 0.4 - pulse * 0.3
+                BadgeStroke.Color = Theme.AccentCyan:Lerp(Theme.AccentPrimary, pulse)
+
+                local cycle = (t % 4.5) / 4.5
+                Shimmer.Position = UDim2.new(cycle * 1.4 - 0.2, -45, 0, 0)
             end
         end)
     end
