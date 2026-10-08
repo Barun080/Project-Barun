@@ -3676,13 +3676,13 @@ task.spawn(function()
                     end
 
                     local towerName = Config.SelectedTower or "Dragon Tower"
-                    local targetMax = math.min(Config.TargetTowerFloor or 200, 200)
+                    local targetMax = TowerMaxFloors[towerName] or (towerName == "Infinity Tower" and 200 or 100)
 
                     State.CurrentTowerStatus = string.format("[%s] %s / Max %d (ได้รับของดรอปจริง!)", towerName, floorString, targetMax)
 
-                    -- 3. Check target floor limit (capped at 200)
+                    -- 3. Check target floor limit (Auto Preset: Infinity 200, Others 100/150)
                     if curFloor >= targetMax then
-                        State.CurrentTowerStatus = string.format("[%s] ครบ %d ชั้นตามเป้าหมาย! กำลังจบและรับรางวัล...", towerName, curFloor)
+                        State.CurrentTowerStatus = string.format("[%s] ครบ %d ชั้นตามพรีเซ็ต! จบและรับของรางวัล...", towerName, curFloor)
                         if CancelTowerRF then
                             pcall(function() CancelTowerRF:InvokeServer() end)
                         end
@@ -4751,14 +4751,10 @@ TabContent:AddToggle({
     Default = Config.AutoCycleTowers,
     Callback = function(v) Config.AutoCycleTowers = v end,
 })
-TabContent:AddSlider({
-    Name = "Target Floor (เคลียร์ถึงชั้นเป้าหมาย - ลิมิต 200)",
-    Min = 1,
-    Max = 200,
-    Default = math.min(Config.TargetTowerFloor or 200, 200),
-    Increment = 1,
-    Format = "%d",
-    Callback = function(v) Config.TargetTowerFloor = math.min(v, 200) end,
+TabContent:AddSection("📊 DUNGEON PRESET TIERS (ระบบกำหนดชั้นอัตโนมัติ)")
+TabContent:AddParagraph({
+    Title = "พรีเซ็ตเพดานชั้นหอคอยอัตโนมัติ (ไม่ต้องตั้งค่าเอง)",
+    Content = "• Dragon / Cursed / Pirate / Leaf / Slayer: 100 ชั้น\n• Shadow Tower: 150 ชั้น\n• Infinity Tower: จบที่ 200 ชั้นอัตโนมัติ (อินลง 200)\nระบบจะเล่นจนสุดเพดานชั้นของแต่ละหอคอยแล้วตัดจบรอบเพื่อรับของรางวัลทันที ไม่ลากยาว"
 })
 TabContent:AddSlider({
     Name = "Floor Clear Speed (ความเร็วเคลียร์ชั้น - ดีเลย์)",
@@ -4780,12 +4776,6 @@ TabContent:AddToggle({
     Desc = "หากชั้นไหนสะดุด จะลองส่งแพ็กเก็ตเคลียร์ซ้ำ 3 ครั้งแทนการหลุดออกจากหอคอย",
     Default = Config.AutoRetryFailedFloor,
     Callback = function(v) Config.AutoRetryFailedFloor = v end,
-})
-TabContent:AddToggle({
-    Name = "Endless Infinity Mode (โหมดดันชั้นสูงสุด 200)",
-    Desc = "ดันชั้น Infinity Tower จนสุดเพดาน 200 ชั้น แล้วเคลียร์จบรอบทันที ไม่ลากยาว",
-    Default = Config.EndlessInfinityMode,
-    Callback = function(v) Config.EndlessInfinityMode = v end,
 })
 TabContent:AddToggle({
     Name = "Hide Tower Screen (ซ่อนหน้าจอต่อสู้หอคอย)",
