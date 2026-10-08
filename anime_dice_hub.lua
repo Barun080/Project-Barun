@@ -3647,17 +3647,32 @@ end
 
 speedUpTowerCombat()
 
+local function getTowerElements()
+    local screen = nil
+    local hidden = nil
+    if UIReferences and UIReferences.Root and UIReferences.Root:FindFirstChild("Tower") then
+        local t = UIReferences.Root.Tower
+        screen = t:FindFirstChild("Screen")
+        hidden = t:FindFirstChild("Hidden")
+    end
+    if not screen and LP and LP:FindFirstChild("PlayerGui") then
+        local root = LP.PlayerGui:FindFirstChild("Root")
+        local t = root and root:FindFirstChild("Tower")
+        if t then
+            screen = t:FindFirstChild("Screen")
+            hidden = t:FindFirstChild("Hidden")
+        end
+    end
+    return screen, hidden
+end
+
 local function isPlayerInTower()
-    local root = LP.PlayerGui:FindFirstChild("Root")
-    local screen = root and root.Tower and root.Tower:FindFirstChild("Screen")
-    local hidden = screen and screen.Parent and screen.Parent:FindFirstChild("Hidden")
-    return (screen and screen.Visible == true) or (hidden and hidden.Visible == true)
+    local screen, hidden = getTowerElements()
+    return (screen and screen.Visible == true) or (hidden and hidden.Visible == true) or false
 end
 
 local function getRealTowerFloor()
-    local root = LP.PlayerGui:FindFirstChild("Root")
-    local screen = root and root.Tower and root.Tower:FindFirstChild("Screen")
-    local hidden = screen and screen.Parent and screen.Parent:FindFirstChild("Hidden")
+    local screen, hidden = getTowerElements()
     local fText = (screen and screen:FindFirstChild("Floor") and screen.Floor.Text)
         or (hidden and hidden:FindFirstChild("Floor", true) and hidden:FindFirstChild("Floor", true).Text)
     if fText then
@@ -3668,8 +3683,7 @@ local function getRealTowerFloor()
 end
 
 local function activateInGameAutoButton()
-    local root = LP.PlayerGui:FindFirstChild("Root")
-    local screen = root and root.Tower and root.Tower:FindFirstChild("Screen")
+    local screen, _ = getTowerElements()
     local autoBtn = screen and screen:FindFirstChild("Buttons") and screen.Buttons:FindFirstChild("Auto")
     if autoBtn and getconnections then
         local conns = getconnections(autoBtn.Activated)
@@ -3679,6 +3693,13 @@ local function activateInGameAutoButton()
             if isAutoOn == false then
                 pcall(function() conns[1]:Fire() end)
             end
+        end
+    end
+    if autoBtn and firesignal then
+        local grad = autoBtn:FindFirstChildOfClass("UIGradient")
+        local isGreen = grad and tostring(grad.Color):find("0.298")
+        if not isGreen then
+            pcall(function() firesignal(autoBtn.Activated) end)
         end
     end
     if TowersNet and TowersNet:FindFirstChild("RE") and TowersNet.RE:FindFirstChild("SetAutoTower") then
@@ -3692,29 +3713,48 @@ local function startTowerLegit(towerName)
     -- 1. Equip best team first
     if EquipBestTowerTeamRE then
         pcall(function() EquipBestTowerTeamRE:FireServer() end)
-        task.wait(0.2)
+        task.wait(0.25)
     end
 
     -- 2. Ensure combat accelerator is patched
     speedUpTowerCombat()
 
-    -- 3. Enter selected tower strictly as chosen by user (with name variations support)
-    local variations = { towerName }
+    -- 3. Enter selected tower
+    local started = false
+    if TowerController and TowerController.startTower then
+        pcall(function() started = TowerController.startTower(towerName) end)
+    end
+    if not started and PlayTowerRF then
+        pcall(function() PlayTowerRF:InvokeServer(towerName) end)
+    end
+
+    -- 4. Poll for entry (ping-resilient up to 2.5s)
+    for i = 1, 12 do
+        if isPlayerInTower() then
+            return true
+        end
+        task.wait(0.2)
+    end
+
+    -- 5. Fallback variations if first attempt didn't connect
+    local variations = {}
     if towerName == "Hidden Leaf Tower" then table.insert(variations, "Leaf Tower") end
     if towerName == "Leaf Tower" then table.insert(variations, "Hidden Leaf Tower") end
     if towerName == "Slayer Tower" then table.insert(variations, "Demon Slayer Tower") end
     if towerName == "Shadow Tower" then table.insert(variations, "Solo Tower") end
 
-    for _, name in ipairs(variations) do
+    for _, altName in ipairs(variations) do
         if TowerController and TowerController.startTower then
-            pcall(function() TowerController.startTower(name) end)
+            pcall(function() TowerController.startTower(altName) end)
         end
         if PlayTowerRF then
-            pcall(function() PlayTowerRF:InvokeServer(name) end)
+            pcall(function() PlayTowerRF:InvokeServer(altName) end)
         end
-        task.wait(0.3)
-        if isPlayerInTower() then
-            return true
+        for i = 1, 8 do
+            if isPlayerInTower() then
+                return true
+            end
+            task.wait(0.2)
         end
     end
 
@@ -3769,9 +3809,7 @@ task.spawn(function()
                     end
 
                     -- 4. Screen visibility control (minimize if HideTowerScreen enabled)
-                    local root = LP.PlayerGui:FindFirstChild("Root")
-                    local screen = root and root.Tower and root.Tower:FindFirstChild("Screen")
-                    local hidden = screen and screen.Parent and screen.Parent:FindFirstChild("Hidden")
+                    local screen, hidden = getTowerElements()
                     if (Config.HideTowerScreen or true) and screen and screen.Visible and hidden and firesignal then
                         pcall(function() firesignal(hidden.Activated) end)
                     end
@@ -3785,7 +3823,7 @@ task.spawn(function()
                         towerName = TowerList[((towerCycleIndex - 1) % #TowerList) + 1]
                     end
 
-                    State.CurrentTowerStatus = "กำลังเข้า " .. tostring(towerName) .. " (ระบบของจริง)..."
+                    State.CurrentTowerStatus = string.format("[%s] กำลังเข้าหอคอย...", tostring(towerName))
 
                     if Config.AutoUseDamagePotionsInTower then
                         UsePotion("Damage IV")
@@ -3794,16 +3832,13 @@ task.spawn(function()
                     end
 
                     local started = startTowerLegit(towerName)
-                    if started then
-                        State.CurrentTowerStatus = "ต่อสู้ใน " .. tostring(towerName) .. " สำเร็จ!"
-                        task.wait(1.5)
+                    if started or isPlayerInTower() then
+                        State.CurrentTowerStatus = string.format("[%s] เข้าสู่หอคอยสำเร็จ!", tostring(towerName))
+                        task.wait(1.0)
                         activateInGameAutoButton()
                     else
-                        State.CurrentTowerStatus = string.format("หอคอย '%s' ยังไม่ปลดล็อก กำลังรอรอบถัดไป...", tostring(towerName))
-                        if Config.AutoCycleTowers == true then
-                            towerCycleIndex = towerCycleIndex + 1
-                        end
-                        task.wait(2.5)
+                        State.CurrentTowerStatus = string.format("[%s] กำลังรอคิว / เตรียมเข้าใหม่...", tostring(towerName))
+                        task.wait(2.0)
                     end
                 end
             end)
@@ -4822,6 +4857,13 @@ UIHandles.SelectedTower = TabContent:AddDropdown({
     Default = Config.SelectedTower,
     Callback = function(selected)
         Config.SelectedTower = selected
+        for idx, tName in ipairs(TowerList) do
+            if tName == selected then
+                towerCycleIndex = idx
+                break
+            end
+        end
+        lastSeenFloor = 0
         if AutoSaveConfig then task.spawn(AutoSaveConfig) end
         Window:Notify({ Title = "Tower Selected", Content = "Target Tower: " .. tostring(selected), Type = "info" })
     end,
