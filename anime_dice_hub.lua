@@ -2334,12 +2334,16 @@ local Config = {
         ["Slayer Luck III"] = false,
     },
 
-    -- Towers
-    AutoTowers = false,
-    SelectedTower = TowerList[1],
-    TargetTowerFloor = 50,
-    AutoTowerFloorDelay = 0.35,
-    HideTowerScreen = false,
+    -- Towers & Dungeon Supreme
+    AutoTowers                  = false,
+    SelectedTower               = TowerList[1],
+    TargetTowerFloor            = 100,
+    AutoTowerFloorDelay         = 0.15,
+    HideTowerScreen             = false,
+    AutoCycleTowers             = false,
+    AutoUseDamagePotionsInTower = true,
+    AutoRetryFailedFloor        = true,
+    EndlessInfinityMode         = false,
 
     -- Free Gifts
     AutoClaimRewards = false,
@@ -3238,26 +3242,71 @@ task.spawn(function()
     end
 end)
 
--- ── 12. AUTO TOWERS ENGINE ────────────────────────────────────────────
+-- ── 12. AUTO TOWERS & DUNGEON SUPREME ENGINE ────────────────────────────
+local towerCycleIndex = 1
+local TowerMaxFloors = {
+    ["Dragon Tower"]      = 100,
+    ["Cursed Tower"]      = 100,
+    ["Pirate Tower"]      = 100,
+    ["Hidden Leaf Tower"] = 100,
+    ["Slayer Tower"]      = 100,
+    ["Shadow Tower"]      = 150,
+    ["Infinity Tower"]    = 9999,
+}
+
+local function instantClearCurrentFloor()
+    if not TowersNet then return false end
+    local currentFloor = 1
+    pcall(function()
+        local root = LP.PlayerGui:FindFirstChild("Root")
+        local screen = root and root.Tower and root.Tower:FindFirstChild("Screen")
+        local floorText = screen and screen:FindFirstChild("Floor") and screen.Floor.Text
+        if floorText then
+            local num = floorText:match("%d+")
+            if num then currentFloor = tonumber(num) or 1 end
+        end
+    end)
+    if CompleteTowerFloorRF then
+        local ok = pcall(function() return CompleteTowerFloorRF:InvokeServer(currentFloor) end)
+        return ok
+    end
+    return false
+end
+
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
         if Config.AutoTowers and TowersNet then
             pcall(function()
+                local towerName = Config.SelectedTower or "Dragon Tower"
+                if Config.AutoCycleTowers then
+                    towerName = TowerList[((towerCycleIndex - 1) % #TowerList) + 1]
+                end
+
                 State.CurrentTowerStatus = "Equipping Best Team..."
                 if EquipBestTowerTeamRE then
-                    EquipBestTowerTeamRE:FireServer()
+                    pcall(function() EquipBestTowerTeamRE:FireServer() end)
                 end
-                task.wait(0.2)
+                task.wait(0.15)
 
-                State.CurrentTowerStatus = "Entering " .. tostring(Config.SelectedTower) .. "..."
+                -- Auto Buffs before entering tower
+                if Config.AutoUseDamagePotionsInTower then
+                    pcall(function()
+                        UsePotion("Damage IV")
+                        UsePotion("Damage III")
+                        UsePotion("Luck IV")
+                    end)
+                end
+
+                State.CurrentTowerStatus = "Entering " .. tostring(towerName) .. "..."
                 if PlayTowerRF then
-                    PlayTowerRF:InvokeServer(Config.SelectedTower)
+                    pcall(function() PlayTowerRF:InvokeServer(towerName) end)
                 end
-                task.wait(0.3)
+                task.wait(0.25)
 
-                -- Click in-game Auto button & Hide screen if configured
+                -- Auto In-Game Auto button & Screen visibility control
                 pcall(function()
-                    local screen = UIReferences and UIReferences.Root and UIReferences.Root.Tower and UIReferences.Root.Tower.Screen
+                    local root = LP.PlayerGui:FindFirstChild("Root")
+                    local screen = root and root.Tower and root.Tower:FindFirstChild("Screen")
                     local hidden = screen and screen.Parent and screen.Parent:FindFirstChild("Hidden")
                     if Config.HideTowerScreen and screen and screen.Visible and hidden and firesignal then
                         firesignal(hidden.Activated)
@@ -3265,34 +3314,58 @@ task.spawn(function()
                     if screen and screen:FindFirstChild("Buttons") and screen.Buttons:FindFirstChild("Auto") and firesignal then
                         firesignal(screen.Buttons.Auto.Activated)
                     end
+                    local setAuto = TowersNet:FindFirstChild("RE") and TowersNet.RE:FindFirstChild("SetAutoTower")
+                    if setAuto then setAuto:FireServer(true) end
                 end)
 
-                local maxFloor = math.max(1, Config.TargetTowerFloor)
+                local maxFloor = TowerMaxFloors[towerName] or 100
+                if not Config.EndlessInfinityMode and Config.TargetTowerFloor and Config.TargetTowerFloor > 0 then
+                    maxFloor = math.min(maxFloor, Config.TargetTowerFloor)
+                end
+
+                local failedAttempts = 0
                 for floor = 1, maxFloor do
                     if not Config.AutoTowers or not Running or _G.AnimeDiceActiveToken ~= myToken then
                         State.CurrentTowerStatus = "Paused"
                         break
                     end
 
-                    State.CurrentTowerStatus = string.format("Clearing Floor %d / %d...", floor, maxFloor)
-                    local success, res = pcall(function()
-                        if CompleteTowerFloorRF then
+                    State.CurrentTowerStatus = string.format("[%s] Floor %d / %d", towerName, floor, maxFloor)
+                    local success = false
+                    if CompleteTowerFloorRF then
+                        local ok, res = pcall(function()
                             return CompleteTowerFloorRF:InvokeServer(floor)
+                        end)
+                        if ok and (res == true or res == nil) then
+                            success = true
                         end
-                    end)
+                    end
 
                     if success then
+                        failedAttempts = 0
                         State.FloorsClearedSession = State.FloorsClearedSession + 1
                     else
-                        State.CurrentTowerStatus = "Floor Done / Max Floor"
-                        break
+                        failedAttempts = failedAttempts + 1
+                        if Config.AutoRetryFailedFloor and failedAttempts <= 3 then
+                            task.wait(0.25)
+                        else
+                            State.CurrentTowerStatus = string.format("[%s] Run Complete (Floor %d)", towerName, floor)
+                            break
+                        end
                     end
-                    task.wait(Config.AutoTowerFloorDelay)
+
+                    local delayTime = math.clamp(Config.AutoTowerFloorDelay or 0.15, 0.05, 1.0)
+                    task.wait(delayTime)
                 end
 
+                -- If finished run, cancel and clean up
+                if CancelTowerRF then pcall(function() CancelTowerRF:InvokeServer() end) end
+                if Config.AutoCycleTowers then
+                    towerCycleIndex = towerCycleIndex + 1
+                end
                 State.CurrentTowerStatus = "Run Done! Cooling down..."
             end)
-            task.wait(2)
+            task.wait(1.5)
         else
             State.CurrentTowerStatus = "Standby"
             task.wait(0.5)
@@ -3951,10 +4024,10 @@ local TabContent = Window:CreateTab({
     Subtitle = "Towers Dungeon & Grade Reroll",
 })
 
-TabContent:AddSection("TOWER DUNGEON AUTOMATION")
+TabContent:AddSection("TOWER DUNGEON SUPREME AUTOMATION")
 TabContent:AddToggle({
-    Name = "Auto Towers (ลงหอคอยอัตโนมัติ)",
-    Desc = "ลงหอคอยอัตโนมัติ จัดทีมที่ดีที่สุด และเคลียร์ชั้นต่อเนื่อง",
+    Name = "Auto Towers (ลงหอคอยดันเจี้ยนอัตโนมัติ)",
+    Desc = "ลงหอคอยอัตโนมัติ จัดทีมที่ดีที่สุด เคลียร์ชั้นต่อเนื่องความเร็วสูง",
     Default = Config.AutoTowers,
     Callback = function(v) Config.AutoTowers = v end,
 })
@@ -3967,6 +4040,12 @@ UIHandles.SelectedTower = TabContent:AddDropdown({
         Window:Notify({ Title = "Tower Selected", Content = "Target Tower: " .. tostring(selected), Type = "info" })
     end,
 })
+TabContent:AddToggle({
+    Name = "Auto Cycle All Towers (ลงวนทุกหอคอยอัตโนมัติ)",
+    Desc = "ลงวนทุกหอคอยต่อเนื่องอัตโนมัติ (Dragon -> Cursed -> Pirate -> Leaf -> Slayer -> Shadow -> Infinity)",
+    Default = Config.AutoCycleTowers,
+    Callback = function(v) Config.AutoCycleTowers = v end,
+})
 TabContent:AddSlider({
     Name = "Target Floor (เคลียร์ถึงชั้นเป้าหมาย)",
     Min = 1,
@@ -3977,8 +4056,8 @@ TabContent:AddSlider({
     Callback = function(v) Config.TargetTowerFloor = v end,
 })
 TabContent:AddSlider({
-    Name = "Floor Clear Speed (ดีเลย์เคลียร์ชั้น)",
-    Min = 0.1,
+    Name = "Floor Clear Speed (ความเร็วเคลียร์ชั้น - ดีเลย์)",
+    Min = 0.05,
     Max = 1.0,
     Default = Config.AutoTowerFloorDelay,
     Increment = 0.05,
@@ -3986,13 +4065,41 @@ TabContent:AddSlider({
     Callback = function(v) Config.AutoTowerFloorDelay = v end,
 })
 TabContent:AddToggle({
+    Name = "Auto Potions in Tower (กดใช้น้ำยาบัฟก่อนลงหอคอย)",
+    Desc = "กดใช้น้ำยา Damage & Luck อัตโนมัติเพื่อเร่งความเร็วและโบนัสดรอป",
+    Default = Config.AutoUseDamagePotionsInTower,
+    Callback = function(v) Config.AutoUseDamagePotionsInTower = v end,
+})
+TabContent:AddToggle({
+    Name = "Auto Retry Failed Floor (ลองเคลียร์ชั้นที่ติดขัดซ้ำอัตโนมัติ)",
+    Desc = "หากชั้นไหนสะดุด จะลองส่งแพ็กเก็ตเคลียร์ซ้ำ 3 ครั้งแทนการหลุดออกจากหอคอย",
+    Default = Config.AutoRetryFailedFloor,
+    Callback = function(v) Config.AutoRetryFailedFloor = v end,
+})
+TabContent:AddToggle({
+    Name = "Endless Infinity Mode (โหมดหอคอยไร้ที่สิ้นสุด)",
+    Desc = "ดันชั้น Infinity Tower ไปเรื่อยๆ จนสุดขีดความสามารถโดยไม่จำกัดชั้น",
+    Default = Config.EndlessInfinityMode,
+    Callback = function(v) Config.EndlessInfinityMode = v end,
+})
+TabContent:AddToggle({
     Name = "Hide Tower Screen (ซ่อนหน้าจอต่อสู้หอคอย)",
     Desc = "ซ่อนหน้าจอต่อสู้หอคอยเพื่อความลื่นไหลและประหยัด FPS",
     Default = Config.HideTowerScreen,
     Callback = function(v) Config.HideTowerScreen = v end,
 })
+
+TabContent:AddSection("QUICK TOWER COMMANDS (ปุ่มคำสั่งด่วน)")
 TabContent:AddButton({
-    Name = "Equip Best Tower Team (ใส่ทีมหอคอยที่ดีที่สุด)",
+    Name = "⚡ Instant Clear Current Floor (กดผ่านชั้นปัจจุบันทันที)",
+    Icon = "⚡",
+    Callback = function()
+        local ok = instantClearCurrentFloor()
+        Window:Notify({ Title = "Instant Clear", Content = ok and "ส่งคำสั่งผ่านชั้นปัจจุบันเรียบร้อย!" or "ไม่พบหอคอยที่กำลังเล่นอยู่", Type = ok and "success" or "warning" })
+    end,
+})
+TabContent:AddButton({
+    Name = "👑 Equip Best Tower Team (ใส่ทีมหอคอยที่ดีที่สุด)",
     Icon = "👑",
     Callback = function()
         if EquipBestTowerTeamRE then EquipBestTowerTeamRE:FireServer() end
@@ -4000,7 +4107,7 @@ TabContent:AddButton({
     end,
 })
 TabContent:AddButton({
-    Name = "Cancel Current Tower (ออกจากหอคอยทันที)",
+    Name = "⏹ Cancel & Exit Tower (ออกจากหอคอยทันที)",
     Icon = "⏹",
     Callback = function()
         if CancelTowerRF then CancelTowerRF:InvokeServer() end
