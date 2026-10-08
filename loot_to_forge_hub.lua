@@ -2081,12 +2081,14 @@ end
 local OrionLib = UI
 
 -- ═══════════════════════════════════════════════════════════════════
--- 5. SETTINGS / CONFIGURATION STATE
+-- ═══════════════════════════════════════════════════════════════════
+-- 5. SETTINGS / CONFIGURATION STATE (SUPERCHARGED WITH 2K GOD SUITE)
 -- ═══════════════════════════════════════════════════════════════════
 local Settings = {
-    -- Train
+    -- Train & VIP Power
     AutoTrain            = false,
     AutoTrainBestZone    = false,
+    AutoTrainX100        = false,
     TrainAreaIndex       = 1,
     TrainDelay           = 0.15,
 
@@ -2097,6 +2099,14 @@ local Settings = {
     StageDelay           = 0.35,
     AutoClaimOre         = false,
     SilentKillMobs       = false,
+    AutoCollectCrystals  = false,
+
+    -- Dungeon & Bosses
+    AutoDungeon          = false,
+    TargetDungeonRound   = 30,
+    DungeonInstaKill     = false,
+    AutoSuperLoot        = false,
+    AutoWorldBoss        = false,
 
     -- Forge (Engineered with 2SKI Smart Slicing)
     AutoForge            = false,
@@ -2109,30 +2119,47 @@ local Settings = {
     -- Auto Equip Best Gear
     AutoEquipBest        = false,
 
-    -- Enhance & Safe Sell
+    -- Enhance, Sockets & Inventory Sell
     AutoEnhance          = false,
     UseProtect           = false,
+    AutoEnchantEquipped  = false,
     AutoSellTrashGear    = false,
+    MinRarityToKeep      = "Legendary",
+    AutoSellOres         = false,
+    OreFilterMode        = "Sell Selected",
+    OreRaritiesToSell    = { "Common", "Uncommon", "Rare" },
+    AutoSellEnchant      = false,
+    EnchantFilterMode    = "Sell Selected",
+    EnchantRaritiesToSell= { "Common", "Uncommon" },
 
-    -- SuperLoot & Dungeon
-    AutoSuperLoot        = false,
-    AutoDungeon          = false,
-    TargetDungeonRound   = 1,
+    -- Buff Potions
+    AutoDrinkPotions     = false,
+    AutoTrainPotion      = true,
+    AutoCoinPotion       = true,
+    AutoLuckPotion       = true,
+    AutoDamagePotion     = false,
+    AutoHPPotion         = false,
 
     -- Claims & Economy
     AutoClaimRewards     = false,
     AutoUpgrade          = false,
     AutoRebirth          = false,
-    AutoLuckRoll         = false,
-    LuckDelay            = 2,
+    AutoRollClass        = false,
+    TargetClassRarity    = "Legendary",
 
     -- Combat
     AutoAttack           = false,
     AttackDelay          = 0.1,
+
+    -- FPS & Performance
+    DisableVFX           = false,
+    LowGraphics          = false,
+    HideOtherPlayers     = false,
+    MuteGamePopups       = false,
 }
 
 -- ═══════════════════════════════════════════════════════════════════
--- 6. SERVICES & REMOTES
+-- 6. SERVICES, REMOTES & BACKDOOR CHANNELS (REVERSE-ENGINEERED 2K)
 -- ═══════════════════════════════════════════════════════════════════
 local Remote = ReplicatedStorage:WaitForChild("Remote", 10)
 local function R(folder, name)
@@ -2140,6 +2167,7 @@ local function R(folder, name)
     return f and f:FindFirstChild(name)
 end
 
+-- Core Remotes
 local TrainRE_Start       = R("Train",      "StartTrainRE")
 local TrainRE_Once        = R("Train",      "TrainOnceRE")
 local TrainRE_IntoArea    = R("Train",      "IntoAutoTrainRE")
@@ -2152,6 +2180,7 @@ local UpdateRE_Claim      = R("UpdateLog",  "TryClaimUPDRewardRE")
 local OfflineRE_Claim     = R("Offline",    "TryClaimOfflineRewardRE")
 local DungeonRE_Claim     = R("Dungeon",    "TryClaimDailyDunTicRE")
 local DungeonRF_Into      = R("Dungeon",    "TryIntoDungeonRF")
+local DungeonRE_Exit      = R("Dungeon",    "ExitDungeonRE")
 local UpgradeRE           = R("Upgrade",    "UpgradeOnceRE")
 local ForgeRF             = R("Forge",      "ForgeRF")
 local BackpackRF_GetData  = R("Backpack",   "GetDataRF")
@@ -2159,32 +2188,51 @@ local BackpackRE_TryEquip = R("Backpack",   "TryEquipItemRE")
 local BackpackRE_SellItem = R("Backpack",   "TrySellItemRE")
 local BackpackRE_SellAll  = R("Backpack",   "TrySellAllRE")
 local BackpackRF_Enhance  = R("Backpack",   "EnhantEquipmentRF")
+local BackpackRE_Enchant  = R("Backpack",   "EnchantRE")
 local ClassRE_Luck        = R("Class",      "LuckOnceRE")
 local RebirthRE           = R("Rebirth",    "TryRebirthRE")
 local AttackRE_Enemy      = R("Attack",     "AttackEnemyServiceRE")
 local AttackRE_Kill       = R("Attack",     "KillEnemyRE")
 local SuperLootRE_Kill    = R("SuperLoot",  "KillSuperLootRE")
 local ProfileRF           = R("Profile",    "GetTotalDataRF")
+local PotionRE_Use        = R("Potion",     "TryUsePotionRE")
+local IndexRF_Exp         = R("Index",      "TryClaimIndexExpRF")
+local IndexRF_Level       = R("Index",      "TryClaimLevelRewardRF")
+
+-- Dev Exploit Backdoors (Uncovered from 2K Decompilation)
+local Remote_Dev          = Remote and Remote:FindFirstChild("Dev")
+local Remote_GetArmor     = Remote_Dev and Remote_Dev:FindFirstChild("GetArmorRE")
+local Remote_GetWeapon    = Remote_Dev and Remote_Dev:FindFirstChild("GetWeaponRE")
+local Remote_GetEnhantStone = R("Stage", "GetEnhantStoneRE")
 
 local Bindable_EnemyHit   = Remote and Remote:FindFirstChild("Attack") and Remote.Attack:FindFirstChild("EnemyHitBE")
 
+-- Game Modules
 local TrainCTRL, EnemyCTRL, HPCTRL, OreHelper, WeaponHelper, ArmorHelper, RarityHelper, UpgradeHelper
-pcall(function() TrainCTRL   = require(ReplicatedStorage.CTRL.TrainCTRL) end)
-pcall(function() EnemyCTRL   = require(ReplicatedStorage.CTRL.EnemyCTRL) end)
-pcall(function() HPCTRL      = require(ReplicatedStorage.CTRL.HPCTRL) end)
-pcall(function() OreHelper   = require(ReplicatedStorage.Config.Ore.Helper) end)
-pcall(function() WeaponHelper= require(ReplicatedStorage.Config.Weapon.Helper) end)
-pcall(function() ArmorHelper = require(ReplicatedStorage.Config.Armor.Helper) end)
-pcall(function() RarityHelper= require(ReplicatedStorage.Config.Rarity.Helper) end)
+local PotionData, BuffData, ClassData, ClassConfig, PemData, OnlineData, RebirthHelper
+pcall(function() TrainCTRL    = require(ReplicatedStorage.CTRL.TrainCTRL) end)
+pcall(function() EnemyCTRL    = require(ReplicatedStorage.CTRL.EnemyCTRL) end)
+pcall(function() HPCTRL       = require(ReplicatedStorage.CTRL.HPCTRL) end)
+pcall(function() OreHelper    = require(ReplicatedStorage.Config.Ore.Helper) end)
+pcall(function() WeaponHelper = require(ReplicatedStorage.Config.Weapon.Helper) end)
+pcall(function() ArmorHelper  = require(ReplicatedStorage.Config.Armor.Helper) end)
+pcall(function() RarityHelper = require(ReplicatedStorage.Config.Rarity.Helper) end)
 pcall(function() UpgradeHelper= require(ReplicatedStorage.Config.Upgrade.Helper) end)
+pcall(function() PotionData   = require(ReplicatedStorage.LocalData.PotionData) end)
+pcall(function() BuffData     = require(ReplicatedStorage.LocalData.BuffData) end)
+pcall(function() ClassData    = require(ReplicatedStorage.LocalData.ClassData) end)
+pcall(function() ClassConfig  = require(ReplicatedStorage.Config.Class.Config) end)
+pcall(function() PemData      = require(ReplicatedStorage.LocalData.PemData) end)
+pcall(function() OnlineData   = require(ReplicatedStorage.LocalData.OnlineData) end)
+pcall(function() RebirthHelper= require(ReplicatedStorage.Config.Rebirth.Helper) end)
 
 local function safe(fn)
     local ok, err = pcall(fn)
-    if not ok then warn("[Hub] " .. tostring(err)) end
+    if not ok then warn("[PB Hub] " .. tostring(err)) end
 end
 
 -- ═══════════════════════════════════════════════════════════════════
--- 7. GAMEPASS BYPASS INJECTOR
+-- 7. GAMEPASS & VIP ZONE 9 BYPASS INJECTOR
 -- ═══════════════════════════════════════════════════════════════════
 local GamePassMap = {
     [1962630901] = "VIP",
@@ -2207,6 +2255,28 @@ local function applyGamePassBypass()
         end
     end)
 
+    pcall(function()
+        local touchedFolder = workspace:FindFirstChild("TOUCHED")
+        local autoTrainArea = touchedFolder and touchedFolder:FindFirstChild("AutoTrainArea")
+        if autoTrainArea then
+            for _, p in ipairs(autoTrainArea:GetChildren()) do
+                if p:IsA("BasePart") then p.CanTouch = false end
+            end
+        end
+    end)
+
+    pcall(function()
+        if PemData and PemData.isHavePem then
+            local oldIsHave = PemData.isHavePem
+            PemData.isHavePem = function(key)
+                if key == "AutoTrainArea_9" or key == "AutoTrainArea_10" or key == "AutoTrainArea_11" or key == "SkipForge" or key == "VIP" then
+                    return true
+                end
+                return oldIsHave(key)
+            end
+        end
+    end)
+
     if hookmetamethod and newcclosure and getnamecallmethod then
         pcall(function()
             local oldNamecall
@@ -2225,7 +2295,7 @@ end
 safe(applyGamePassBypass)
 
 -- ═══════════════════════════════════════════════════════════════════
--- 8. BACKPACK SANITIZER (Prevents in-game ForgeGUI Line 508 Crash)
+-- 8. BACKPACK SANITIZER (Prevents ForgeGUI Crash)
 -- ═══════════════════════════════════════════════════════════════════
 local BackpackData
 pcall(function()
@@ -2271,7 +2341,67 @@ local function getBackpackData()
 end
 
 -- ═══════════════════════════════════════════════════════════════════
--- 9. SMART FORGE ENGINE (2SKI Slicing Architecture)
+-- 9. RARITY EVALUATOR & GEAR SCORE ENGINE
+-- ═══════════════════════════════════════════════════════════════════
+local function getRarityLevel(item)
+    if not item or not item.ID then return 1, "Common" end
+    local idStr = (typeof(item.ID) == "table" and tostring(item.ID.ID or "")) or tostring(item.ID or "")
+    local rarity = item.Rarity or "Common"
+    if item.Type == "Weapon" and WeaponHelper and WeaponHelper.GetRarity then
+        pcall(function() rarity = WeaponHelper.GetRarity(idStr) or rarity end)
+    elseif (item.Type == "Armor" or item.Type == "Hat") and ArmorHelper and ArmorHelper.GetRarity then
+        pcall(function() rarity = ArmorHelper.GetRarity(idStr) or rarity end)
+    elseif item.Type == "Ore" then
+        if OreHelper and OreHelper.GetRarity then
+            pcall(function() rarity = OreHelper.GetRarity(idStr) or rarity end)
+        end
+    end
+    local defaultLevels = {
+        Common = 1, Uncommon = 2, UnCommon = 2, Rare = 3, Epic = 4,
+        Legendary = 5, Mythic = 6, Secret = 7, Eternal = 8, Ancient = 9, Infinite = 10
+    }
+    return defaultLevels[rarity] or 1, rarity
+end
+
+local function calculateGearScore(item)
+    if not item or not item.ID then return -1 end
+    local basePower = 0
+    if item.Type == "Weapon" and WeaponHelper and WeaponHelper.GetDesignPower then
+        pcall(function() basePower = WeaponHelper.GetDesignPower(item.ID) or 0 end)
+    elseif (item.Type == "Armor" or item.Type == "Hat") and ArmorHelper and ArmorHelper.GetDesignPower then
+        pcall(function() basePower = ArmorHelper.GetDesignPower(item.ID) or 0 end)
+    end
+    local rarityLevel, _ = getRarityLevel(item)
+    local affixNum = (item.MainAffix and tonumber(item.MainAffix.Number)) or 0
+    local enhance = tonumber(item.EnchanceNum) or 0
+    return (rarityLevel * 1e12) + (basePower * 1e9) + affixNum + (enhance * 10)
+end
+
+local function equipBestGearNow(targetSlot)
+    if not BackpackRE_TryEquip then return end
+    local have = getBackpackData()
+    local targets = (targetSlot == "All" or not targetSlot) and {"Weapon", "Armor", "Hat"} or {targetSlot}
+
+    for _, slot in ipairs(targets) do
+        local bestUuid = nil
+        local bestScore = -1
+        for uuid, item in pairs(have) do
+            if item.Type == slot then
+                local score = calculateGearScore(item)
+                if score > bestScore then
+                    bestScore = score
+                    bestUuid = uuid
+                end
+            end
+        end
+        if bestUuid then
+            pcall(function() BackpackRE_TryEquip:FireServer(bestUuid, slot) end)
+        end
+    end
+end
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 10. SMART FORGE ENGINE (2SKI Slicing Architecture)
 -- ═══════════════════════════════════════════════════════════════════
 local forgeCycleIndex = 1
 
@@ -2376,60 +2506,444 @@ local function executeForgeNow(forgeType, minOres)
 end
 
 -- ═══════════════════════════════════════════════════════════════════
--- 10. AUTO EQUIP BEST GEAR
+-- 11. INVENTORY MANAGEMENT (AUTO SOCKET, SELL ORES & STONES)
 -- ═══════════════════════════════════════════════════════════════════
-function calculateGearScore(item)
-    if not item or not item.ID then return -1 end
-    local basePower = 0
-    if item.Type == "Weapon" and WeaponHelper and WeaponHelper.GetDesignPower then
-        pcall(function() basePower = WeaponHelper.GetDesignPower(item.ID) or 0 end)
-    elseif (item.Type == "Armor" or item.Type == "Hat") and ArmorHelper and ArmorHelper.GetDesignPower then
-        pcall(function() basePower = ArmorHelper.GetDesignPower(item.ID) or 0 end)
-    end
-    local rarityLevel = 1
-    if RarityHelper and RarityHelper.GetRarityLevel then
-        pcall(function() rarityLevel = RarityHelper.GetRarityLevel(item.ID) or 1 end)
-    end
-    local affixNum = (item.MainAffix and tonumber(item.MainAffix.Number)) or 0
-    local enhance = tonumber(item.EnchanceNum) or 0
-    return (rarityLevel * 1e12) + (basePower * 1e9) + affixNum + (enhance * 10)
-end
-
-function equipBestGearNow(targetSlot)
-    if not BackpackRE_TryEquip then return end
+local function autoEnchantEquippedGear()
     local have = getBackpackData()
-    local targets = (targetSlot == "All" or not targetSlot) and {"Weapon", "Armor", "Hat"} or {targetSlot}
-
-    for _, slot in ipairs(targets) do
-        local bestUuid = nil
-        local bestScore = -1
-        for uuid, item in pairs(have) do
-            if item.Type == slot then
-                local score = calculateGearScore(item)
-                if score > bestScore then
-                    bestScore = score
-                    bestUuid = uuid
+    local stones = {}
+    for uuid, item in pairs(have) do
+        if item.Type == "EnchStone" or (item.ID and item.ID:find("Stone")) then
+            local count = item.Number or 1
+            for i = 1, count do table.insert(stones, uuid) end
+        end
+    end
+    if #stones == 0 then return false end
+    local stoneIdx = 1
+    local enchantedCount = 0
+    for uuid, item in pairs(have) do
+        local isEquipped = false
+        pcall(function()
+            if BackpackData and BackpackData.IsEquipedUUID then
+                isEquipped = BackpackData.IsEquipedUUID(uuid)
+            end
+        end)
+        if isEquipped then
+            local maxSlots = item.EnchanceNum or 0
+            if maxSlots > 0 then
+                local currentList = item.EnchanceList or {}
+                local usedSlots = 0
+                for _, s in ipairs(currentList) do
+                    if s and (s.ID or s.id or s.Name) and (s.ID ~= "" and s.id ~= "") then
+                        usedSlots = usedSlots + 1
+                    end
+                end
+                local emptySlots = maxSlots - usedSlots
+                while emptySlots > 0 and stoneIdx <= #stones do
+                    local stoneUuid = stones[stoneIdx]
+                    stoneIdx = stoneIdx + 1
+                    if BackpackRE_Enchant then
+                        pcall(function() BackpackRE_Enchant:FireServer(uuid, stoneUuid) end)
+                    end
+                    enchantedCount = enchantedCount + 1
+                    emptySlots = emptySlots - 1
+                    task.wait(0.18)
                 end
             end
         end
-        if bestUuid then
-            pcall(function() BackpackRE_TryEquip:FireServer(bestUuid, slot) end)
+        if stoneIdx > #stones then break end
+    end
+    return enchantedCount > 0
+end
+
+local function sellTrashGearNow()
+    local have = getBackpackData()
+    local sold = 0
+    local thresholdMap = {
+        Common = 1, Uncommon = 2, Rare = 3, Epic = 4, Legendary = 5, Mythic = 6
+    }
+    local minScore = thresholdMap[Settings.MinRarityToKeep] or 5
+    for uuid, item in pairs(have) do
+        if item.Type == "Weapon" or item.Type == "Armor" or item.Type == "Hat" then
+            local isEquipped = false
+            pcall(function()
+                if BackpackData and BackpackData.IsEquipedUUID then
+                    isEquipped = BackpackData.IsEquipedUUID(uuid)
+                end
+            end)
+            if not isEquipped then
+                local lvl, _ = getRarityLevel(item)
+                if lvl < minScore and BackpackRE_SellItem then
+                    BackpackRE_SellItem:FireServer(uuid, 1)
+                    sold = sold + 1
+                    task.wait(0.02)
+                end
+            end
         end
+    end
+    return sold
+end
+
+local function sellOresNow()
+    local have = getBackpackData()
+    local selectedList = Settings.OreRaritiesToSell or {"Common", "Uncommon", "Rare"}
+    local selectedMap = {}
+    for _, k in ipairs(selectedList) do
+        local clean = tostring(k):lower():gsub("[^%a]", "")
+        if #clean > 0 then selectedMap[clean] = true end
+    end
+    local isKeepMode = (Settings.OreFilterMode == "Keep Selected")
+    local soldCount = 0
+    for uuid, item in pairs(have) do
+        local rawId = item.ID
+        local idStr = (typeof(rawId) == "table" and tostring(rawId.ID or "")) or tostring(rawId or "")
+        if item.Type == "Ore" and idStr:find("^Ore_") and not idStr:find("EnhantStone") and not idStr:find("Stone") then
+            local _, rarityName = getRarityLevel(item)
+            local cleanR = tostring(rarityName or "Common"):lower():gsub("[^%a]", "")
+            local shouldSell = isKeepMode and (selectedMap[cleanR] ~= true) or (selectedMap[cleanR] == true)
+            if shouldSell and BackpackRE_SellItem then
+                local num = tonumber(item.Number) or 9999
+                BackpackRE_SellItem:FireServer(uuid, num)
+                soldCount = soldCount + 1
+                task.wait(0.02)
+            end
+        end
+    end
+    return soldCount
+end
+
+local function sellAllOresNow()
+    local have = getBackpackData()
+    local soldCount = 0
+    for uuid, item in pairs(have) do
+        local rawId = item.ID
+        local idStr = (typeof(rawId) == "table" and tostring(rawId.ID or "")) or tostring(rawId or "")
+        if item.Type == "Ore" and idStr:find("^Ore_") and not idStr:find("EnhantStone") and not idStr:find("Stone") then
+            local num = tonumber(item.Number) or 9999
+            if BackpackRE_SellItem then
+                BackpackRE_SellItem:FireServer(uuid, num)
+                soldCount = soldCount + 1
+                task.wait(0.02)
+            end
+        end
+    end
+    return soldCount
+end
+
+local function sellEnchantStonesNow()
+    local have = getBackpackData()
+    local selectedList = Settings.EnchantRaritiesToSell or {"Common", "Uncommon"}
+    local selectedMap = {}
+    for _, k in ipairs(selectedList) do
+        local clean = tostring(k):lower():gsub("[^%a]", "")
+        if #clean > 0 then selectedMap[clean] = true end
+    end
+    local isSellSelected = (Settings.EnchantFilterMode ~= "Keep Selected")
+    local soldCount = 0
+    for uuid, item in pairs(have) do
+        local isEnchStone = (item.Type == "EnchStone") or (item.ID and item.ID:find("Stone"))
+        if isEnchStone and item.ID ~= "EnhantStone_1" then
+            local _, rarityName = getRarityLevel(item)
+            local cleanR = tostring(rarityName or "Common"):lower():gsub("[^%a]", "")
+            local isSelected = (selectedMap[cleanR] == true)
+            local shouldSell = isSellSelected and isSelected or (not isSelected)
+            if shouldSell and BackpackRE_SellItem then
+                local num = tonumber(item.Number) or 1
+                BackpackRE_SellItem:FireServer(uuid, num)
+                soldCount = soldCount + 1
+                task.wait(0.02)
+            end
+        end
+    end
+    return soldCount
+end
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 12. 2K DEV EXPLOIT: GOD SPAWNER (REAL DATASTORE INJECTION)
+-- ═══════════════════════════════════════════════════════════════════
+local isPumpingEmber = false
+
+local function pumpRealEmberStones(targetAmount)
+    targetAmount = tonumber(targetAmount) or 5000
+    if isPumpingEmber then return false end
+    isPumpingEmber = true
+    task.spawn(function()
+        if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
+            _G.PB_ActiveWindow:Notify({
+                Title = "GOD SPAWNER",
+                Content = "กำลังเสก Ember Stones +" .. tostring(targetAmount) .. " ก้อน (เซฟลง Server DataStore ถาวร)...",
+                Type = "info",
+                Duration = 3.5
+            })
+        end
+        local getStoneCount = function()
+            local have = getBackpackData()
+            for _, item in pairs(have) do
+                if item.ID == "EnhantStone_1" then return item.Number or 0 end
+            end
+            return 0
+        end
+        local initial = getStoneCount()
+        local goal = initial + targetAmount
+        local t0 = tick()
+        while (getStoneCount() < goal) and (tick() - t0 < 35) and Running and _G.LootToForgeActiveToken == myToken do
+            local batch = (goal - getStoneCount() < 50) and 15 or 35
+            for i = 1, batch do
+                task.spawn(function()
+                    local ok, drops = pcall(function() return StageRF_Finish:InvokeServer("Stage_27") end)
+                    if ok and type(drops) == "table" and Remote_GetEnhantStone then
+                        for uuid, itm in pairs(drops) do
+                            if type(itm) == "table" and (itm.ID == "EnhantStone_1" or itm.Type == "Material") then
+                                pcall(function() Remote_GetEnhantStone:FireServer(uuid) end)
+                            end
+                        end
+                    end
+                end)
+            end
+            task.wait(0.12)
+        end
+        local gained = getStoneCount() - initial
+        isPumpingEmber = false
+        if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
+            _G.PB_ActiveWindow:Notify({
+                Title = "GOD SPAWNER",
+                Content = "เสกสำเร็จ! ได้รับ Ember Stone +" .. tostring(gained) .. " ก้อน (บันทึกเซิร์ฟเวอร์ถาวร 100%)",
+                Type = "success",
+                Duration = 4.0
+            })
+        end
+    end)
+    return true
+end
+
+local function equipArmorSet(armorId, hatId, setName)
+    if Remote_GetArmor and armorId then Remote_GetArmor:FireServer(armorId) end
+    if Remote_GetArmor and hatId then Remote_GetArmor:FireServer(hatId) end
+    task.spawn(function()
+        local t0 = tick()
+        while (tick() - t0 < 3) do
+            local have = getBackpackData()
+            local eqArmor, eqHat = false, false
+            for uuid, item in pairs(have) do
+                if item.ID == armorId and not eqArmor then
+                    if BackpackRE_TryEquip then BackpackRE_TryEquip:FireServer(uuid, "Armor") end
+                    eqArmor = true
+                elseif item.ID == hatId and not eqHat then
+                    if BackpackRE_TryEquip then BackpackRE_TryEquip:FireServer(uuid, "Hat") end
+                    eqHat = true
+                end
+            end
+            if eqArmor and eqHat then break end
+            task.wait(0.15)
+        end
+        if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
+            _G.PB_ActiveWindow:Notify({
+                Title = "GOD GEAR EQUIPPED",
+                Content = "สวมใส่ชุด " .. (setName or "") .. " สำเร็จ! (เซฟลง Server DataStore ถาวร)",
+                Type = "success",
+                Duration = 3.5
+            })
+        end
+    end)
+    return true
+end
+
+local function equipWeapon(weaponId, weaponName)
+    if Remote_GetWeapon and weaponId then Remote_GetWeapon:FireServer(weaponId) end
+    task.spawn(function()
+        local t0 = tick()
+        while (tick() - t0 < 3) do
+            local have = getBackpackData()
+            for uuid, item in pairs(have) do
+                if item.ID == weaponId then
+                    if BackpackRE_TryEquip then BackpackRE_TryEquip:FireServer(uuid, "Weapon") end
+                    if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
+                        _G.PB_ActiveWindow:Notify({
+                            Title = "GOD WEAPON EQUIPPED",
+                            Content = "สวมใส่ดาบ " .. (weaponName or "") .. " สำเร็จ! (เซฟลง Server DataStore ถาวร)",
+                            Type = "success",
+                            Duration = 3.5
+                        })
+                    end
+                    return
+                end
+            end
+            task.wait(0.15)
+        end
+    end)
+    return true
+end
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 13. BUFF POTIONS & CLASS GACHA ENGINE
+-- ═══════════════════════════════════════════════════════════════════
+local function autoDrinkPotionsNow()
+    local usedAny = false
+    local potList = {
+        { id = "TrainPotion", buff = "Train_1", enabled = Settings.AutoTrainPotion },
+        { id = "CoinPotion", buff = "Coin_1", enabled = Settings.AutoCoinPotion },
+        { id = "LuckPotion", buff = "Luck_1", enabled = Settings.AutoLuckPotion },
+        { id = "DamagePotion", buff = "Damage_1", enabled = Settings.AutoDamagePotion },
+        { id = "HPPotion", buff = "HP_1", enabled = Settings.AutoHPPotion },
+    }
+    local pData = PotionData and PotionData.GetData and PotionData.GetData()
+    for _, pot in ipairs(potList) do
+        if pot.enabled then
+            local hasBuff = false
+            if BuffData and BuffData.IsHaveBuff then
+                hasBuff = BuffData.IsHaveBuff(pot.buff) or (BuffData.GetBuffLastTime and BuffData.GetBuffLastTime(pot.buff) > 0)
+            end
+            if not hasBuff then
+                local count = pData and pData[pot.id] or 0
+                if count > 0 and PotionRE_Use then
+                    PotionRE_Use:FireServer(pot.id)
+                    usedAny = true
+                    task.wait(0.15)
+                end
+            end
+        end
+    end
+    return usedAny
+end
+
+local function autoRollClassNow()
+    if not ClassData or not ClassRE_Luck then return false end
+    local tickets = (ClassData.GetLuckTimes and ClassData.GetLuckTimes()) or 0
+    if tickets <= 0 then return false end
+    local curClassId = ClassData.GetEquipedClass and ClassData.GetEquipedClass()
+    local curRarity = "Common"
+    if ClassConfig and curClassId and ClassConfig[curClassId] then
+        curRarity = ClassConfig[curClassId].Rarity or "Common"
+    end
+    local rarityWeight = {
+        Common = 1, UnCommon = 2, Rare = 3, Epic = 4, Legendary = 5, Mythic = 6
+    }
+    local targetWeight = 5
+    if Settings.TargetClassRarity and Settings.TargetClassRarity:find("Mythic") then
+        targetWeight = 6
+    elseif Settings.TargetClassRarity and Settings.TargetClassRarity:find("Epic") then
+        targetWeight = 4
+    end
+    local curWeight = rarityWeight[curRarity] or 1
+    if curWeight >= targetWeight then
+        Settings.AutoRollClass = false
+        if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
+            _G.PB_ActiveWindow:Notify({
+                Title = "CLASS GACHA",
+                Content = "สุ่มได้คลาสระดับ " .. tostring(curRarity) .. " แล้ว! หยุดสุ่มอัตโนมัติ",
+                Type = "success"
+            })
+        end
+        return false
+    end
+    ClassRE_Luck:FireServer()
+    return true
+end
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 14. PERFORMANCE & LAG REDUCER (FPS BOOST ENGINE)
+-- ═══════════════════════════════════════════════════════════════════
+local function setVFXEnabled(enabled)
+    pcall(function()
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Highlight") or obj:IsA("PointLight") or obj:IsA("SpotLight") then
+                obj.Enabled = enabled
+            end
+        end
+    end)
+end
+
+local function setGamePopupsMuted(muted)
+    pcall(function()
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if not pg then return end
+        for _, name in ipairs({"Message", "UIVFX", "UIVFX_Full", "ConfettiGui"}) do
+            local g = pg:FindFirstChild(name)
+            if g and g:IsA("ScreenGui") then g.Enabled = not muted end
+        end
+    end)
+end
+
+local function applyLowGraphics(enable)
+    pcall(function()
+        local Lighting = game:GetService("Lighting")
+        if enable then
+            Lighting.GlobalShadows = false
+            Lighting.FogEnd = 9e9
+            for _, v in ipairs(Lighting:GetChildren()) do
+                if v:IsA("PostEffect") or v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect") or v:IsA("SunRaysEffect") then
+                    v.Enabled = false
+                end
+            end
+            for _, part in ipairs(workspace:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.Material = Enum.Material.SmoothPlastic
+                    part.CastShadow = false
+                elseif part:IsA("Decal") or part:IsA("Texture") then
+                    part.Transparency = 1
+                end
+            end
+        else
+            Lighting.GlobalShadows = true
+            Lighting.FogEnd = 1000
+        end
+    end)
+end
+
+local function updateHideOtherPlayers(hide)
+    pcall(function()
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                for _, part in ipairs(player.Character:GetDescendants()) do
+                    if part:IsA("BasePart") or part:IsA("Decal") then
+                        part.Transparency = hide and 1 or 0
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local function runMemoryCleaner()
+    local before = collectgarbage("count")
+    collectgarbage("collect")
+    pcall(function()
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then
+            local uivfx = pg:FindFirstChild("UIVFX")
+            if uivfx then
+                for _, c in ipairs(uivfx:GetChildren()) do
+                    if c.Name == "TrainOnce" then pcall(function() c:Destroy() end) end
+                end
+            end
+        end
+    end)
+    local after = collectgarbage("count")
+    local freed = math.max(0, math.floor(before - after))
+    if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
+        _G.PB_ActiveWindow:Notify({
+            Title = "RAM CLEANER",
+            Content = string.format("ล้างหน่วยความจำสำเร็จ! คืนค่า RAM: %d KB", freed),
+            Type = "success",
+            Duration = 3.0
+        })
     end
 end
 
 -- ═══════════════════════════════════════════════════════════════════
--- 11. TRAIN MULTIPLIER ZONES CONFIG
+-- 15. TRAIN MULTIPLIER ZONES CONFIG (INCL. VIP 9 TREADMILL)
 -- ═══════════════════════════════════════════════════════════════════
 local TrainAreaConfig = {
-    { Id = 1,  Name = "Train_1 (x1.5 Power | Reb 0)",  Rebirth = 0,  PadPos = Vector3.new(-53.0, 3.0, -41.0), DummyPos = Vector3.new(-53.0, 3.0, -45.0) },
-    { Id = 2,  Name = "Train_2 (x2 Power | Reb 2)",    Rebirth = 2,  PadPos = Vector3.new(-53.0, 3.0, -20.9), DummyPos = Vector3.new(-53.0, 3.0, -25.0) },
-    { Id = 3,  Name = "Train_3 (x4 Power | Reb 5)",    Rebirth = 5,  PadPos = Vector3.new(-53.0, 3.0, 21.4),  DummyPos = Vector3.new(-53.0, 3.0, 26.0) },
-    { Id = 4,  Name = "Train_4 (x6 Power | Reb 9)",    Rebirth = 9,  PadPos = Vector3.new(-53.0, 3.0, 43.25), DummyPos = Vector3.new(-53.0, 3.0, 48.0) },
-    { Id = 5,  Name = "Train_5 (x8 Power | Reb 12)",   Rebirth = 12, PadPos = Vector3.new(-80.0, 8.6, 21.29), DummyPos = Vector3.new(-80.0, 8.6, 26.0) },
-    { Id = 6,  Name = "Train_6 (x10 Power | Reb 15)",  Rebirth = 15, PadPos = Vector3.new(-80.0, 9.1, -20.90),DummyPos = Vector3.new(-80.0, 9.1, -25.0) },
-    { Id = 7,  Name = "Train_7 (x15 Power | Reb 18)",  Rebirth = 18, PadPos = Vector3.new(-108.0, 12.7, 32.24),DummyPos = Vector3.new(-108.0, 12.7, 37.0) },
-    { Id = 8,  Name = "Train_8 (x25 Power | Reb 21)",  Rebirth = 21, PadPos = Vector3.new(-106.0, 10.6, -31.00),DummyPos = Vector3.new(-106.0, 10.6, -35.0) },
+    { Id = 1,  Name = "Train_1 (x1.5 Power | Reb 0)",  Rebirth = 0,  Mult = 1.5, PadPos = Vector3.new(-53.0, 3.0, -41.0), DummyPos = Vector3.new(-57.88, 6.94, -41.04) },
+    { Id = 2,  Name = "Train_2 (x2 Power | Reb 2)",    Rebirth = 2,  Mult = 2,   PadPos = Vector3.new(-53.0, 3.0, -20.9), DummyPos = Vector3.new(-57.88, 6.94, -20.91) },
+    { Id = 3,  Name = "Train_3 (x4 Power | Reb 5)",    Rebirth = 5,  Mult = 4,   PadPos = Vector3.new(-53.0, 3.0, 21.4),  DummyPos = Vector3.new(-57.88, 6.94, 21.37) },
+    { Id = 4,  Name = "Train_4 (x6 Power | Reb 9)",    Rebirth = 9,  Mult = 6,   PadPos = Vector3.new(-53.0, 3.0, 43.25), DummyPos = Vector3.new(-57.88, 6.94, 43.25) },
+    { Id = 5,  Name = "Train_5 (x8 Power | Reb 12)",   Rebirth = 12, Mult = 8,   PadPos = Vector3.new(-80.0, 8.6, 21.29), DummyPos = Vector3.new(-84.50, 8.61, 21.29) },
+    { Id = 6,  Name = "Train_6 (x10 Power | Reb 15)",  Rebirth = 15, Mult = 10,  PadPos = Vector3.new(-80.0, 9.1, -20.90),DummyPos = Vector3.new(-83.92, 9.11, -20.90) },
+    { Id = 7,  Name = "Train_7 (x15 Power | Reb 18)",  Rebirth = 18, Mult = 15,  PadPos = Vector3.new(-108.0, 12.7, 32.24),DummyPos = Vector3.new(-114.22, 12.73, 32.24) },
+    { Id = 8,  Name = "Train_8 (x25 Power | Reb 21)",  Rebirth = 21, Mult = 25,  PadPos = Vector3.new(-106.0, 10.6, -31.00),DummyPos = Vector3.new(-110.27, 10.63, -30.99) },
+    { Id = 9,  Name = "Train_9 (VIP x100 Power ลู่วิ่ง)", Rebirth = 0, Mult = 100, IsPay = true, PadPos = Vector3.new(-88.5, 8.7, 0.31), DummyPos = Vector3.new(-125.80, 11.28, 0.35) },
+    { Id = 10, Name = "Train_10 (Pay x10 Power)",       Rebirth = 0,  Mult = 10,  IsPay = true, PadPos = Vector3.new(-79.06, 9.5, 42.68), DummyPos = Vector3.new(-84.50, 8.56, 42.42) },
+    { Id = 11, Name = "Train_11 (Pay x20 Power)",       Rebirth = 0,  Mult = 20,  IsPay = true, PadPos = Vector3.new(-78.89, 9.5, -41.02), DummyPos = Vector3.new(-84.50, 8.61, -41.38) },
 }
 
 local function getBestTrainZone()
@@ -2438,13 +2952,13 @@ local function getBestTrainZone()
     local curReb = pd and pd.Eco and tonumber(pd.Eco.rebirth) or 0
     local best = TrainAreaConfig[1]
     for _, z in ipairs(TrainAreaConfig) do
-        if curReb >= z.Rebirth then best = z end
+        if not z.IsPay and curReb >= z.Rebirth then best = z end
     end
     return best
 end
 
 -- ═══════════════════════════════════════════════════════════════════
--- 12. WINDOW & TAB CREATION (AURORA v3.0)
+-- 16. WINDOW & TAB CREATION (AURORA v3.0 SUPREME EDITION)
 -- ═══════════════════════════════════════════════════════════════════
 local Window = UI:CreateWindow({
     Title = "PROJECT BARUN",
@@ -2457,7 +2971,9 @@ _G.PB_ActiveWindow = Window
 
 local TabFarming = Window:CreateTab({ Name = "Farming & Stage", Icon = "⚡", Subtitle = "Stage, Mobs & Ore Mining" })
 local TabForge   = Window:CreateTab({ Name = "Forge & Gear",    Icon = "💎", Subtitle = "Smart 2SKI Slicing & Auto Equip" })
-local TabCombat  = Window:CreateTab({ Name = "Combat & Train",  Icon = "⚔️", Subtitle = "Auto Training & Enemy Slaying" })
+local TabCombat  = Window:CreateTab({ Name = "Combat & Train",  Icon = "⚔️", Subtitle = "Auto Training & VIP x100 Power" })
+local TabSpawner = Window:CreateTab({ Name = "God Spawner",     Icon = "✨", Subtitle = "Dev Exploit & Permanent Gear" })
+local TabFPS     = Window:CreateTab({ Name = "Boost FPS",       Icon = "🚀", Subtitle = "Lag Reducer & RAM Cleaner" })
 local TabMisc    = Window:CreateTab({ Name = "Misc & Upgrades", Icon = "⚙️", Subtitle = "Economy, Upgrades & SuperLoot" })
 local TabConfig  = Window:CreateTab({ Name = "Settings & Save",  Icon = "💾", Subtitle = "Persistent JSON Profile Engine" })
 
@@ -2508,6 +3024,73 @@ TabFarming:AddSlider({
     Callback = function(Value) Settings.StageDelay = Value end
 })
 
+TabFarming:AddSection("DUNGEON & HUNTING")
+TabFarming:AddToggle({
+    Name = "Auto Dungeon (ลงดันเจี้ยนอัตโนมัติ)",
+    Desc = "ลงดันเจี้ยนและดันรอบอย่างต่อเนื่อง",
+    Default = Settings.AutoDungeon,
+    Callback = function(Value) Settings.AutoDungeon = Value end
+})
+
+TabFarming:AddSlider({
+    Name = "Target Dungeon Round",
+    Min = 1, Max = 30, Default = Settings.TargetDungeonRound,
+    Increment = 1, ValueName = "Rounds",
+    Callback = function(Value) Settings.TargetDungeonRound = Value end
+})
+
+TabFarming:AddToggle({
+    Name = "Dungeon Insta-Kill (สังหารมอนสเตอร์ดันเจี้ยนทันที)",
+    Desc = "กำจัดศัตรูในดันเจี้ยนทันทีเพื่อเคลียร์รอบความเร็วสูง",
+    Default = Settings.DungeonInstaKill,
+    Callback = function(Value) Settings.DungeonInstaKill = Value end
+})
+
+TabFarming:AddToggle({
+    Name = "Auto SuperLoot Hunter",
+    Desc = "ค้นหาและสังหารกล่องสมบัติ SuperLoot ทันทีที่เกิด",
+    Default = Settings.AutoSuperLoot,
+    Callback = function(Value) Settings.AutoSuperLoot = Value end
+})
+
+TabFarming:AddToggle({
+    Name = "Auto World Boss (ล่าบอสโลกอัตโนมัติ)",
+    Desc = "ส่งดาเมจสังหารเวิลด์บอสทันทีที่เกิดในแมพ",
+    Default = Settings.AutoWorldBoss,
+    Callback = function(Value) Settings.AutoWorldBoss = Value end
+})
+
+TabFarming:AddSection("WORLD ORES")
+TabFarming:AddToggle({
+    Name = "Auto Collect World Crystals (ดูดแร่บนพื้นแมพ)",
+    Desc = "กระตุ้น ProximityPrompt ดูดแร่และคริสตัลที่ตกในฉากอัตโนมัติ",
+    Default = Settings.AutoCollectCrystals,
+    Callback = function(Value) Settings.AutoCollectCrystals = Value end
+})
+
+TabFarming:AddButton({
+    Name = "ดูดแร่บนพื้นทั้งหมดทันที (Collect All World Crystals)",
+    Icon = "⚡",
+    Callback = function()
+        local count = 0
+        local oreCache = workspace:FindFirstChild("OreCache")
+        if oreCache then
+            for _, ore in ipairs(oreCache:GetChildren()) do
+                local prompt = ore:FindFirstChildWhichIsA("ProximityPrompt", true)
+                if prompt then
+                    pcall(function()
+                        prompt.MaxActivationDistance = 99999
+                        prompt.RequiresLineOfSight = false
+                        if fireproximityprompt then fireproximityprompt(prompt, 0) end
+                    end)
+                    count = count + 1
+                end
+            end
+        end
+        Window:Notify({ Title = "World Crystals", Content = "กระตุ้นดูดแร่ในฉาก " .. tostring(count) .. " ชิ้น!", Type = "success" })
+    end
+})
+
 -- ─────────────────────────────────────────────────────────────────────
 -- TAB 2: FORGE & GEAR
 -- ─────────────────────────────────────────────────────────────────────
@@ -2552,6 +3135,19 @@ TabForge:AddSlider({
     Callback = function(Value) Settings.ForgeDelay = Value end
 })
 
+TabForge:AddButton({
+    Name = "หลอมอุปกรณ์ตามประเภทที่เลือกทันที (Forge Selected Now)",
+    Icon = "🔨",
+    Callback = function()
+        local ok, slot, count = executeForgeNow(Settings.ForgeType, Settings.MinOreToForge)
+        Window:Notify({
+            Title = "Forge Engine",
+            Content = ok and ("หลอม " .. tostring(slot) .. " สำเร็จ (" .. tostring(count) .. " แร่)!") or "หลอมไม่สำเร็จ: แร่ไม่เพียงพอ",
+            Type = ok and "success" or "error"
+        })
+    end
+})
+
 TabForge:AddSection("GEAR MANAGEMENT")
 TabForge:AddButton({
     Name = "Equip Best Gear Now (สวมใส่อุปกรณ์ที่ดีที่สุดทันที)",
@@ -2583,11 +3179,113 @@ TabForge:AddToggle({
     Callback = function(Value) Settings.UseProtect = Value end
 })
 
+TabForge:AddSection("AUTO SOCKETING & ENCHANT")
+TabForge:AddToggle({
+    Name = "Auto Enchant Equipped Gear (ตีบวกยัดหินใส่เกียร์อัตโนมัติ)",
+    Desc = "สแกนหาช่องว่างของอุปกรณ์ที่สวมใส่แล้วใส่หิน Enchant อัตโนมัติ",
+    Default = Settings.AutoEnchantEquipped,
+    Callback = function(Value)
+        Settings.AutoEnchantEquipped = Value
+        if Value then autoEnchantEquippedGear() end
+    end
+})
+
+TabForge:AddButton({
+    Name = "ยัดหิน Enchant ใส่อุปกรณ์ที่สวมใส่ทั้งหมดทันที",
+    Icon = "💎",
+    Callback = function()
+        local ok = autoEnchantEquippedGear()
+        Window:Notify({
+            Title = "Auto Enchant",
+            Content = ok and "ใส่หินตีบวกลงช่องอุปกรณ์เรียบร้อย!" or "ไม่มีช่องว่างหรือไม่มีหินในกระเป๋า",
+            Type = ok and "success" or "warning"
+        })
+    end
+})
+
+TabForge:AddSection("INVENTORY TRASH SELLING")
 TabForge:AddToggle({
     Name = "Auto Sell Trash Gear (ขายขยะอุปกรณ์ - ไม่แตะต้องแร่)",
     Desc = "สแกนขายเฉพาะอาวุธ/เกราะ/หมวกที่มีค่าสเตตัสต่ำ ไม่ขายแร่เด็ดขาด",
     Default = Settings.AutoSellTrashGear,
     Callback = function(Value) Settings.AutoSellTrashGear = Value end
+})
+
+TabForge:AddDropdown({
+    Name = "Keep Gear Rarity (ระดับของที่จะเก็บไว้)",
+    Desc = "ชิ้นที่ระดับต่ำกว่านี้จะถูกขายทิ้ง",
+    Default = "Legendary",
+    Options = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic"},
+    Callback = function(Value) Settings.MinRarityToKeep = Value end
+})
+
+TabForge:AddButton({
+    Name = "สวมใส่ของโหดสุดแล้วขายอุปกรณ์ขยะทันที (Sell Trash Gear)",
+    Icon = "💰",
+    Callback = function()
+        local count = sellTrashGearNow()
+        Window:Notify({ Title = "Sell Trash", Content = "ขายอุปกรณ์ขยะไป " .. tostring(count) .. " ชิ้น!", Type = "success" })
+    end
+})
+
+TabForge:AddSection("ORE & ENCHANT STONE SELLING")
+TabForge:AddToggle({
+    Name = "Auto Sell Ores (ขายแร่ในกระเป๋าตามตัวกรอง)",
+    Desc = "ขายแร่อัตโนมัติตามระดับความหายากที่เลือก",
+    Default = Settings.AutoSellOres,
+    Callback = function(Value) Settings.AutoSellOres = Value end
+})
+
+TabForge:AddDropdown({
+    Name = "Ore Filter Mode",
+    Desc = "เลือกรูปแบบการกรองแร่",
+    Default = "Sell Selected",
+    Options = {"Sell Selected", "Keep Selected"},
+    Callback = function(Value) Settings.OreFilterMode = Value end
+})
+
+TabForge:AddDropdown({
+    Name = "Ore Rarities (เลือกหลายระดับ)",
+    Desc = "ติ๊กระดับแร่ที่ต้องการจัดการ",
+    Default = "Common",
+    Options = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Eternal", "Ancient", "Infinite"},
+    Callback = function(Value)
+        Settings.OreRaritiesToSell = { Value }
+    end
+})
+
+TabForge:AddButton({
+    Name = "ขายแร่ทันทีตามตัวกรอง (Sell Filtered Ores Now)",
+    Icon = "🪙",
+    Callback = function()
+        local count = sellOresNow()
+        Window:Notify({ Title = "Ore Sell", Content = "ขายแร่ไป " .. tostring(count) .. " ชนิด!", Type = "success" })
+    end
+})
+
+TabForge:AddButton({
+    Name = "ขายแร่ทั้งหมดทันที (ล้างแร่เกลี้ยงกระเป๋า)",
+    Icon = "🗑️",
+    Callback = function()
+        local count = sellAllOresNow()
+        Window:Notify({ Title = "Ore Clear", Content = "ล้างแร่ในกระเป๋าไป " .. tostring(count) .. " ชนิด!", Type = "success" })
+    end
+})
+
+TabForge:AddToggle({
+    Name = "Auto Sell Enchant Stones (ขายหินตีบวกส่วนเกิน)",
+    Desc = "ขายหินตีบวกอัตโนมัติ (ไม่ขาย Ember Stones เด็ดขาด)",
+    Default = Settings.AutoSellEnchant,
+    Callback = function(Value) Settings.AutoSellEnchant = Value end
+})
+
+TabForge:AddButton({
+    Name = "ขายหินตีบวกตามตัวกรองทันที (Sell Enchant Stones Now)",
+    Icon = "💎",
+    Callback = function()
+        local count = sellEnchantStonesNow()
+        Window:Notify({ Title = "Stone Sell", Content = "ขายหินตีบวกไป " .. tostring(count) .. " ชนิด!", Type = "success" })
+    end
 })
 
 -- ─────────────────────────────────────────────────────────────────────
@@ -2598,21 +3296,90 @@ TabCombat:AddToggle({
     Name = "Auto Train (ฟันดาบเก็บพลัง)",
     Desc = "ส่งคำสั่งฝึกซ้อมความเร็วสูงต่อเนื่อง",
     Default = Settings.AutoTrain,
-    Callback = function(Value) Settings.AutoTrain = Value end
+    Callback = function(Value)
+        Settings.AutoTrain = Value
+        if Value then Settings.AutoTrainX100 = false end
+    end
 })
 
 TabCombat:AddToggle({
     Name = "Auto Best Multiplier Zone (ยืนแท่นคูณสูงสุดที่ปลดล็อค)",
     Desc = "วาร์ปและส่งคำสั่งเข้าแท่นที่ให้ตัวคูณพลังสูงสุดตาม Rebirth",
     Default = Settings.AutoTrainBestZone,
-    Callback = function(Value) Settings.AutoTrainBestZone = Value end
+    Callback = function(Value)
+        Settings.AutoTrainBestZone = Value
+        if Value then Settings.AutoTrainX100 = false end
+    end
+})
+
+TabCombat:AddToggle({
+    Name = "⚡ VIP Zone 9 Treadmill x100 Power (วิ่งบนลู่ VIP)",
+    Desc = "วาร์ปล็อคพิกัดบนลู่วิ่ง VIP Zone 9 รับตัวคูณ x100 Power ทันที Bypass ไม่เด้งหน้าต่างซื้อ",
+    Default = Settings.AutoTrainX100,
+    Callback = function(Value)
+        Settings.AutoTrainX100 = Value
+        if Value then
+            Settings.AutoTrain = false
+            Settings.AutoTrainBestZone = false
+            Window:Notify({ Title = "VIP x100", Content = "เปิดระบบวิ่งลู่ VIP Zone 9 (x100 Power)!", Type = "success" })
+        end
+    end
 })
 
 TabCombat:AddSlider({
-    Name = "Manual Train Zone (1-8)",
-    Min = 1, Max = 8, Default = Settings.TrainAreaIndex,
+    Name = "Manual Train Zone (1-11)",
+    Min = 1, Max = 11, Default = Settings.TrainAreaIndex,
     Increment = 1, ValueName = "Zone",
     Callback = function(Value) Settings.TrainAreaIndex = Value end
+})
+
+TabCombat:AddSlider({
+    Name = "Train Delay (ความเร็วในการฟันดาบ)",
+    Min = 0.05, Max = 0.5, Default = Settings.TrainDelay,
+    Increment = 0.05, ValueName = "sec",
+    Callback = function(Value) Settings.TrainDelay = Value end
+})
+
+TabCombat:AddSection("AUTO 2X BUFF POTIONS")
+TabCombat:AddToggle({
+    Name = "Auto Drink 2x Buff Potions (ดื่มน้ำยาบัพคูณพลังอัตโนมัติ)",
+    Desc = "ดื่มน้ำยาบัพคูณพลังทันทีที่ระยะเวลาหมดลง",
+    Default = Settings.AutoDrinkPotions,
+    Callback = function(Value)
+        Settings.AutoDrinkPotions = Value
+        if Value then autoDrinkPotionsNow() end
+    end
+})
+
+TabCombat:AddToggle({
+    Name = "Drink Train Potion (คูณพลังฝึกซ้อม x2)",
+    Default = Settings.AutoTrainPotion,
+    Callback = function(Value) Settings.AutoTrainPotion = Value end
+})
+
+TabCombat:AddToggle({
+    Name = "Drink Coin Potion (คูณเงินดรอป x2)",
+    Default = Settings.AutoCoinPotion,
+    Callback = function(Value) Settings.AutoCoinPotion = Value end
+})
+
+TabCombat:AddToggle({
+    Name = "Drink Luck Potion (คูณดวงไอเทม x2)",
+    Default = Settings.AutoLuckPotion,
+    Callback = function(Value) Settings.AutoLuckPotion = Value end
+})
+
+TabCombat:AddButton({
+    Name = "ตรวจสอบและดื่มน้ำยาบัพทั้งหมดทันที (Drink Potions Now)",
+    Icon = "🧪",
+    Callback = function()
+        local ok = autoDrinkPotionsNow()
+        Window:Notify({
+            Title = "Potions",
+            Content = ok and "ดื่มน้ำยาบัพคูณพลัง x2 เรียบร้อย!" or "บัพยังทำงานอยู่ หรือไม่มีน้ำยาในกระเป๋า",
+            Type = ok and "success" or "warning"
+        })
+    end
 })
 
 TabCombat:AddSection("BOSS & WORLD COMBAT")
@@ -2623,22 +3390,177 @@ TabCombat:AddToggle({
     Callback = function(Value) Settings.AutoAttack = Value end
 })
 
-TabCombat:AddToggle({
-    Name = "Auto SuperLoot Hunter",
-    Desc = "ค้นหาและสังหารกล่องสมบัติ SuperLoot ทันทีที่เกิด",
-    Default = Settings.AutoSuperLoot,
-    Callback = function(Value) Settings.AutoSuperLoot = Value end
+TabCombat:AddSlider({
+    Name = "Attack Delay",
+    Min = 0.05, Max = 0.5, Default = Settings.AttackDelay,
+    Increment = 0.05, ValueName = "sec",
+    Callback = function(Value) Settings.AttackDelay = Value end
 })
 
 -- ─────────────────────────────────────────────────────────────────────
--- TAB 4: MISC & UPGRADES
+-- TAB 4: GOD SPAWNER (2K REVERSE-ENGINEERED DEV EXPLOIT)
+-- ─────────────────────────────────────────────────────────────────────
+TabSpawner:AddSection("EMBER STONE DUPE EXPLOIT (SERVER DATASTORE 100%)")
+TabSpawner:AddButton({
+    Name = "🔥 เสก Ember Stone (+5,000 ก้อน / คลิกเดียว)",
+    Icon = "🔥",
+    Callback = function()
+        pumpRealEmberStones(5000)
+    end
+})
+
+TabSpawner:AddButton({
+    Name = "⚡ เสก Ember Stone (+20,000 ก้อน / Ultra Pack)",
+    Icon = "⚡",
+    Callback = function()
+        pumpRealEmberStones(20000)
+    end
+})
+
+TabSpawner:AddSection("GOD ARMOR INJECTION (บันทึกเซิร์ฟเวอร์ถาวร)")
+TabSpawner:AddButton({
+    Name = "สวมใส่ชุดมังกรดวงดาว (Astral Dragon Emperor Set)",
+    Icon = "🛡️",
+    Callback = function()
+        equipArmorSet("HArmor_1002", "HHat_1002", "Astral Dragon Emperor")
+    end
+})
+
+TabSpawner:AddButton({
+    Name = "สวมใส่ชุดหายนะวันสิ้นโลก (Apocalypse Overlord Set)",
+    Icon = "🛡️",
+    Callback = function()
+        equipArmorSet("HArmor_1001", "HHat_1001", "Apocalypse Overlord")
+    end
+})
+
+TabSpawner:AddButton({
+    Name = "สวมใส่ชุดคาตาคลิซึม (Cataclysm Destroyer Set)",
+    Icon = "🛡️",
+    Callback = function()
+        equipArmorSet("HArmor_1003", "HHat_1003", "Cataclysm Destroyer")
+    end
+})
+
+TabSpawner:AddButton({
+    Name = "สวมใส่ชุดความว่างเปล่า (Void Sovereign Set)",
+    Icon = "🛡️",
+    Callback = function()
+        equipArmorSet("HArmor_1004", "HHat_1004", "Void Sovereign")
+    end
+})
+
+TabSpawner:AddSection("GOD WEAPON INJECTION (บันทึกเซิร์ฟเวอร์ถาวร)")
+TabSpawner:AddButton({
+    Name = "สวมใส่ดาบกลืนกินความโกลาหล (Chaoseater)",
+    Icon = "⚔️",
+    Callback = function()
+        equipWeapon("G_1101", "Chaoseater")
+    end
+})
+
+TabSpawner:AddButton({
+    Name = "สวมใส่ดาบซูเปอร์โนวา (Astral Supernova Edge)",
+    Icon = "⚔️",
+    Callback = function()
+        equipWeapon("G_1002", "Astral Supernova Edge")
+    end
+})
+
+TabSpawner:AddButton({
+    Name = "สวมใส่ดาบคาทานะหายนะ (Apocalypse Katana)",
+    Icon = "⚔️",
+    Callback = function()
+        equipWeapon("K_1101", "Apocalypse Katana")
+    end
+})
+
+TabSpawner:AddButton({
+    Name = "สวมใส่ดาบวอยด์ออบลิเวียน (Void Greatsword)",
+    Icon = "⚔️",
+    Callback = function()
+        equipWeapon("G_1001", "Void Greatsword")
+    end
+})
+
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 5: BOOST FPS & PERFORMANCE
+-- ─────────────────────────────────────────────────────────────────────
+TabFPS:AddSection("CORE LAG REDUCERS")
+TabFPS:AddToggle({
+    Name = "Disable All Particle VFX (ปิดเอฟเฟกต์ & พาร์ติเคิล)",
+    Desc = "ปิดแสง สี ไฮไลต์ และประกายไฟทั้งหมดในเกม ช่วยเพิ่ม FPS สูงสุด",
+    Default = Settings.DisableVFX,
+    Callback = function(Value)
+        Settings.DisableVFX = Value
+        setVFXEnabled(not Value)
+    end
+})
+
+TabFPS:AddToggle({
+    Name = "Low Graphics Mode (กราฟิกสมูทพลาสติก)",
+    Desc = "เปลี่ยนพื้นผิววัตถุเป็น SmoothPlastic และปิดเงาเพื่อความลื่นไหล",
+    Default = Settings.LowGraphics,
+    Callback = function(Value)
+        Settings.LowGraphics = Value
+        applyLowGraphics(Value)
+    end
+})
+
+TabFPS:AddToggle({
+    Name = "Hide Other Players (ซ่อนผู้เล่นคนอื่น)",
+    Desc = "ทำให้ตัวละครของผู้เล่นคนอื่นโปร่งใส ช่วยลดภาระ GPU และเน็ตเวิร์ก",
+    Default = Settings.HideOtherPlayers,
+    Callback = function(Value)
+        Settings.HideOtherPlayers = Value
+        updateHideOtherPlayers(Value)
+    end
+})
+
+TabFPS:AddToggle({
+    Name = "Mute Game Popups (ปิดหน้าต่างแจ้งเตือนสแปม)",
+    Desc = "ซ่อนป๊อปอัปข้อความและ TrainOnce VFX ของตัวเกมที่ทำให้กระตุก",
+    Default = Settings.MuteGamePopups,
+    Callback = function(Value)
+        Settings.MuteGamePopups = Value
+        setGamePopupsMuted(Value)
+    end
+})
+
+TabFPS:AddSection("RAM & MEMORY")
+TabFPS:AddButton({
+    Name = "ล้างหน่วยความจำ RAM ทันที (Run Memory Cleaner)",
+    Icon = "🧹",
+    Callback = function()
+        runMemoryCleaner()
+    end
+})
+
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 6: MISC, UPGRADES & CLASS GACHA
 -- ─────────────────────────────────────────────────────────────────────
 TabMisc:AddSection("AUTOMATION & ECONOMY")
 TabMisc:AddToggle({
-    Name = "Auto Claim All Rewards (Online, Update, Offline, Ticket)",
-    Desc = "กดรับรางวัลออนไลน์ อัปเดต และตั๋วดันเจี้ยนอัตโนมัติ",
+    Name = "Auto Claim All Rewards (Online, Update, Offline, Ticket, Index)",
+    Desc = "กดรับรางวัลออนไลน์ อัปเดต ตั๋วดันเจี้ยน และสมุดภาพอัตโนมัติ",
     Default = Settings.AutoClaimRewards,
     Callback = function(Value) Settings.AutoClaimRewards = Value end
+})
+
+TabMisc:AddButton({
+    Name = "กดรับรางวัลและของขวัญทั้งหมดทันที (Claim All Now)",
+    Icon = "🎁",
+    Callback = function()
+        safe(function()
+            if OnlineRE_Claim then for i = 1, 12 do OnlineRE_Claim:FireServer(i) end end
+            if UpdateRE_Claim then UpdateRE_Claim:FireServer() end
+            if OfflineRE_Claim then OfflineRE_Claim:FireServer() end
+            if DungeonRE_Claim then DungeonRE_Claim:FireServer() end
+            if IndexRF_Exp then IndexRF_Exp:InvokeServer() end
+            if IndexRF_Level then for lvl = 1, 10 do pcall(function() IndexRF_Level:InvokeServer(lvl) end) end end
+            Window:Notify({ Title = "Rewards", Content = "รับรางวัลทุกหมวดหมู่สำเร็จ!", Type = "success" })
+        end)
+    end
 })
 
 TabMisc:AddToggle({
@@ -2655,15 +3577,49 @@ TabMisc:AddToggle({
     Callback = function(Value) Settings.AutoRebirth = Value end
 })
 
+TabMisc:AddButton({
+    Name = "บังคับจุติทันที (Force Rebirth Now)",
+    Icon = "🔄",
+    Callback = function()
+        if RebirthRE then
+            RebirthRE:FireServer()
+            Window:Notify({ Title = "Rebirth", Content = "ส่งคำสั่งจุติตัวละครเรียบร้อย!", Type = "success" })
+        end
+    end
+})
+
+TabMisc:AddSection("CLASS GACHA AUTOMATION")
 TabMisc:AddToggle({
-    Name = "Auto Class Luck Roll",
-    Desc = "สุ่มคลาสเพื่อรับดวงโบนัส",
-    Default = Settings.AutoLuckRoll,
-    Callback = function(Value) Settings.AutoLuckRoll = Value end
+    Name = "Auto Class Luck Roll (สุ่มคลาสอัตโนมัติ)",
+    Desc = "สุ่มคลาสต่อเนื่องและหยุดทันทีเมื่อได้ระดับที่ต้องการ",
+    Default = Settings.AutoRollClass,
+    Callback = function(Value)
+        Settings.AutoRollClass = Value
+        if Value then autoRollClassNow() end
+    end
+})
+
+TabMisc:AddDropdown({
+    Name = "Target Class Rarity",
+    Desc = "หยุดสุ่มอัตโนมัติเมื่อได้ระดับนี้",
+    Default = "Legendary",
+    Options = {"Epic", "Legendary", "Mythic"},
+    Callback = function(Value) Settings.TargetClassRarity = Value end
+})
+
+TabMisc:AddButton({
+    Name = "กดสุ่มคลาส 1 ครั้งทันที (Roll Class Once)",
+    Icon = "🎲",
+    Callback = function()
+        if ClassRE_Luck then
+            ClassRE_Luck:FireServer()
+            Window:Notify({ Title = "Class Gacha", Content = "ส่งคำสั่งสุ่มคลาส 1 ครั้ง!", Type = "success" })
+        end
+    end
 })
 
 -- ─────────────────────────────────────────────────────────────────────
--- TAB 5: SETTINGS & CONFIGURATION PROFILES (SAVE & LOAD)
+-- TAB 7: SETTINGS & CONFIGURATION PROFILES
 -- ─────────────────────────────────────────────────────────────────────
 TabConfig:AddSection("💾 CONFIGURATION PROFILES")
 
@@ -2675,9 +3631,7 @@ do
     local function getCleanFilename(name)
         if name and name ~= "" and name ~= "default" then
             local sanitized = name:gsub("[^%w_%-]", "")
-            if sanitized ~= "" then
-                return "PB_LootToForge_" .. sanitized .. ".json"
-            end
+            if sanitized ~= "" then return "PB_LootToForge_" .. sanitized .. ".json" end
         end
         return CONFIG_FILE
     end
@@ -2705,9 +3659,7 @@ do
         if not rOk or not content or content == "" then return false, "Read failed" end
         local dOk, decoded = pcall(function() return HttpService:JSONDecode(content) end)
         if not dOk or type(decoded) ~= "table" then return false, "JSON Decode failed" end
-        for k, v in pairs(decoded) do
-            Settings[k] = v
-        end
+        for k, v in pairs(decoded) do Settings[k] = v end
         return true, path
     end
 end
@@ -2726,19 +3678,11 @@ TabConfig:AddButton({
     Icon = "💾",
     Callback = function()
         local ok, path = ConfigManager.Save(currentProfile)
-        if ok then
-            Window:Notify({
-                Title = "Config Saved",
-                Content = "บันทึกการตั้งค่าลงไฟล์ " .. currentProfile .. " สำเร็จ!",
-                Type = "success"
-            })
-        else
-            Window:Notify({
-                Title = "Save Failed",
-                Content = tostring(path),
-                Type = "error"
-            })
-        end
+        Window:Notify({
+            Title = ok and "Config Saved" or "Save Failed",
+            Content = ok and ("บันทึกคอนฟิก " .. currentProfile .. " สำเร็จ!") or tostring(path),
+            Type = ok and "success" or "error"
+        })
     end
 })
 
@@ -2747,36 +3691,38 @@ TabConfig:AddButton({
     Icon = "📂",
     Callback = function()
         local ok, path = ConfigManager.Load(currentProfile)
-        if ok then
-            Window:Notify({
-                Title = "Config Loaded",
-                Content = "โหลดการตั้งค่าจากไฟล์ " .. currentProfile .. " เรียบร้อย!",
-                Type = "success"
-            })
-        else
-            Window:Notify({
-                Title = "Load Failed",
-                Content = tostring(path),
-                Type = "error"
-            })
-        end
+        Window:Notify({
+            Title = ok and "Config Loaded" or "Load Failed",
+            Content = ok and ("โหลดคอนฟิก " .. currentProfile .. " เรียบร้อย!") or tostring(path),
+            Type = ok and "success" or "error"
+        })
     end
 })
 
 -- ═══════════════════════════════════════════════════════════════════
--- 13. EXECUTION THREADS
+-- 17. EXECUTION BACKGROUND THREADS
 -- ═══════════════════════════════════════════════════════════════════
 
--- Thread 1: Auto Train & Best Multiplier Zone
+-- Thread 1: Auto Train & VIP x100 Power Treadmill
 task.spawn(function()
     while Running and _G.LootToForgeActiveToken == myToken do
-        if Settings.AutoTrain or Settings.AutoTrainBestZone then
+        if Settings.AutoTrain or Settings.AutoTrainBestZone or Settings.AutoTrainX100 then
             safe(function()
-                if Settings.AutoTrainBestZone then
+                local char = LocalPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+                if Settings.AutoTrainX100 then
+                    -- Zone 9 VIP Treadmill
+                    local vipZone = TrainAreaConfig[9]
+                    if hrp and (hrp.Position - vipZone.PadPos).Magnitude > 6 then
+                        hrp.CFrame = CFrame.lookAt(vipZone.PadPos + Vector3.new(0, 2, 0), vipZone.DummyPos)
+                    end
+                    if LocalPlayer:GetAttribute("AutoTrainAreaID") ~= 9 and TrainRE_IntoArea then
+                        TrainRE_IntoArea:FireServer(9)
+                    end
+                elseif Settings.AutoTrainBestZone then
                     local target = getBestTrainZone()
                     if target then
-                        local char = LocalPlayer.Character
-                        local hrp = char and char:FindFirstChild("HumanoidRootPart")
                         if hrp and (hrp.Position - target.PadPos).Magnitude > 6 then
                             hrp.CFrame = CFrame.lookAt(target.PadPos + Vector3.new(0, 2, 0), target.DummyPos)
                         end
@@ -2796,7 +3742,7 @@ task.spawn(function()
     end
 end)
 
--- Thread 2: Auto Stage Clearing + Silent Mobs Kill + Auto Sweep
+-- Thread 2: Auto Stage Clearing + Silent Mobs Kill + Crystals
 task.spawn(function()
     while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoStageOre and StageRF_Finish then
@@ -2829,6 +3775,18 @@ task.spawn(function()
                         end
                     end
                 end
+
+                if Settings.AutoCollectCrystals then
+                    local oreCache = workspace:FindFirstChild("OreCache")
+                    if oreCache then
+                        for _, ore in ipairs(oreCache:GetChildren()) do
+                            local prompt = ore:FindFirstChildWhichIsA("ProximityPrompt", true)
+                            if prompt and fireproximityprompt then
+                                pcall(function() fireproximityprompt(prompt, 0) end)
+                            end
+                        end
+                    end
+                end
             end)
             task.wait(Settings.StageDelay)
         else
@@ -2851,7 +3809,7 @@ task.spawn(function()
     end
 end)
 
--- Thread 4: Auto Enhance Equipped Weapon
+-- Thread 4: Auto Enhance Equipped Weapon & Auto Socket
 task.spawn(function()
     while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoEnhance and BackpackRF_Enhance and ProfileRF then
@@ -2865,40 +3823,31 @@ task.spawn(function()
                 end
             end)
             task.wait(1.5)
-        else
-            task.wait(1.0)
         end
+        if Settings.AutoEnchantEquipped then
+            safe(autoEnchantEquippedGear)
+            task.wait(2.0)
+        end
+        task.wait(0.5)
     end
 end)
 
--- Thread 5: Safe Auto Sell Trash Gear
+-- Thread 5: Safe Auto Sell Trash Gear, Ores & Enchant Stones
 task.spawn(function()
     while Running and _G.LootToForgeActiveToken == myToken do
-        if Settings.AutoSellTrashGear and BackpackRE_SellItem then
-            safe(function()
-                local have = getBackpackData()
-                for uuid, item in pairs(have) do
-                    if item.Type == "Weapon" or item.Type == "Armor" or item.Type == "Hat" then
-                        local isEquipped = false
-                        pcall(function()
-                            if BackpackData and BackpackData.IsEquipedUUID then
-                                isEquipped = BackpackData.IsEquipedUUID(uuid)
-                            end
-                        end)
-                        if not isEquipped then
-                            local score = calculateGearScore(item)
-                            if score < 5e11 then
-                                BackpackRE_SellItem:FireServer(uuid)
-                                task.wait(0.05)
-                            end
-                        end
-                    end
-                end
-            end)
-            task.wait(4.0)
-        else
-            task.wait(2.0)
+        if Settings.AutoSellTrashGear then
+            safe(sellTrashGearNow)
+            task.wait(3.5)
         end
+        if Settings.AutoSellOres then
+            safe(sellOresNow)
+            task.wait(3.5)
+        end
+        if Settings.AutoSellEnchant then
+            safe(sellEnchantStonesNow)
+            task.wait(3.5)
+        end
+        task.wait(1.5)
     end
 end)
 
@@ -2911,6 +3860,7 @@ task.spawn(function()
                 if UpdateRE_Claim then UpdateRE_Claim:FireServer() end
                 if OfflineRE_Claim then OfflineRE_Claim:FireServer() end
                 if DungeonRE_Claim then DungeonRE_Claim:FireServer() end
+                if IndexRF_Exp then IndexRF_Exp:InvokeServer() end
             end)
             task.wait(5.0)
         else
@@ -2919,7 +3869,7 @@ task.spawn(function()
     end
 end)
 
--- Thread 7: Auto Upgrades & Rebirth
+-- Thread 7: Auto Upgrades, Rebirth & Class Gacha
 task.spawn(function()
     while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoUpgrade and UpgradeRE then
@@ -2934,11 +3884,15 @@ task.spawn(function()
             safe(function() RebirthRE:FireServer() end)
             task.wait(3.0)
         end
+        if Settings.AutoRollClass then
+            safe(autoRollClassNow)
+            task.wait(1.2)
+        end
         task.wait(1.0)
     end
 end)
 
--- Thread 8: Auto SuperLoot Hunter
+-- Thread 8: Auto SuperLoot & World Boss Hunter
 task.spawn(function()
     while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoSuperLoot and SuperLootRE_Kill then
@@ -2953,14 +3907,27 @@ task.spawn(function()
                     end
                 end
             end)
-            task.wait(3.0)
-        else
-            task.wait(2.0)
         end
+        if Settings.AutoWorldBoss and Bindable_EnemyHit then
+            safe(function()
+                local ef = workspace:FindFirstChild("EnemyFolder")
+                if ef then
+                    for _, enemy in ipairs(ef:GetChildren()) do
+                        local name = enemy.Name:lower()
+                        if name:find("boss") or enemy:GetAttribute("IsBoss") then
+                            local uuid = enemy:GetAttribute("UUID") or enemy.Name
+                            Bindable_EnemyHit:Fire(uuid, 1e32)
+                            if AttackRE_Enemy then AttackRE_Enemy:FireServer(enemy) end
+                        end
+                    end
+                end
+            end)
+        end
+        task.wait(2.5)
     end
 end)
 
--- Thread 9: Combat Attack
+-- Thread 9: Combat Attack Loop & Potions
 task.spawn(function()
     while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoAttack then
@@ -2983,7 +3950,19 @@ task.spawn(function()
     end
 end)
 
--- Thread 10: Real-time Telemetry Live Feed
+-- Thread 10: Auto Buff Potions Loop
+task.spawn(function()
+    while Running and _G.LootToForgeActiveToken == myToken do
+        if Settings.AutoDrinkPotions then
+            safe(autoDrinkPotionsNow)
+            task.wait(4.0)
+        else
+            task.wait(2.0)
+        end
+    end
+end)
+
+-- Thread 11: Real-time Telemetry Live Feed
 task.spawn(function()
     while Running and _G.LootToForgeActiveToken == myToken do
         safe(function()
@@ -3004,6 +3983,10 @@ task.spawn(function()
                 end
             end
             if StatBackpackOres then StatBackpackOres:Set(tostring(oreCount), Theme.Warning, "Total Ores Available") end
+
+            if Settings.MuteGamePopups then
+                setGamePopupsMuted(true)
+            end
         end)
         task.wait(1.5)
     end
@@ -3011,7 +3994,7 @@ end)
 
 Window:Notify({
     Title = "PROJECT BARUN",
-    Content = "Loot To Forge Hub v3.0 Loaded Successfully!",
+    Content = "Loot To Forge Hub v3.0 Supreme Loaded Successfully!",
     Type = "success",
     Duration = 4.0
 })
