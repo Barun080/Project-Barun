@@ -2342,8 +2342,23 @@ local Config = {
     HideTowerScreen = false,
 
     -- Free Gifts
-    AutoClaimRewards = false
-}
+    AutoClaimRewards = false,
+
+    -- Movement & Physics Hacks
+    WalkSpeedEnabled     = false,
+    WalkSpeedValue       = 16,
+    JumpPowerEnabled     = false,
+    JumpPowerValue       = 50,
+    InfiniteJump         = false,
+    Noclip               = false,
+    FlyEnabled           = false,
+    FlySpeed             = 50,
+    AutoReconnect        = true,
+
+    -- Visuals & Performance
+    FPSBooster           = false,
+    FullBright           = false,
+    GodAura              = false
 
 local State = {
     TotalRollsSession = 0,
@@ -4103,6 +4118,183 @@ UIHandles.TargetSlotLevel = TabProgression:AddSlider({
 -- ─────────────────────────────────────────────────────────────────────
 -- TAB 5: SETTINGS (ผู้เล่น, วาร์ป & ตั้งค่า)
 -- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 5: PLAYER & MOVEMENT PHYSICS
+-- ─────────────────────────────────────────────────────────────────────
+local TabPlayer = Window:CreateTab({
+    Name = "Player",
+    Icon = "🏃",
+    Subtitle = "Physics, Movement & Reconnect Hacks",
+})
+
+TabPlayer:AddSection("MOVEMENT & PHYSICS HACKS")
+TabPlayer:AddToggle({
+    Name = "WalkSpeed Hack (เพิ่มความเร็ววิ่ง)",
+    Default = Config.WalkSpeedEnabled,
+    Callback = function(Value)
+        Config.WalkSpeedEnabled = Value
+        if not Value then
+            pcall(function()
+                local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+                if hum then hum.WalkSpeed = 16 end
+            end)
+        end
+    end
+})
+
+TabPlayer:AddSlider({
+    Name = "WalkSpeed Value",
+    Min = 16, Max = 250, Default = Config.WalkSpeedValue,
+    Increment = 2, ValueName = "speed",
+    Callback = function(Value) Config.WalkSpeedValue = Value end
+})
+
+TabPlayer:AddToggle({
+    Name = "JumpPower Hack (เพิ่มพลังกระโดด)",
+    Default = Config.JumpPowerEnabled,
+    Callback = function(Value)
+        Config.JumpPowerEnabled = Value
+        if not Value then
+            pcall(function()
+                local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+                if hum then hum.JumpPower = 50 end
+            end)
+        end
+    end
+})
+
+TabPlayer:AddSlider({
+    Name = "JumpPower Value",
+    Min = 50, Max = 350, Default = Config.JumpPowerValue,
+    Increment = 5, ValueName = "power",
+    Callback = function(Value) Config.JumpPowerValue = Value end
+})
+
+TabPlayer:AddToggle({
+    Name = "Infinite Jump (กระโดดลอยฟ้าไม่จำกัด)",
+    Desc = "กระโดดซ้ำกลางอากาศได้อย่างอิสระ",
+    Default = Config.InfiniteJump,
+    Callback = function(Value) Config.InfiniteJump = Value end
+})
+
+TabPlayer:AddToggle({
+    Name = "Noclip (เดินทะลุกำแพง)",
+    Desc = "เดินผ่านสิ่งกีดขวางทุกชนิดโดยไม่ติดขัด",
+    Default = Config.Noclip,
+    Callback = function(Value) Config.Noclip = Value end
+})
+
+TabPlayer:AddSection("FLY ENGINE")
+local flyBodyVelocity, flyBodyGyro = nil, nil
+TabPlayer:AddToggle({
+    Name = "Flight Mode (บินอิสระตามมุมกล้อง)",
+    Desc = "บินสำรวจแมพตามทิศทางมุมกล้อง",
+    Default = Config.FlyEnabled,
+    Callback = function(Value)
+        Config.FlyEnabled = Value
+        pcall(function()
+            local char = LP.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if Value then
+                if hrp then
+                    flyBodyVelocity = Instance.new("BodyVelocity")
+                    flyBodyVelocity.Name = "PB_FlyVelocity"
+                    flyBodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+                    flyBodyVelocity.Velocity = Vector3.zero
+                    flyBodyVelocity.Parent = hrp
+
+                    flyBodyGyro = Instance.new("BodyGyro")
+                    flyBodyGyro.Name = "PB_FlyGyro"
+                    flyBodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+                    flyBodyGyro.CFrame = hrp.CFrame
+                    flyBodyGyro.Parent = hrp
+                end
+                if hum then hum.PlatformStand = true end
+            else
+                if flyBodyVelocity then flyBodyVelocity:Destroy() flyBodyVelocity = nil end
+                if flyBodyGyro then flyBodyGyro:Destroy() flyBodyGyro = nil end
+                if hum then hum.PlatformStand = false end
+            end
+        end)
+    end
+})
+
+TabPlayer:AddSlider({
+    Name = "Fly Speed",
+    Min = 10, Max = 250, Default = Config.FlySpeed,
+    Increment = 5, ValueName = "speed",
+    Callback = function(Value) Config.FlySpeed = Value end
+})
+
+TabPlayer:AddSection("ANTI-DISCONNECT & 24/7 AUTO RECONNECT")
+TabPlayer:AddToggle({
+    Name = "Auto Reconnect (เชื่อมต่อเซิร์ฟเวอร์ใหม่อัตโนมัติ)",
+    Desc = "ตรวจจับหน้าต่างหลุด/เตะ แล้ว Reconnect กลับเข้าเซิร์ฟเวอร์เดิมทันที 24/7",
+    Default = Config.AutoReconnect,
+    Callback = function(Value) Config.AutoReconnect = Value end
+})
+
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 6: VISUALS & PERFORMANCE BOOSTER
+-- ─────────────────────────────────────────────────────────────────────
+local TabVisuals = Window:CreateTab({
+    Name = "Visuals",
+    Icon = "✨",
+    Subtitle = "FPS Optimization, Lighting & Aura",
+})
+
+TabVisuals:AddSection("PERFORMANCE & FPS BOOSTER")
+TabVisuals:AddToggle({
+    Name = "FPS Booster (ลดกราฟิกลื่นไหล 60+ FPS)",
+    Desc = "ปิดการเรนเดอร์เอฟเฟกต์หนัก ปรับพื้นผิว Low Graphics สำหรับปล่อยฟาร์มยาว",
+    Default = Config.FPSBooster,
+    Callback = function(Value)
+        Config.FPSBooster = Value
+        pcall(function()
+            local terrain = workspace:FindFirstChildOfClass("Terrain")
+            if terrain then terrain.Decoration = not Value end
+            local lighting = game:GetService("Lighting")
+            lighting.GlobalShadows = not Value
+        end)
+    end
+})
+
+TabVisuals:AddSection("LIGHTING & ENVIRONMENT")
+TabVisuals:AddToggle({
+    Name = "FullBright / Night Vision (สว่างทั่วทั้งแมพ)",
+    Desc = "มองเห็นชัดเจนในทุกพื้นที่ ไม่มีความมืดมารบกวน",
+    Default = Config.FullBright,
+    Callback = function(Value)
+        Config.FullBright = Value
+        pcall(function()
+            local lighting = game:GetService("Lighting")
+            if Value then
+                lighting.Brightness = 2
+                lighting.ClockTime = 14
+                lighting.FogEnd = 1e5
+                lighting.GlobalShadows = false
+            else
+                lighting.Brightness = 1
+                lighting.ClockTime = 12
+                lighting.FogEnd = 1000
+                lighting.GlobalShadows = true
+            end
+        end)
+    end
+})
+
+TabVisuals:AddSection("CHARACTER GOD AURA")
+TabVisuals:AddToggle({
+    Name = "God Aura & Neon Highlight (ออร่าเทพเรืองแสง)",
+    Desc = "สร้างออร่าพาร์ติเคิลสีนีออนและแสงไฮไลต์รอบตัวละครสุดเท่",
+    Default = Config.GodAura,
+    Callback = function(Value)
+        Config.GodAura = Value
+        toggleGodAura(Value)
+    end
+})
+
 local TabSettings = Window:CreateTab({
     Name = "Settings",
     Icon = "⚙️",
@@ -4208,6 +4400,137 @@ TabSettings:AddButton({
         _G.AnimeDice_Cleanup()
     end,
 })
+
+-- ── 14. PLAYER PHYSICS, RECONNECT & GOD AURA ENGINE ──────────────────
+local function toggleGodAura(enable)
+    pcall(function()
+        local char = LP.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        local existingAura = hrp:FindFirstChild("PB_AnimeGodAura")
+        local existingHl = char:FindFirstChild("PB_AnimeGodHighlight")
+        if enable then
+            if not existingAura then
+                local aura = Instance.new("ParticleEmitter")
+                aura.Name = "PB_AnimeGodAura"
+                aura.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0.0, Color3.fromRGB(56, 189, 248)),
+                    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(168, 85, 247)),
+                    ColorSequenceKeypoint.new(1.0, Color3.fromRGB(236, 72, 153)),
+                })
+                aura.LightEmission = 1
+                aura.Size = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0.0, 1.2),
+                    NumberSequenceKeypoint.new(1.0, 3.2),
+                })
+                aura.Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0.0, 0.2),
+                    NumberSequenceKeypoint.new(1.0, 1.0),
+                })
+                aura.Rate = 45
+                aura.Speed = NumberRange.new(2, 6)
+                aura.SpreadAngle = Vector2.new(180, 180)
+                aura.Parent = hrp
+            end
+            if not existingHl then
+                local hl = Instance.new("Highlight")
+                hl.Name = "PB_AnimeGodHighlight"
+                hl.FillColor = Color3.fromRGB(56, 189, 248)
+                hl.FillTransparency = 0.65
+                hl.OutlineColor = Color3.fromRGB(168, 85, 247)
+                hl.OutlineTransparency = 0.1
+                hl.Parent = char
+            end
+        else
+            if existingAura then existingAura:Destroy() end
+            if existingHl then existingHl:Destroy() end
+        end
+    end)
+end
+
+task.spawn(function()
+    while Running and _G.AnimeDiceActiveToken == myToken do
+        pcall(function()
+            local char = LP.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if Config.WalkSpeedEnabled then
+                    hum.WalkSpeed = Config.WalkSpeedValue or 16
+                end
+                if Config.JumpPowerEnabled then
+                    hum.JumpPower = Config.JumpPowerValue or 50
+                end
+            end
+
+            if Config.FlyEnabled and flyBodyVelocity and flyBodyGyro then
+                local cam = workspace.CurrentCamera
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if cam and hrp then
+                    local moveDir = Vector3.zero
+                    local isKeyDown = function(k) return UserInputService:IsKeyDown(k) end
+                    if isKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+                    if isKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+                    if isKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+                    if isKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+                    if isKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+                    if isKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+
+                    if moveDir.Magnitude > 0 then
+                        flyBodyVelocity.Velocity = moveDir.Unit * (Config.FlySpeed or 50)
+                    else
+                        flyBodyVelocity.Velocity = Vector3.zero
+                    end
+                    flyBodyGyro.CFrame = cam.CFrame
+                end
+            end
+        end)
+        task.wait(0.1)
+    end
+end)
+
+RunService.Stepped:Connect(function()
+    if Running and Config.Noclip then
+        pcall(function()
+            local char = LP.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+UserInputService.JumpRequest:Connect(function()
+    if Running and Config.InfiniteJump then
+        pcall(function()
+            local char = LP.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+        end)
+    end
+end)
+
+task.spawn(function()
+    while Running and _G.AnimeDiceActiveToken == myToken do
+        task.wait(3.0)
+        if Config.AutoReconnect then
+            pcall(function()
+                local promptGui = CoreGui:FindFirstChild("RobloxPromptGui")
+                local promptOverlay = promptGui and promptGui:FindFirstChild("promptOverlay")
+                if promptOverlay and #promptOverlay:GetChildren() > 0 then
+                    local errorTitle = promptOverlay:FindFirstChild("ErrorTitle", true)
+                    if errorTitle and errorTitle.Text ~= "" then
+                        local ts = game:GetService("TeleportService")
+                        ts:Teleport(game.PlaceId, LP)
+                    end
+                end
+            end)
+        end
+    end
+end)
 
 -- LIVE TELEMETRY UPDATER
 task.spawn(function()
