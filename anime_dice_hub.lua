@@ -4346,6 +4346,53 @@ TabPlayer:AddToggle({
 -- ─────────────────────────────────────────────────────────────────────
 -- TAB 6: VISUALS & PERFORMANCE BOOSTER
 -- ─────────────────────────────────────────────────────────────────────
+local function toggleGodAura(enable)
+    pcall(function()
+        local char = LP.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        local existingAura = hrp:FindFirstChild("PB_AnimeGodAura")
+        local existingHl = char:FindFirstChild("PB_AnimeGodHighlight")
+        if enable then
+            if not existingAura then
+                local aura = Instance.new("ParticleEmitter")
+                aura.Name = "PB_AnimeGodAura"
+                aura.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0.0, Color3.fromRGB(56, 189, 248)),
+                    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(168, 85, 247)),
+                    ColorSequenceKeypoint.new(1.0, Color3.fromRGB(236, 72, 153)),
+                })
+                aura.LightEmission = 1
+                aura.Size = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0.0, 1.2),
+                    NumberSequenceKeypoint.new(1.0, 3.2),
+                })
+                aura.Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0.0, 0.2),
+                    NumberSequenceKeypoint.new(1.0, 1.0),
+                })
+                aura.Rate = 45
+                aura.Speed = NumberRange.new(2, 6)
+                aura.SpreadAngle = Vector2.new(180, 180)
+                aura.Parent = hrp
+            end
+            if not existingHl then
+                local hl = Instance.new("Highlight")
+                hl.Name = "PB_AnimeGodHighlight"
+                hl.FillColor = Color3.fromRGB(56, 189, 248)
+                hl.FillTransparency = 0.65
+                hl.OutlineColor = Color3.fromRGB(168, 85, 247)
+                hl.OutlineTransparency = 0.1
+                hl.Parent = char
+            end
+        else
+            if existingAura then existingAura:Destroy() end
+            if existingHl then existingHl:Destroy() end
+        end
+    end)
+end
+
+
 local TabVisuals = Window:CreateTab({
     Name = "Visuals",
     Icon = "✨",
@@ -4510,52 +4557,6 @@ TabSettings:AddButton({
 })
 
 -- ── 14. PLAYER PHYSICS, RECONNECT & GOD AURA ENGINE ──────────────────
-local function toggleGodAura(enable)
-    pcall(function()
-        local char = LP.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
-        local existingAura = hrp:FindFirstChild("PB_AnimeGodAura")
-        local existingHl = char:FindFirstChild("PB_AnimeGodHighlight")
-        if enable then
-            if not existingAura then
-                local aura = Instance.new("ParticleEmitter")
-                aura.Name = "PB_AnimeGodAura"
-                aura.Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0.0, Color3.fromRGB(56, 189, 248)),
-                    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(168, 85, 247)),
-                    ColorSequenceKeypoint.new(1.0, Color3.fromRGB(236, 72, 153)),
-                })
-                aura.LightEmission = 1
-                aura.Size = NumberSequence.new({
-                    NumberSequenceKeypoint.new(0.0, 1.2),
-                    NumberSequenceKeypoint.new(1.0, 3.2),
-                })
-                aura.Transparency = NumberSequence.new({
-                    NumberSequenceKeypoint.new(0.0, 0.2),
-                    NumberSequenceKeypoint.new(1.0, 1.0),
-                })
-                aura.Rate = 45
-                aura.Speed = NumberRange.new(2, 6)
-                aura.SpreadAngle = Vector2.new(180, 180)
-                aura.Parent = hrp
-            end
-            if not existingHl then
-                local hl = Instance.new("Highlight")
-                hl.Name = "PB_AnimeGodHighlight"
-                hl.FillColor = Color3.fromRGB(56, 189, 248)
-                hl.FillTransparency = 0.65
-                hl.OutlineColor = Color3.fromRGB(168, 85, 247)
-                hl.OutlineTransparency = 0.1
-                hl.Parent = char
-            end
-        else
-            if existingAura then existingAura:Destroy() end
-            if existingHl then existingHl:Destroy() end
-        end
-    end)
-end
-
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
         pcall(function()
