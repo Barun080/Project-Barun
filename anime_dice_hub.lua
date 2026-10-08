@@ -1984,6 +1984,77 @@ function UI:CreateWindow(config)
             return BoxHandle
         end
 
+        -- ─────────────────────────────────────────────────────────────
+        -- 8. CYBER PARAGRAPH / INFO BANNER
+        -- ─────────────────────────────────────────────────────────────
+        function TabObj:AddParagraph(paraConfig)
+            paraConfig = paraConfig or {}
+            local pTitle   = paraConfig.Title or paraConfig.Name or ""
+            local pContent = paraConfig.Content or paraConfig.Desc or ""
+
+            local ParaCard = make("Frame", {
+                Name = "ParagraphCard",
+                Size = UDim2.new(1, 0, 0, 0),
+                AutomaticSize = Enum.AutomaticSize.Y,
+                BackgroundColor3 = Theme.CardBg,
+                BackgroundTransparency = 0.05,
+                Parent = TabPage,
+            }, {
+                corner(10),
+                stroke(Theme.CardBorder, 1, 0.2),
+                make("UIPadding", {
+                    PaddingTop = UDim.new(0, 10),
+                    PaddingBottom = UDim.new(0, 10),
+                    PaddingLeft = UDim.new(0, 14),
+                    PaddingRight = UDim.new(0, 14),
+                }),
+                make("UIListLayout", {
+                    SortOrder = Enum.SortOrder.LayoutOrder,
+                    Padding = UDim.new(0, 4),
+                }),
+            })
+
+            if pTitle ~= "" then
+                txt({
+                    Name = "ParaTitle",
+                    Text = pTitle,
+                    Font = Theme.FontBold,
+                    TextSize = 13,
+                    TextColor3 = Theme.AccentCyan,
+                    Size = UDim2.new(1, 0, 0, 18),
+                    Parent = ParaCard,
+                })
+            end
+
+            local ContentLabel = txt({
+                Name = "ParaContent",
+                Text = pContent,
+                Font = Theme.FontRegular,
+                TextSize = 11,
+                TextColor3 = Theme.TextDim,
+                Size = UDim2.new(1, 0, 0, 0),
+                AutomaticSize = Enum.AutomaticSize.Y,
+                TextWrapped = true,
+                Parent = ParaCard,
+            })
+
+            local ParaHandle = {}
+            function ParaHandle:SetTitle(t)
+                local titleLbl = ParaCard:FindFirstChild("ParaTitle")
+                if titleLbl then
+                    titleLbl.Text = tostring(t)
+                end
+            end
+            function ParaHandle:SetContent(c)
+                ContentLabel.Text = tostring(c)
+            end
+            function ParaHandle:Set(t, c)
+                if t then ParaHandle:SetTitle(t) end
+                if c then ParaHandle:SetContent(c) end
+            end
+            return ParaHandle
+        end
+
         return TabObj
     end
 
