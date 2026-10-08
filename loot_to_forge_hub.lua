@@ -1,39 +1,148 @@
-local HttpService = game:GetService("HttpService")
--- ╔══════════════════════════════════════════════════════════════════╗
--- ║   💎 PROJECT BARUN — LOOT TO FORGE GOD FARM HUB v3 MASTER        ║
--- ║   Reverse-Engineered & Enhanced with Project Barun (PB) Engine   ║
--- ║   Developed by cook45 for clack with Mimi Engine                ║
--- ╚══════════════════════════════════════════════════════════════════╝
+--[[
+    ╔══════════════════════════════════════════════════════════════════════════╗
+    ║        💎 PROJECT BARUN (PB) OBSIDIAN GLASS — AURORA EDITION v3.0        ║
+    ║        Pure Luau • Neo-Cyber Glassmorphism • Ultra-Luxe Micro-FX         ║
+    ║       Engineered by cook45 with Mimi Precision for Clack's Scripts       ║
+    ║        Loot To Forge Master God Auto Farm & Smart Slicing Engine         ║
+    ╚══════════════════════════════════════════════════════════════════════════╝
+
+    [WHAT'S NEW IN AURORA v3.0]
+    • Aurora ambient orbs inside the chassis (soft violet / cyan light bleed)
+    • Orbiting gradient border (light sweeps around the window edge)
+    • CanvasGroup chassis: true rounded clipping + whole-window fade in/out
+    • Floating glass sidebar with gradient active-tab fill, glow pill & hover slide
+    • Glass cards: vertical sheen, top highlight hairline, hover glow stroke
+    • Toggle: gradient track, glow halo, spring knob
+    • Slider: gradient fill, glow knob, floating live tooltip bubble
+    • Button: press-scale + click ripple + sliding chevron
+    • Dropdown: rotating arrow, selected-item highlight with check mark
+    • Textbox: neon focus ring
+    • Toasts: typed colors (info/success/warning/error), progress bar, stack glide
+    • Smooth momentum dragging, hotkey toggle (RightShift by default)
+    • 4-Layer 24/7 Anti-AFK & Anti-Kick Defense Engine
+    • Token Lifecycle management with auto-cleanup of previous sessions
+]]
 
 -- ═══════════════════════════════════════════════════════════════════
--- 💎 PROJECT BARUN (PB) OBSIDIAN GLASS UI ENGINE v2.0
+-- 1. TOKEN LIFECYCLE & CLEANUP ENGINE
 -- ═══════════════════════════════════════════════════════════════════
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
+local myToken = tick()
+_G.LootToForgeActiveToken = myToken
 
+if _G.LootToForgeCleanup then
+    pcall(_G.LootToForgeCleanup)
+    task.wait(0.2)
+end
+
+local Running = true
+_G.LootToForgeRunning = true
+
+_G.LootToForgeCleanup = function()
+    Running = false
+    _G.LootToForgeRunning = false
+    pcall(function()
+        local h = gethui and gethui() or game:GetService("CoreGui")
+        for _, g in ipairs(h:GetChildren()) do
+            if g.Name == "ProjectBarunForge" or g.Name == "Orion" or g.Name == "ProjectBarun_LootToForge" then
+                g:Destroy()
+            end
+        end
+        local lp = game:GetService("Players").LocalPlayer
+        local pg = lp and lp:FindFirstChild("PlayerGui")
+        if pg then
+            for _, g in ipairs(pg:GetChildren()) do
+                if g.Name == "ProjectBarunForge" or g.Name == "Orion" or g.Name == "ProjectBarun_LootToForge" then
+                    g:Destroy()
+                end
+            end
+        end
+    end)
+end
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 2. CORE SERVICES & DEPENDENCIES
+-- ═══════════════════════════════════════════════════════════════════
+local TweenService       = game:GetService("TweenService")
+local UserInputService   = game:GetService("UserInputService")
+local RunService         = game:GetService("RunService")
+local CoreGui            = game:GetService("CoreGui")
+local Players            = game:GetService("Players")
+local HttpService        = game:GetService("HttpService")
+local ReplicatedStorage  = game:GetService("ReplicatedStorage")
+local MarketplaceService = game:GetService("MarketplaceService")
+
+local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 3. 4-LAYER 24/7 ANTI-AFK & ANTI-KICK DEFENSE ENGINE
+-- ═══════════════════════════════════════════════════════════════════
+pcall(function()
+    if getconnections then
+        for _, c in ipairs(getconnections(LocalPlayer.Idled)) do
+            pcall(function() c:Disable() end)
+        end
+    end
+    LocalPlayer.Idled:Connect(function()
+        pcall(function()
+            local vu = game:GetService("VirtualUser")
+            if vu then
+                vu:CaptureController()
+                vu:ClickButton2(Vector2.zero)
+            end
+        end)
+    end)
+end)
+
+task.spawn(function()
+    while Running and _G.LootToForgeActiveToken == myToken do
+        task.wait(35)
+        pcall(function()
+            local vu = game:GetService("VirtualUser")
+            if vu then
+                vu:CaptureController()
+                vu:ClickButton2(Vector2.zero)
+            end
+        end)
+    end
+end)
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 4. 💎 PROJECT BARUN (PB) OBSIDIAN GLASS — AURORA EDITION v3.0
+-- ═══════════════════════════════════════════════════════════════════
 local Theme = {
-    VoidBg          = Color3.fromRGB(11, 13, 19),
+    VoidBg          = Color3.fromRGB(10, 12, 18),
     SurfaceBg       = Color3.fromRGB(16, 18, 27),
-    SidebarBg       = Color3.fromRGB(13, 15, 23),
-    CardBg          = Color3.fromRGB(22, 25, 38),
-    CardHover       = Color3.fromRGB(28, 32, 49),
-    CardBorder      = Color3.fromRGB(42, 46, 68),
-    CardBorderGlow  = Color3.fromRGB(80, 88, 130),
+    SidebarBg       = Color3.fromRGB(14, 16, 25),
+    CardBg          = Color3.fromRGB(23, 26, 40),
+    CardHover       = Color3.fromRGB(31, 35, 54),
+    CardBorder      = Color3.fromRGB(44, 49, 74),
+    CardBorderGlow  = Color3.fromRGB(96, 104, 160),
+    InputBg         = Color3.fromRGB(15, 17, 27),
+
     AccentPrimary   = Color3.fromRGB(139, 92, 246),
     AccentSecondary = Color3.fromRGB(59, 130, 246),
-    AccentCyan      = Color3.fromRGB(6, 182, 212),
+    AccentCyan      = Color3.fromRGB(34, 211, 238),
+    AccentGlow      = Color3.fromRGB(168, 85, 247),
+
     TextTitle       = Color3.fromRGB(248, 250, 252),
     TextBody        = Color3.fromRGB(203, 213, 225),
-    TextDim         = Color3.fromRGB(100, 116, 139),
-    Success         = Color3.fromRGB(34, 197, 94),
-    Warning         = Color3.fromRGB(245, 158, 11),
-    Danger          = Color3.fromRGB(244, 63, 94),
+    TextDim         = Color3.fromRGB(110, 124, 148),
+    Success         = Color3.fromRGB(52, 211, 153),
+    Warning         = Color3.fromRGB(251, 191, 36),
+    Danger          = Color3.fromRGB(251, 85, 115),
+
     FontTitle       = Enum.Font.GothamBold,
+    FontBold        = Enum.Font.GothamBold,
+    FontBlack       = Enum.Font.GothamBlack,
     FontSemi        = Enum.Font.GothamMedium,
     FontRegular     = Enum.Font.Gotham,
 }
+
+local WHITE = Color3.fromRGB(255, 255, 255)
+local SHADOW_ASSET = "rbxassetid://1316045217"
+
+local UI = {}
+UI.__index = UI
 
 local function tw(inst, props, dur, style, dir)
     local info = TweenInfo.new(dur or 0.28, style or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out)
@@ -44,79 +153,304 @@ end
 
 local function make(className, properties, children)
     local inst = Instance.new(className)
-    for k, v in pairs(properties or {}) do inst[k] = v end
-    for _, child in ipairs(children or {}) do child.Parent = inst end
+    if inst:IsA("GuiObject") then
+        inst.BorderSizePixel = 0
+    end
+    if inst:IsA("TextLabel") then
+        inst.BackgroundTransparency = 1
+    end
+    for k, v in pairs(properties or {}) do
+        inst[k] = v
+    end
+    for _, child in ipairs(children or {}) do
+        child.Parent = inst
+    end
     return inst
 end
 
-local PB_UI = {}
-function PB_UI:CreateWindow(config)
+local function corner(r)
+    return make("UICorner", { CornerRadius = UDim.new(0, r) })
+end
+
+local function pill()
+    return make("UICorner", { CornerRadius = UDim.new(1, 0) })
+end
+
+local function stroke(color, thickness, transparency, name)
+    return make("UIStroke", {
+        Name = name or "UIStroke",
+        Color = color,
+        Thickness = thickness or 1,
+        Transparency = transparency or 0,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+    })
+end
+
+local function grad(c0, c1, rotation, name)
+    return make("UIGradient", {
+        Name = name or "UIGradient",
+        Color = ColorSequence.new(c0, c1),
+        Rotation = rotation or 0,
+    })
+end
+
+local function txt(props, children)
+    local p = {
+        Font = Theme.FontRegular,
+        TextSize = 12,
+        TextColor3 = Theme.TextBody,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+    }
+    for k, v in pairs(props) do
+        p[k] = v
+    end
+    return make("TextLabel", p, children)
+end
+
+local function orb(parent, color, diameter, pos)
+    local holder = make("Frame", {
+        Name = "AuroraOrb",
+        BackgroundTransparency = 1,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = pos,
+        Size = UDim2.new(0, diameter, 0, diameter),
+        Parent = parent,
+    })
+    for i = 1, 10 do
+        local s = 1 - (i - 1) * 0.09
+        make("Frame", {
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            Size = UDim2.new(s, 0, s, 0),
+            BackgroundColor3 = color,
+            BackgroundTransparency = 0.965,
+            Parent = holder,
+        }, { pill() })
+    end
+    return holder
+end
+
+local function makeCard(parent, height, interactive)
+    local props = {
+        Size = UDim2.new(1, 0, 0, height),
+        BackgroundColor3 = Theme.CardBg,
+        BackgroundTransparency = 0.04,
+        Parent = parent,
+    }
+    if interactive then
+        props.AutoButtonColor = false
+        props.Text = ""
+    end
+
+    return make(interactive and "TextButton" or "Frame", props, {
+        corner(10),
+        stroke(Theme.CardBorder, 1.1, 0.35, "CardStroke"),
+        make("UIGradient", {
+            Name = "Sheen",
+            Color = ColorSequence.new(WHITE, Color3.fromRGB(205, 205, 222)),
+            Rotation = 90,
+        }),
+        make("Frame", {
+            Name = "Highlight",
+            Size = UDim2.new(1, -24, 0, 1),
+            Position = UDim2.new(0, 12, 0, 0),
+            BackgroundColor3 = WHITE,
+            BackgroundTransparency = 0.82,
+        }, {
+            make("UIGradient", {
+                Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 1),
+                    NumberSequenceKeypoint.new(0.5, 0),
+                    NumberSequenceKeypoint.new(1, 1),
+                }),
+            }),
+        }),
+    })
+end
+
+local function hoverable(card, accent)
+    local s = card:FindFirstChild("CardStroke")
+    card.MouseEnter:Connect(function()
+        tw(card, { BackgroundColor3 = Theme.CardHover }, 0.16)
+        if s then tw(s, { Color = accent or Theme.CardBorderGlow, Transparency = 0.05 }, 0.16) end
+    end)
+    card.MouseLeave:Connect(function()
+        tw(card, { BackgroundColor3 = Theme.CardBg }, 0.16)
+        if s then tw(s, { Color = Theme.CardBorder, Transparency = 0.35 }, 0.16) end
+    end)
+end
+
+-- ═════════════════════════════════════════════════════════════════
+-- WINDOW CREATION
+-- ═════════════════════════════════════════════════════════════════
+function UI:CreateWindow(config)
     config = config or {}
-    local TitleText    = config.Name or config.Title or "PROJECT BARUN | Loot To Forge"
-    local SubtitleText = config.Subtitle or "PB FORGE ENGINE • v3.0"
-    local WindowSize   = config.Size or UDim2.new(0, 720, 0, 480)
-    local ParentTarget = (gethui and gethui()) or CoreGui
+    local TitleText    = config.Title or config.Name or "PROJECT BARUN"
+    local SubtitleText = config.Subtitle or "LOOT TO FORGE • MASTER HUB v3.0"
+    local WindowSize   = config.Size or UDim2.new(0, 720, 0, 500)
+    local WindowName   = config.Name or "ProjectBarunForge"
+    local ToggleKey    = config.ToggleKey or Enum.KeyCode.RightShift
+
+    local okHui, huiTarget = pcall(function()
+        return gethui and gethui()
+    end)
+    local ParentTarget = (okHui and huiTarget) or CoreGui
 
     for _, existing in ipairs(ParentTarget:GetChildren()) do
-        if existing.Name == "ProjectBarunForge" or existing.Name == "Orion" then
+        if existing.Name == WindowName or existing.Name == "ProjectBarunForge" or existing.Name == "Orion" then
             pcall(function() existing:Destroy() end)
         end
     end
 
+    local Conns = {}
+    local function bind(signal, fn)
+        local c = signal:Connect(fn)
+        table.insert(Conns, c)
+        return c
+    end
+
     local ScreenGui = make("ScreenGui", {
-        Name = "ProjectBarunForge",
+        Name = WindowName,
         ResetOnSpawn = false,
+        IgnoreGuiInset = true,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-        Parent = ParentTarget
+        Parent = ParentTarget,
     })
 
-    local ShadowBackdrop = make("ImageLabel", {
-        Name = "AmbientShadow",
-        Size = UDim2.new(0, WindowSize.X.Offset + 64, 0, WindowSize.Y.Offset + 64),
-        Position = UDim2.new(0.5, -(WindowSize.X.Offset + 64) / 2, 0.5, -(WindowSize.Y.Offset + 64) / 2),
+    ScreenGui.Destroying:Connect(function()
+        for _, c in ipairs(Conns) do
+            c:Disconnect()
+        end
+    end)
+
+    local Root = make("Frame", {
+        Name = "Root",
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        Size = WindowSize,
         BackgroundTransparency = 1,
-        Image = "rbxassetid://1316045217",
+        Visible = false,
+        Parent = ScreenGui,
+    }, {
+        make("UIScale", { Name = "Scale", Scale = 0.9 }),
+    })
+    local RootScale = Root.Scale
+
+    local Shadow = make("ImageLabel", {
+        Name = "AmbientShadow",
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 12),
+        Size = UDim2.new(1, 76, 1, 76),
+        BackgroundTransparency = 1,
+        Image = SHADOW_ASSET,
         ImageColor3 = Color3.fromRGB(0, 0, 0),
-        ImageTransparency = 0.35,
+        ImageTransparency = 1,
         ScaleType = Enum.ScaleType.Slice,
         SliceCenter = Rect.new(10, 10, 118, 118),
-        Parent = ScreenGui
+        Parent = Root,
     })
 
-    local MainFrame = make("Frame", {
+    local Main = make("CanvasGroup", {
         Name = "MainChassis",
-        Size = WindowSize,
-        Position = UDim2.new(0.5, -WindowSize.X.Offset / 2, 0.5, -WindowSize.Y.Offset / 2),
-        BackgroundColor3 = Theme.VoidBg,
-        BorderSizePixel = 0,
-        Parent = ScreenGui
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        GroupTransparency = 1,
+        Parent = Root,
     }, {
-        make("UICorner", { CornerRadius = UDim.new(0, 16) }),
-        make("UIStroke", { Color = Theme.CardBorder, Thickness = 1.4, Transparency = 0.15 }),
+        corner(16),
+    })
+
+    make("Frame", {
+        Name = "Backdrop",
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundColor3 = WHITE,
+        Parent = Main,
+    }, {
         make("UIGradient", {
             Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0.0, Color3.fromRGB(18, 20, 30)),
-                ColorSequenceKeypoint.new(1.0, Color3.fromRGB(11, 13, 19))
+                ColorSequenceKeypoint.new(0.0, Color3.fromRGB(20, 22, 36)),
+                ColorSequenceKeypoint.new(0.55, Color3.fromRGB(12, 14, 22)),
+                ColorSequenceKeypoint.new(1.0, Color3.fromRGB(9, 10, 16)),
             }),
-            Rotation = 45
-        })
+            Rotation = 50,
+        }),
     })
+
+    orb(Main, Theme.AccentPrimary, 460, UDim2.new(0.92, 0, 0.02, 0))
+    orb(Main, Theme.AccentCyan, 400, UDim2.new(0.12, 0, 1.0, 0))
+    orb(Main, Theme.AccentSecondary, 260, UDim2.new(0.62, 0, 0.55, 0))
+
+    local BorderFrame = make("Frame", {
+        Name = "Border",
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        ZIndex = 10,
+        Parent = Root,
+    }, {
+        corner(16),
+        make("UIStroke", {
+            Name = "Stroke",
+            Color = WHITE,
+            Thickness = 1.5,
+            Transparency = 1,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        }, {
+            make("UIGradient", {
+                Name = "Orbit",
+                Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0.0, Theme.AccentPrimary),
+                    ColorSequenceKeypoint.new(0.33, Theme.AccentCyan),
+                    ColorSequenceKeypoint.new(0.66, Theme.AccentSecondary),
+                    ColorSequenceKeypoint.new(1.0, Theme.AccentPrimary),
+                }),
+                Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0.0, 0.1),
+                    NumberSequenceKeypoint.new(0.5, 0.78),
+                    NumberSequenceKeypoint.new(1.0, 0.1),
+                }),
+            }),
+        }),
+    })
+    local BorderStroke = BorderFrame.Stroke
+    local OrbitGrad = BorderStroke.Orbit
 
     local NeonTopLine = make("Frame", {
         Name = "NeonAccentBar",
-        Size = UDim2.new(1, -32, 0, 2),
-        Position = UDim2.new(0, 16, 0, 0),
-        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-        BorderSizePixel = 0,
-        Parent = MainFrame
+        Size = UDim2.new(1, -56, 0, 2),
+        Position = UDim2.new(0, 28, 0, 0),
+        BackgroundColor3 = WHITE,
+        ClipsDescendants = true,
+        Parent = Main,
     }, {
         make("UIGradient", {
             Color = ColorSequence.new({
                 ColorSequenceKeypoint.new(0.0, Theme.AccentPrimary),
                 ColorSequenceKeypoint.new(0.5, Theme.AccentCyan),
-                ColorSequenceKeypoint.new(1.0, Theme.AccentSecondary)
-            })
-        })
+                ColorSequenceKeypoint.new(1.0, Theme.AccentSecondary),
+            }),
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0.0, 1),
+                NumberSequenceKeypoint.new(0.15, 0),
+                NumberSequenceKeypoint.new(0.85, 0),
+                NumberSequenceKeypoint.new(1.0, 1),
+            }),
+        }),
+    })
+    local Shimmer = make("Frame", {
+        Name = "Shimmer",
+        Size = UDim2.new(0, 90, 1, 0),
+        Position = UDim2.new(0, -90, 0, 0),
+        BackgroundColor3 = WHITE,
+        Parent = NeonTopLine,
+    }, {
+        make("UIGradient", {
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0.0, 1),
+                NumberSequenceKeypoint.new(0.5, 0.35),
+                NumberSequenceKeypoint.new(1.0, 1),
+            }),
+        }),
     })
 
     local ToastHolder = make("Frame", {
@@ -124,491 +458,719 @@ function PB_UI:CreateWindow(config)
         Size = UDim2.new(0, 310, 1, -40),
         Position = UDim2.new(1, -330, 0, 20),
         BackgroundTransparency = 1,
-        Parent = ScreenGui
+        ZIndex = 20,
+        Parent = ScreenGui,
     }, {
         make("UIListLayout", {
             SortOrder = Enum.SortOrder.LayoutOrder,
             VerticalAlignment = Enum.VerticalAlignment.Bottom,
-            Padding = UDim.new(0, 10)
-        })
+            Padding = UDim.new(0, 6),
+        }),
     })
 
     local TopBar = make("Frame", {
         Name = "TopBar",
         Size = UDim2.new(1, 0, 0, 58),
-        BackgroundColor3 = Theme.SidebarBg,
-        BorderSizePixel = 0,
-        Parent = MainFrame
+        BackgroundTransparency = 1,
+        Parent = Main,
     }, {
-        make("UICorner", { CornerRadius = UDim.new(0, 16) }),
         make("Frame", {
-            Size = UDim2.new(1, 0, 0, 16),
-            Position = UDim2.new(0, 0, 1, -16),
-            BackgroundColor3 = Theme.SidebarBg,
-            BorderSizePixel = 0
+            Size = UDim2.new(1, -28, 0, 1),
+            Position = UDim2.new(0, 14, 1, -1),
+            BackgroundColor3 = Theme.CardBorderGlow,
+        }, {
+            make("UIGradient", {
+                Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0.0, 1),
+                    NumberSequenceKeypoint.new(0.2, 0.55),
+                    NumberSequenceKeypoint.new(0.8, 0.55),
+                    NumberSequenceKeypoint.new(1.0, 1),
+                }),
+            }),
         }),
-        make("Frame", {
-            Size = UDim2.new(1, 0, 0, 1),
-            Position = UDim2.new(0, 0, 1, -1),
-            BackgroundColor3 = Theme.CardBorder,
-            BackgroundTransparency = 0.5,
-            BorderSizePixel = 0
-        })
     })
 
-    local LogoBeacon = make("Frame", {
-        Size = UDim2.new(0, 10, 0, 10),
-        Position = UDim2.new(0, 20, 0, 24),
-        BackgroundColor3 = Theme.AccentCyan,
-        Parent = TopBar
+    local PB_LOGO_ASSET = "rbxassetid://71495519688848"
+    local LOGO_FILE = "ProjectBarun_Logo.png"
+    local LOGO_URL = "https://raw.githubusercontent.com/Barun080/Project-Barun/main/Gemini_Generated_Image_7m1xbd7m1xbd7m1x.jpg"
+
+    local LogoBadgeHolder = make("Frame", {
+        Name = "LogoBadgeHolder",
+        Size = UDim2.new(0, 38, 0, 38),
+        Position = UDim2.new(0, 16, 0, 10),
+        BackgroundColor3 = WHITE,
+        Parent = TopBar,
     }, {
-        make("UICorner", { CornerRadius = UDim.new(1, 0) }),
-        make("UIStroke", { Color = Theme.AccentPrimary, Thickness = 2, Transparency = 0.3 })
+        corner(10),
+        stroke(Theme.AccentCyan, 1.4, 0.2, "LogoGlowStroke"),
+        grad(Color3.fromRGB(30, 34, 60), Color3.fromRGB(12, 14, 24), 45),
+        txt({
+            Name = "FallbackText",
+            Size = UDim2.new(1, 0, 1, 0),
+            Text = "PB",
+            Font = Theme.FontBlack,
+            TextSize = 16,
+            TextColor3 = Theme.AccentCyan,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            ZIndex = 1,
+        }),
+        make("ImageLabel", {
+            Name = "ProjectBarunLogo",
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Image = PB_LOGO_ASSET,
+            ScaleType = Enum.ScaleType.Fit,
+            ZIndex = 2,
+        }, { corner(10) }),
     })
+    local LogoStroke = LogoBadgeHolder.LogoGlowStroke
 
-    task.spawn(function()
-        while ScreenGui.Parent do
-            tw(LogoBeacon, { BackgroundColor3 = Theme.AccentPrimary }, 1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-            task.wait(1.2)
-            tw(LogoBeacon, { BackgroundColor3 = Theme.AccentCyan }, 1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-            task.wait(1.2)
-        end
-    end)
-
-    make("TextLabel", {
+    txt({
+        Name = "Title",
         Text = TitleText,
         Font = Theme.FontTitle,
         TextSize = 16,
-        TextColor3 = Theme.TextTitle,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Position = UDim2.new(0, 38, 0, 12),
-        Size = UDim2.new(0, 280, 0, 18),
-        BackgroundTransparency = 1,
-        Parent = TopBar
+        TextColor3 = WHITE,
+        Position = UDim2.new(0, 64, 0, 11),
+        Size = UDim2.new(0, 260, 0, 18),
+        Parent = TopBar,
+    }, {
+        make("UIGradient", {
+            Color = ColorSequence.new(WHITE, Color3.fromRGB(180, 225, 255)),
+        }),
     })
 
-    make("TextLabel", {
+    txt({
+        Name = "Subtitle",
         Text = string.upper(SubtitleText),
         Font = Theme.FontBold,
         TextSize = 9,
         TextColor3 = Theme.AccentCyan,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Position = UDim2.new(0, 38, 0, 32),
-        Size = UDim2.new(0, 280, 0, 14),
-        BackgroundTransparency = 1,
-        Parent = TopBar
+        Position = UDim2.new(0, 64, 0, 31),
+        Size = UDim2.new(0, 260, 0, 14),
+        Parent = TopBar,
     })
 
     local PerfPill = make("Frame", {
-        Size = UDim2.new(0, 160, 0, 26),
-        Position = UDim2.new(1, -250, 0, 16),
+        Name = "PerfPill",
+        Size = UDim2.new(0, 156, 0, 26),
+        Position = UDim2.new(1, -252, 0, 16),
         BackgroundColor3 = Theme.CardBg,
-        Parent = TopBar
+        BackgroundTransparency = 0.1,
+        Parent = TopBar,
     }, {
-        make("UICorner", { CornerRadius = UDim.new(1, 0) }),
-        make("UIStroke", { Color = Theme.CardBorder, Thickness = 1 }),
-        make("TextLabel", {
+        pill(),
+        stroke(Theme.CardBorder, 1, 0.3),
+        make("Frame", {
+            Name = "Dot",
+            Size = UDim2.new(0, 7, 0, 7),
+            Position = UDim2.new(0, 12, 0.5, -3),
+            BackgroundColor3 = Theme.Success,
+        }, { pill() }),
+        txt({
             Name = "PerfText",
-            Text = "🟢 60 FPS  •  38ms",
+            Text = "60 FPS  •  38 ms",
             Font = Theme.FontSemi,
             TextSize = 11,
             TextColor3 = Theme.TextBody,
-            Size = UDim2.new(1, 0, 1, 0),
-            BackgroundTransparency = 1
-        })
+            TextXAlignment = Enum.TextXAlignment.Center,
+            Position = UDim2.new(0, 22, 0, 0),
+            Size = UDim2.new(1, -28, 1, 0),
+        }),
     })
-
-    task.spawn(function()
-        local Stats = game:GetService("Stats")
-        while ScreenGui.Parent do
-            local fps = math.floor(1 / math.max(0.001, RunService.RenderStepped:Wait()))
-            local ping = 40
-            pcall(function() ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) end)
-            if PerfPill and PerfPill:FindFirstChild("PerfText") then
-                local icon = fps >= 50 and "🟢" or (fps >= 30 and "🟡" or "🔴")
-                PerfPill.PerfText.Text = string.format("%s %d FPS  •  %dms", icon, fps, ping)
-            end
-            task.wait(1.2)
-        end
-    end)
 
     local WindowControls = make("Frame", {
         Size = UDim2.new(0, 70, 0, 28),
-        Position = UDim2.new(1, -82, 0, 15),
+        Position = UDim2.new(1, -84, 0, 15),
         BackgroundTransparency = 1,
-        Parent = TopBar
+        Parent = TopBar,
     }, {
         make("UIListLayout", {
             FillDirection = Enum.FillDirection.Horizontal,
             HorizontalAlignment = Enum.HorizontalAlignment.Right,
-            Padding = UDim.new(0, 8)
+            Padding = UDim.new(0, 8),
+        }),
+    })
+
+    local function controlButton(text, textColor, bg, border, hoverBg, hoverText, order)
+        local b = make("TextButton", {
+            Size = UDim2.new(0, 28, 0, 28),
+            BackgroundColor3 = bg,
+            Text = text,
+            Font = Theme.FontTitle,
+            TextColor3 = textColor,
+            TextSize = text == "✕" and 11 or 16,
+            AutoButtonColor = false,
+            LayoutOrder = order,
+            Parent = WindowControls,
+        }, {
+            corner(8),
+            stroke(border, 1, 0.2),
         })
-    })
+        b.MouseEnter:Connect(function()
+            tw(b, { BackgroundColor3 = hoverBg, TextColor3 = hoverText }, 0.15)
+        end)
+        b.MouseLeave:Connect(function()
+            tw(b, { BackgroundColor3 = bg, TextColor3 = textColor }, 0.15)
+        end)
+        return b
+    end
 
-    local MinBtn = make("TextButton", {
-        Size = UDim2.new(0, 28, 0, 28),
-        BackgroundColor3 = Theme.CardBg,
-        Text = "-",
-        Font = Theme.FontTitle,
-        TextColor3 = Theme.TextBody,
-        TextSize = 15,
+    local MinBtn = controlButton("–", Theme.TextBody, Theme.CardBg, Theme.CardBorder, Theme.CardHover, WHITE, 1)
+    local CloseBtn = controlButton("✕", Theme.Danger, Color3.fromRGB(38, 20, 28), Color3.fromRGB(80, 34, 46), Theme.Danger, WHITE, 2)
+
+    local function makeDraggable(handle, target)
+        local dragging, dragStart, startPos = false, nil, nil
+        local goalX, goalY = nil, nil
+        local api = { Moved = false }
+
+        bind(handle.InputBegan, function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                api.Moved = false
+                dragStart = input.Position
+                startPos = target.Position
+                goalX, goalY = startPos.X.Offset, startPos.Y.Offset
+            end
+        end)
+        bind(UserInputService.InputChanged, function(input)
+            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                local d = input.Position - dragStart
+                if d.Magnitude > 4 then api.Moved = true end
+                goalX = startPos.X.Offset + d.X
+                goalY = startPos.Y.Offset + d.Y
+            end
+        end)
+        bind(UserInputService.InputEnded, function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
+            end
+        end)
+        bind(RunService.RenderStepped, function(dt)
+            if goalX then
+                local cur = target.Position
+                local a = 1 - math.exp(-dt * 20)
+                local nx = cur.X.Offset + (goalX - cur.X.Offset) * a
+                local ny = cur.Y.Offset + (goalY - cur.Y.Offset) * a
+                if not dragging and math.abs(goalX - nx) < 0.4 and math.abs(goalY - ny) < 0.4 then
+                    nx, ny = goalX, goalY
+                    goalX = nil
+                end
+                target.Position = UDim2.new(startPos.X.Scale, nx, startPos.Y.Scale, ny)
+            end
+        end)
+        return api
+    end
+
+    makeDraggable(TopBar, Root)
+
+    local FloatingBadge = make("ImageButton", {
+        Name = "FloatingBadge",
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Size = UDim2.new(0, 52, 0, 52),
+        Position = UDim2.new(0, 50, 0, 146),
+        BackgroundColor3 = WHITE,
         AutoButtonColor = false,
-        Parent = WindowControls
+        Visible = false,
+        ZIndex = 30,
+        Parent = ScreenGui,
     }, {
-        make("UICorner", { CornerRadius = UDim.new(0, 8) }),
-        make("UIStroke", { Color = Theme.CardBorder, Thickness = 1 })
+        make("UIScale", { Name = "Scale", Scale = 0 }),
+        corner(15),
+        stroke(Theme.AccentCyan, 2, 0.1, "BadgeStroke"),
+        grad(Color3.fromRGB(28, 32, 56), Color3.fromRGB(10, 12, 20), 45),
+        txt({
+            Name = "BadgeFallback",
+            Text = "PB",
+            Font = Theme.FontBlack,
+            TextSize = 20,
+            TextColor3 = Theme.AccentCyan,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            Size = UDim2.new(1, 0, 1, 0),
+            ZIndex = 30,
+        }),
+        make("ImageLabel", {
+            Name = "BadgeLogo",
+            Size = UDim2.new(1, -6, 1, -6),
+            Position = UDim2.new(0, 3, 0, 3),
+            BackgroundTransparency = 1,
+            Image = PB_LOGO_ASSET,
+            ScaleType = Enum.ScaleType.Fit,
+            ZIndex = 31,
+        }, { corner(12) }),
     })
+    local BadgeScale = FloatingBadge.Scale
+    local BadgeStroke = FloatingBadge.BadgeStroke
+    local BadgeDrag = makeDraggable(FloatingBadge, FloatingBadge)
 
-    local CloseBtn = make("TextButton", {
-        Size = UDim2.new(0, 28, 0, 28),
-        BackgroundColor3 = Color3.fromRGB(38, 20, 28),
-        Text = "✕",
-        Font = Theme.FontTitle,
-        TextColor3 = Theme.Danger,
-        TextSize = 11,
-        AutoButtonColor = false,
-        Parent = WindowControls
-    }, {
-        make("UICorner", { CornerRadius = UDim.new(0, 8) }),
-        make("UIStroke", { Color = Color3.fromRGB(70, 30, 40), Thickness = 1 })
-    })
+    task.spawn(function()
+        local function applyLogo(asset)
+            if LogoBadgeHolder.Parent and FloatingBadge.Parent then
+                LogoBadgeHolder.ProjectBarunLogo.Image = asset
+                FloatingBadge.BadgeLogo.Image = asset
+            end
+        end
+        pcall(function()
+            if getcustomasset and (isfile and isfile(LOGO_FILE)) then
+                applyLogo(getcustomasset(LOGO_FILE))
+            elseif getcustomasset and writefile and game.HttpGet then
+                local imgBytes = game:HttpGet(LOGO_URL)
+                if imgBytes and #imgBytes > 0 then
+                    writefile(LOGO_FILE, imgBytes)
+                    applyLogo(getcustomasset(LOGO_FILE))
+                end
+            end
+        end)
+    end)
 
-    local dragging, dragStart, startPos
-    TopBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = MainFrame.Position
+    local visible, busy = false, false
+
+    local function setVisible(state, showBadge)
+        if busy or visible == state then return end
+        busy = true
+        visible = state
+
+        if state then
+            if FloatingBadge.Visible then
+                tw(BadgeScale, { Scale = 0 }, 0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+                task.wait(0.18)
+                FloatingBadge.Visible = false
+            end
+            Root.Visible = true
+            RootScale.Scale = 0.9
+            tw(RootScale, { Scale = 1 }, 0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            tw(Main, { GroupTransparency = 0 }, 0.3)
+            tw(BorderStroke, { Transparency = 0 }, 0.4)
+            tw(Shadow, { ImageTransparency = 0.4 }, 0.4)
+        else
+            tw(RootScale, { Scale = 0.88 }, 0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            tw(Main, { GroupTransparency = 1 }, 0.2)
+            tw(BorderStroke, { Transparency = 1 }, 0.2)
+            tw(Shadow, { ImageTransparency = 1 }, 0.2)
+            task.wait(0.22)
+            Root.Visible = false
+            if showBadge then
+                FloatingBadge.Visible = true
+                BadgeScale.Scale = 0
+                tw(BadgeScale, { Scale = 1 }, 0.38, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            end
+        end
+        busy = false
+    end
+
+    MinBtn.MouseButton1Click:Connect(function()
+        task.spawn(setVisible, false, true)
+    end)
+    FloatingBadge.MouseButton1Click:Connect(function()
+        if BadgeDrag.Moved then return end
+        task.spawn(setVisible, true)
+    end)
+    bind(UserInputService.InputBegan, function(input, processed)
+        if processed then return end
+        if input.KeyCode == ToggleKey then
+            task.spawn(setVisible, not visible, false)
         end
     end)
 
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            local targetPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            MainFrame.Position = targetPos
-            ShadowBackdrop.Position = UDim2.new(targetPos.X.Scale, targetPos.X.Offset - 32, targetPos.Y.Scale, targetPos.Y.Offset - 32)
-        end
+    CloseBtn.MouseButton1Click:Connect(function()
+        task.spawn(function()
+            busy = true
+            tw(RootScale, { Scale = 0.85 }, 0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            tw(Main, { GroupTransparency = 1 }, 0.22)
+            tw(BorderStroke, { Transparency = 1 }, 0.2)
+            tw(Shadow, { ImageTransparency = 1 }, 0.2)
+            task.wait(0.26)
+            ScreenGui:Destroy()
+        end)
     end)
 
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
+    do
+        local t, acc, frames = 0, 0, 0
+        local Stats = game:GetService("Stats")
+        bind(RunService.Heartbeat, function(dt)
+            t += dt
+
+            OrbitGrad.Rotation = (t * 42) % 360
+
+            local pulse = (math.sin(t * 2.2) + 1) / 2
+            LogoStroke.Transparency = 0.45 - pulse * 0.3
+            LogoStroke.Color = Theme.AccentCyan:Lerp(Theme.AccentPrimary, pulse)
+            BadgeStroke.Transparency = 0.4 - pulse * 0.3
+            BadgeStroke.Color = Theme.AccentCyan:Lerp(Theme.AccentPrimary, pulse)
+
+            local cycle = (t % 4.5) / 4.5
+            Shimmer.Position = UDim2.new(cycle * 1.4 - 0.2, -45, 0, 0)
+
+            frames += 1
+            acc += dt
+            if acc >= 0.8 then
+                local fps = math.floor(frames / acc + 0.5)
+                frames, acc = 0, 0
+                local ping = 0
+                pcall(function()
+                    ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+                end)
+                local color = fps >= 50 and Theme.Success or (fps >= 30 and Theme.Warning or Theme.Danger)
+                PerfPill.PerfText.Text = string.format("%d FPS  •  %d ms", fps, ping)
+                tw(PerfPill.Dot, { BackgroundColor3 = color }, 0.3)
+            end
+        end)
+    end
 
     local Body = make("Frame", {
         Name = "Body",
         Size = UDim2.new(1, 0, 1, -58),
         Position = UDim2.new(0, 0, 0, 58),
         BackgroundTransparency = 1,
-        ClipsDescendants = true,
-        Parent = MainFrame
+        Parent = Main,
     })
-
-    local FloatingBadge = make("ImageButton", {
-        Name = "FloatingBadge",
-        Size = UDim2.new(0, 48, 0, 48),
-        Position = UDim2.new(0, 24, 0, 120),
-        BackgroundColor3 = Color3.fromRGB(15, 17, 26),
-        AutoButtonColor = false,
-        Visible = false,
-        ZIndex = 100,
-        Parent = ScreenGui
-    }, {
-        make("UICorner", { CornerRadius = UDim.new(1, 0) }),
-        make("UIStroke", { Color = Theme.AccentCyan, Thickness = 2, Transparency = 0.2 }),
-        make("UIGradient", {
-            Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0.0, Color3.fromRGB(24, 28, 42)),
-                ColorSequenceKeypoint.new(1.0, Color3.fromRGB(11, 13, 19))
-            }),
-            Rotation = 45
-        }),
-        make("TextLabel", {
-            Text = "PB",
-            Font = Theme.FontTitle,
-            TextSize = 16,
-            TextColor3 = Theme.AccentCyan,
-            Size = UDim2.new(1, 0, 1, 0),
-            BackgroundTransparency = 1,
-            ZIndex = 101
-        })
-    })
-
-    -- Dragging logic for Floating Badge
-    local badgeDragging, badgeDragStart, badgeStartPos
-    FloatingBadge.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            badgeDragging = true
-            badgeDragStart = input.Position
-            badgeStartPos = FloatingBadge.Position
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if badgeDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - badgeDragStart
-            FloatingBadge.Position = UDim2.new(
-                badgeStartPos.X.Scale, badgeStartPos.X.Offset + delta.X,
-                badgeStartPos.Y.Scale, badgeStartPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            badgeDragging = false
-        end
-    end)
-
-    local isMinimized = false
-    local function toggleMinimize()
-        isMinimized = not isMinimized
-        if isMinimized then
-            tw(MainFrame, { Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1 }, 0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-            tw(ShadowBackdrop, { ImageTransparency = 1 }, 0.2)
-            task.wait(0.25)
-            MainFrame.Visible = false
-            ShadowBackdrop.Visible = false
-            FloatingBadge.Visible = true
-            FloatingBadge.Size = UDim2.new(0, 0, 0, 0)
-            tw(FloatingBadge, { Size = UDim2.new(0, 48, 0, 48) }, 0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-        else
-            tw(FloatingBadge, { Size = UDim2.new(0, 0, 0, 0) }, 0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-            task.wait(0.2)
-            FloatingBadge.Visible = false
-            MainFrame.Visible = true
-            ShadowBackdrop.Visible = true
-            tw(MainFrame, { Size = WindowSize, BackgroundTransparency = 0 }, 0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-            tw(ShadowBackdrop, { ImageTransparency = 0.35 }, 0.28)
-            Body.Visible = true
-        end
-    end
-
-    MinBtn.MouseButton1Click:Connect(toggleMinimize)
-    FloatingBadge.MouseButton1Click:Connect(toggleMinimize)
-
-    CloseBtn.MouseButton1Click:Connect(function()
-        tw(MainFrame, { Size = UDim2.new(0, 0, 0, 0), Position = MainFrame.Position + UDim2.new(0, WindowSize.X.Offset/2, 0, WindowSize.Y.Offset/2) }, 0.25)
-        tw(ShadowBackdrop, { ImageTransparency = 1 }, 0.2)
-        task.wait(0.28)
-        ScreenGui:Destroy()
-    end)
 
     local Sidebar = make("Frame", {
         Name = "Sidebar",
-        Size = UDim2.new(0, 190, 1, 0),
+        Size = UDim2.new(0, 180, 1, -12),
+        Position = UDim2.new(0, 10, 0, 4),
         BackgroundColor3 = Theme.SidebarBg,
-        BorderSizePixel = 0,
-        Parent = Body
+        BackgroundTransparency = 0.3,
+        Parent = Body,
     }, {
-        make("UICorner", { CornerRadius = UDim.new(0, 16) }),
-        make("Frame", {
-            Size = UDim2.new(0, 16, 1, 0),
-            Position = UDim2.new(1, -16, 0, 0),
-            BackgroundColor3 = Theme.SidebarBg,
-            BorderSizePixel = 0
-        }),
-        make("Frame", {
-            Size = UDim2.new(0, 1, 1, 0),
-            Position = UDim2.new(1, -1, 0, 0),
-            BackgroundColor3 = Theme.CardBorder,
-            BackgroundTransparency = 0.5,
-            BorderSizePixel = 0
-        })
+        corner(13),
+        stroke(Theme.CardBorder, 1, 0.5),
     })
 
     local TabScroll = make("ScrollingFrame", {
         Name = "TabScroll",
-        Size = UDim2.new(1, -16, 1, -20),
-        Position = UDim2.new(0, 10, 0, 10),
+        Size = UDim2.new(1, -12, 1, -70),
+        Position = UDim2.new(0, 6, 0, 8),
         BackgroundTransparency = 1,
         ScrollBarThickness = 2,
-        ScrollBarImageColor3 = Theme.CardBorder,
+        ScrollBarImageColor3 = Theme.CardBorderGlow,
         CanvasSize = UDim2.new(0, 0, 0, 0),
-        Parent = Sidebar
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        Parent = Sidebar,
     }, {
         make("UIListLayout", {
             SortOrder = Enum.SortOrder.LayoutOrder,
-            Padding = UDim.new(0, 6)
-        })
+            Padding = UDim.new(0, 6),
+        }),
+        make("UIPadding", { PaddingRight = UDim.new(0, 4) }),
     })
 
-    TabScroll.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        TabScroll.CanvasSize = UDim2.new(0, 0, 0, TabScroll.UIListLayout.AbsoluteContentSize.Y + 20)
+    local Footer = make("Frame", {
+        Name = "PlayerChip",
+        Size = UDim2.new(1, -16, 0, 46),
+        Position = UDim2.new(0, 8, 1, -54),
+        BackgroundColor3 = Theme.CardBg,
+        BackgroundTransparency = 0.1,
+        Parent = Sidebar,
+    }, {
+        corner(10),
+        stroke(Theme.CardBorder, 1, 0.45),
+        make("ImageLabel", {
+            Name = "Avatar",
+            Size = UDim2.new(0, 30, 0, 30),
+            Position = UDim2.new(0, 8, 0.5, -15),
+            BackgroundColor3 = Color3.fromRGB(30, 34, 54),
+            Parent = nil,
+        }, { pill(), stroke(Theme.AccentCyan, 1.2, 0.4) }),
+        txt({
+            Name = "PlayerName",
+            Text = LocalPlayer.DisplayName,
+            Font = Theme.FontSemi,
+            TextSize = 12,
+            TextColor3 = Theme.TextTitle,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            Position = UDim2.new(0, 46, 0, 7),
+            Size = UDim2.new(1, -54, 0, 16),
+        }),
+        txt({
+            Name = "PlayerTag",
+            Text = "@" .. LocalPlayer.Name,
+            Font = Theme.FontRegular,
+            TextSize = 10,
+            TextColor3 = Theme.TextDim,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            Position = UDim2.new(0, 46, 0, 23),
+            Size = UDim2.new(1, -54, 0, 14),
+        }),
+    })
+    Footer.Avatar.Parent = Footer
+
+    task.spawn(function()
+        local ok, img = pcall(function()
+            return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+        end)
+        if ok and img and Footer.Parent then
+            Footer.Avatar.Image = img
+        end
     end)
 
     local ContentHolder = make("Frame", {
         Name = "ContentHolder",
-        Size = UDim2.new(1, -202, 1, -14),
-        Position = UDim2.new(0, 196, 0, 8),
+        Size = UDim2.new(1, -208, 1, -12),
+        Position = UDim2.new(0, 200, 0, 4),
         BackgroundTransparency = 1,
-        Parent = Body
+        Parent = Body,
     })
 
     local WindowObj = {
         Tabs = {},
         CurrentTab = nil,
-        MainFrame = MainFrame,
+        MainFrame = Root,
         ScreenGui = ScreenGui,
-        ToastHolder = ToastHolder
+        ToastHolder = ToastHolder,
+    }
+
+    function WindowObj:SetVisible(state)
+        task.spawn(setVisible, state and true or false, false)
+    end
+
+    local ToastTypes = {
+        info    = { Theme.AccentCyan, "⚡" },
+        success = { Theme.Success, "✓" },
+        warning = { Theme.Warning, "!" },
+        error   = { Theme.Danger, "✕" },
     }
 
     function WindowObj:Notify(toast)
         toast = toast or {}
-        local title = toast.Title or "Notice"
+        local title = toast.Title or toast.Name or "System Notification"
         local desc  = toast.Content or ""
-        local icon  = toast.Icon or "⚡"
-        local dur   = toast.Duration or 3.5
+        local dur   = toast.Duration or toast.Time or 3.5
+        local kind  = ToastTypes[string.lower(tostring(toast.Type or "info"))] or ToastTypes.info
+        local color = kind[1]
+        local icon  = toast.Icon or kind[2]
+
+        local wrapper = make("Frame", {
+            Size = UDim2.new(1, 0, 0, 72),
+            BackgroundTransparency = 1,
+            Parent = ToastHolder,
+        })
 
         local card = make("Frame", {
-            Size = UDim2.new(1, 0, 0, 66),
+            Size = UDim2.new(1, 0, 0, 70),
+            Position = UDim2.new(1, 60, 0, 0),
             BackgroundColor3 = Theme.CardBg,
-            Position = UDim2.new(1, 50, 0, 0),
-            Parent = ToastHolder
+            BackgroundTransparency = 0.03,
+            Parent = wrapper,
         }, {
-            make("UICorner", { CornerRadius = UDim.new(0, 12) }),
-            make("UIStroke", { Color = Theme.AccentPrimary, Thickness = 1.2, Transparency = 0.3 }),
+            corner(12),
+            stroke(color, 1.2, 0.45),
+            make("UIGradient", {
+                Color = ColorSequence.new(WHITE, Color3.fromRGB(200, 200, 218)),
+                Rotation = 90,
+            }),
             make("Frame", {
-                Size = UDim2.new(0, 4, 1, -16),
-                Position = UDim2.new(0, 8, 0, 8),
-                BackgroundColor3 = Theme.AccentCyan
+                Name = "Beacon",
+                Size = UDim2.new(0, 30, 0, 30),
+                Position = UDim2.new(0, 12, 0, 12),
+                BackgroundColor3 = color,
+                BackgroundTransparency = 0.82,
             }, {
-                make("UICorner", { CornerRadius = UDim.new(1, 0) })
+                pill(),
+                stroke(color, 1.2, 0.35),
+                txt({
+                    Text = icon,
+                    Font = Theme.FontTitle,
+                    TextSize = 14,
+                    TextColor3 = color,
+                    TextXAlignment = Enum.TextXAlignment.Center,
+                    Size = UDim2.new(1, 0, 1, 0),
+                }),
             }),
-            make("TextLabel", {
-                Text = icon,
-                Font = Theme.FontTitle,
-                TextSize = 16,
-                Position = UDim2.new(0, 20, 0, 12),
-                Size = UDim2.new(0, 20, 0, 20),
-                BackgroundTransparency = 1
-            }),
-            make("TextLabel", {
+            txt({
                 Text = title,
                 Font = Theme.FontTitle,
                 TextColor3 = Theme.TextTitle,
                 TextSize = 13,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                Position = UDim2.new(0, 46, 0, 12),
-                Size = UDim2.new(1, -54, 0, 18),
-                BackgroundTransparency = 1
+                Position = UDim2.new(0, 54, 0, 10),
+                Size = UDim2.new(1, -64, 0, 18),
             }),
-            make("TextLabel", {
+            txt({
                 Text = desc,
                 Font = Theme.FontRegular,
                 TextColor3 = Theme.TextDim,
                 TextSize = 11,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                Position = UDim2.new(0, 46, 0, 32),
-                Size = UDim2.new(1, -54, 0, 26),
                 TextWrapped = true,
-                BackgroundTransparency = 1
-            })
+                TextYAlignment = Enum.TextYAlignment.Top,
+                Position = UDim2.new(0, 54, 0, 29),
+                Size = UDim2.new(1, -64, 0, 28),
+            }),
+            make("Frame", {
+                Size = UDim2.new(1, -24, 0, 2),
+                Position = UDim2.new(0, 12, 1, -6),
+                BackgroundColor3 = Theme.CardBorder,
+                BackgroundTransparency = 0.5,
+            }, {
+                pill(),
+                make("Frame", {
+                    Name = "Fill",
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BackgroundColor3 = color,
+                }, { pill() }),
+            }),
         })
 
-        tw(card, { Position = UDim2.new(0, 0, 0, 0) }, 0.3, Enum.EasingStyle.Quart)
+        tw(card, { Position = UDim2.new(0, 0, 0, 0) }, 0.45, Enum.EasingStyle.Back)
+        local fill = card:FindFirstChild("Fill", true)
+        if fill then
+            tw(fill, { Size = UDim2.new(0, 0, 1, 0) }, dur, Enum.EasingStyle.Linear)
+        end
+
         task.delay(dur, function()
-            tw(card, { Position = UDim2.new(1, 50, 0, 0), BackgroundTransparency = 1 }, 0.28)
-            task.wait(0.3)
-            pcall(function() card:Destroy() end)
+            if not card.Parent then return end
+            tw(card, { Position = UDim2.new(1, 60, 0, 0) }, 0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            task.wait(0.28)
+            tw(wrapper, { Size = UDim2.new(1, 0, 0, 0) }, 0.2)
+            task.wait(0.22)
+            wrapper:Destroy()
         end)
+    end
+
+    function WindowObj:MakeNotification(cfg)
+        self:Notify(cfg)
     end
 
     function WindowObj:CreateTab(tabConfig)
         tabConfig = tabConfig or {}
         local TabName = tabConfig.Name or "Category"
         local TabIcon = tabConfig.Icon or "✦"
-        if TabIcon:find("rbxassetid") then TabIcon = "⚡" end
+        local TabSub  = tabConfig.Subtitle or ""
+
+        if TabIcon:find("rbxassetid") then TabIcon = "✦" end
 
         local TabPage = make("ScrollingFrame", {
             Name = "Page_" .. TabName,
-            Size = UDim2.new(1, -6, 1, 0),
+            Size = UDim2.new(1, -4, 1, 0),
             Position = UDim2.new(0, 0, 0, 0),
             BackgroundTransparency = 1,
             ScrollBarThickness = 3,
             ScrollBarImageColor3 = Theme.AccentPrimary,
             CanvasSize = UDim2.new(0, 0, 0, 0),
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
             Visible = false,
-            Parent = ContentHolder
+            Parent = ContentHolder,
         }, {
             make("UIListLayout", {
                 SortOrder = Enum.SortOrder.LayoutOrder,
-                Padding = UDim.new(0, 8)
+                Padding = UDim.new(0, 10),
             }),
             make("UIPadding", {
-                PaddingTop = UDim.new(0, 4),
+                PaddingTop = UDim.new(0, 2),
                 PaddingBottom = UDim.new(0, 16),
-                PaddingRight = UDim.new(0, 8)
-            })
+                PaddingRight = UDim.new(0, 8),
+            }),
         })
 
-        TabPage.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            TabPage.CanvasSize = UDim2.new(0, 0, 0, TabPage.UIListLayout.AbsoluteContentSize.Y + 24)
-        end)
+        make("Frame", {
+            Name = "PageHeader",
+            Size = UDim2.new(1, 0, 0, TabSub ~= "" and 46 or 34),
+            BackgroundTransparency = 1,
+            LayoutOrder = -1,
+            Parent = TabPage,
+        }, {
+            txt({
+                Text = TabName,
+                Font = Theme.FontBlack,
+                TextSize = 20,
+                TextColor3 = WHITE,
+                Position = UDim2.new(0, 2, 0, 0),
+                Size = UDim2.new(1, 0, 0, 28),
+            }, {
+                make("UIGradient", {
+                    Color = ColorSequence.new(WHITE, Color3.fromRGB(176, 205, 255)),
+                }),
+            }),
+            txt({
+                Text = TabSub,
+                Font = Theme.FontRegular,
+                TextSize = 11,
+                TextColor3 = Theme.TextDim,
+                Position = UDim2.new(0, 2, 0, 27),
+                Size = UDim2.new(1, 0, 0, 16),
+                Visible = TabSub ~= "",
+            }),
+        })
 
         local TabBtn = make("TextButton", {
             Name = "Tab_" .. TabName,
             Size = UDim2.new(1, 0, 0, 40),
-            BackgroundColor3 = Theme.CardBg,
             BackgroundTransparency = 1,
             Text = "",
             AutoButtonColor = false,
-            Parent = TabScroll
+            Parent = TabScroll,
         }, {
-            make("UICorner", { CornerRadius = UDim.new(0, 10) }),
+            corner(10),
+            stroke(Theme.CardBorder, 1, 1, "TabStroke"),
+            make("Frame", {
+                Name = "ActiveFill",
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundColor3 = WHITE,
+                BackgroundTransparency = 1,
+            }, {
+                corner(10),
+                make("UIGradient", {
+                    Color = ColorSequence.new(Theme.AccentPrimary, Theme.AccentCyan),
+                    Rotation = 0,
+                }),
+            }),
             make("Frame", {
                 Name = "GlowIndicator",
+                AnchorPoint = Vector2.new(0, 0.5),
                 Size = UDim2.new(0, 3, 0, 0),
                 Position = UDim2.new(0, 0, 0.5, 0),
-                BackgroundColor3 = Theme.AccentCyan,
-                BorderSizePixel = 0
+                BackgroundColor3 = WHITE,
             }, {
-                make("UICorner", { CornerRadius = UDim.new(1, 0) })
+                pill(),
+                grad(Theme.AccentCyan, Theme.AccentPrimary, 90),
             }),
-            make("TextLabel", {
+            txt({
                 Name = "Icon",
                 Text = TabIcon,
-                TextSize = 14,
-                Position = UDim2.new(0, 12, 0.5, -10),
-                Size = UDim2.new(0, 20, 0, 20),
+                Font = Theme.FontBold,
+                TextSize = 15,
                 TextColor3 = Theme.TextDim,
-                BackgroundTransparency = 1,
-                Font = Theme.FontBold
+                TextXAlignment = Enum.TextXAlignment.Center,
+                Position = UDim2.new(0, 10, 0.5, -10),
+                Size = UDim2.new(0, 22, 0, 20),
             }),
-            make("TextLabel", {
+            txt({
                 Name = "Label",
                 Text = TabName,
                 Font = Theme.FontSemi,
-                TextSize = 12,
+                TextSize = 13,
                 TextColor3 = Theme.TextDim,
-                TextXAlignment = Enum.TextXAlignment.Left,
                 Position = UDim2.new(0, 40, 0, 0),
                 Size = UDim2.new(1, -44, 1, 0),
-                BackgroundTransparency = 1
-            })
+            }),
         })
 
         local TabObj = {
             Page = TabPage,
             Button = TabBtn,
-            Name = TabName
+            Name = TabName,
         }
 
+        local function paintTab(t, active)
+            local b = t.Button
+            tw(b.ActiveFill, { BackgroundTransparency = active and 0.86 or 1 }, 0.25)
+            tw(b.TabStroke, { Transparency = active and 0.55 or 1 }, 0.25)
+            tw(b.Label, { TextColor3 = active and Theme.TextTitle or Theme.TextDim, Position = UDim2.new(0, 40, 0, 0) }, 0.2)
+            tw(b.Icon, { TextColor3 = active and Theme.AccentCyan or Theme.TextDim }, 0.2)
+            tw(b.GlowIndicator, {
+                Size = UDim2.new(0, 3, 0, active and 22 or 0),
+            }, 0.25, Enum.EasingStyle.Back)
+        end
+
         local function activateTab()
+            if WindowObj.CurrentTab == TabObj then return end
             for _, t in ipairs(WindowObj.Tabs) do
                 t.Page.Visible = false
-                tw(t.Button, { BackgroundTransparency = 1 }, 0.2)
-                t.Button.Label.TextColor3 = Theme.TextDim
-                t.Button.Icon.TextColor3 = Theme.TextDim
-                tw(t.Button.GlowIndicator, { Size = UDim2.new(0, 3, 0, 0), Position = UDim2.new(0, 0, 0.5, 0) }, 0.2)
+                paintTab(t, false)
             end
             TabPage.Visible = true
-            tw(TabBtn, { BackgroundTransparency = 0, BackgroundColor3 = Theme.CardBg }, 0.25)
-            TabBtn.Label.TextColor3 = Theme.TextTitle
-            TabBtn.Icon.TextColor3 = Theme.AccentCyan
-            tw(TabBtn.GlowIndicator, { Size = UDim2.new(0, 3, 0, 22), Position = UDim2.new(0, 0, 0.5, -11) }, 0.25)
+            TabPage.Position = UDim2.new(0, 0, 0, 14)
+            tw(TabPage, { Position = UDim2.new(0, 0, 0, 0) }, 0.35, Enum.EasingStyle.Quart)
+            paintTab(TabObj, true)
             WindowObj.CurrentTab = TabObj
         end
 
@@ -616,21 +1178,23 @@ function PB_UI:CreateWindow(config)
 
         TabBtn.MouseEnter:Connect(function()
             if WindowObj.CurrentTab ~= TabObj then
-                tw(TabBtn, { BackgroundTransparency = 0.5, BackgroundColor3 = Theme.CardHover }, 0.15)
-                TabBtn.Label.TextColor3 = Theme.TextBody
+                tw(TabBtn, { BackgroundColor3 = Theme.CardHover, BackgroundTransparency = 0.55 }, 0.15)
+                tw(TabBtn.Label, { TextColor3 = Theme.TextBody, Position = UDim2.new(0, 44, 0, 0) }, 0.18)
+                tw(TabBtn.TabStroke, { Transparency = 0.7 }, 0.15)
             end
         end)
         TabBtn.MouseLeave:Connect(function()
             if WindowObj.CurrentTab ~= TabObj then
                 tw(TabBtn, { BackgroundTransparency = 1 }, 0.15)
-                TabBtn.Label.TextColor3 = Theme.TextDim
+                tw(TabBtn.Label, { TextColor3 = Theme.TextDim, Position = UDim2.new(0, 40, 0, 0) }, 0.18)
+                tw(TabBtn.TabStroke, { Transparency = 1 }, 0.15)
             end
         end)
 
-        if #WindowObj.Tabs == 0 then
+        table.insert(WindowObj.Tabs, TabObj)
+        if #WindowObj.Tabs == 1 then
             activateTab()
         end
-        table.insert(WindowObj.Tabs, TabObj)
 
         function TabObj:AddSection(secTitle)
             if type(secTitle) == "table" and secTitle.Name then
@@ -639,25 +1203,818 @@ function PB_UI:CreateWindow(config)
             local SecFrame = make("Frame", {
                 Size = UDim2.new(1, 0, 0, 30),
                 BackgroundTransparency = 1,
-                Parent = TabPage
+                Parent = TabPage,
             }, {
                 make("Frame", {
-                    Size = UDim2.new(1, 0, 0, 1),
-                    Position = UDim2.new(0, 0, 1, -1),
-                    BackgroundColor3 = Theme.CardBorder,
-                    BackgroundTransparency = 0.6
+                    Size = UDim2.new(0, 3, 0, 14),
+                    Position = UDim2.new(0, 2, 0.5, -7),
+                    BackgroundColor3 = WHITE,
+                }, {
+                    pill(),
+                    grad(Theme.AccentPrimary, Theme.AccentCyan, 90),
                 }),
-                make("TextLabel", {
+                txt({
                     Text = string.upper(tostring(secTitle)),
                     Font = Theme.FontTitle,
                     TextSize = 11,
-                    TextColor3 = Theme.AccentPrimary,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Size = UDim2.new(1, 0, 1, -2),
-                    BackgroundTransparency = 1
-                })
+                    TextColor3 = Theme.AccentCyan,
+                    Position = UDim2.new(0, 14, 0, 0),
+                    Size = UDim2.new(1, -14, 1, 0),
+                }),
+                make("Frame", {
+                    Size = UDim2.new(1, 0, 0, 1),
+                    Position = UDim2.new(0, 0, 1, -1),
+                    BackgroundColor3 = Theme.CardBorderGlow,
+                }, {
+                    make("UIGradient", {
+                        Transparency = NumberSequence.new({
+                            NumberSequenceKeypoint.new(0, 0.5),
+                            NumberSequenceKeypoint.new(1, 1),
+                        }),
+                    }),
+                }),
             })
             return SecFrame
+        end
+
+        function TabObj:AddStatCard(cardConfig)
+            cardConfig = cardConfig or {}
+            local title    = cardConfig.Title or "Telemetry Metric"
+            local initial  = cardConfig.Value or "0"
+            local subtitle = cardConfig.Subtext or cardConfig.Desc or "Live Feed"
+            local progress = cardConfig.Progress
+
+            local card = makeCard(TabPage, progress ~= nil and 62 or 54, false)
+
+            make("Frame", {
+                Size = UDim2.new(0, 3, 1, -16),
+                Position = UDim2.new(0, 8, 0, 8),
+                BackgroundColor3 = WHITE,
+                Parent = card,
+            }, {
+                pill(),
+                grad(Theme.AccentPrimary, Theme.AccentCyan, 90),
+            })
+
+            txt({
+                Text = title,
+                Font = Theme.FontSemi,
+                TextSize = 11,
+                TextColor3 = Theme.TextDim,
+                Position = UDim2.new(0, 22, 0, 9),
+                Size = UDim2.new(0.6, 0, 0, 16),
+                Parent = card,
+            })
+            txt({
+                Name = "SubLabel",
+                Text = subtitle,
+                TextSize = 10,
+                TextColor3 = Theme.AccentCyan,
+                Position = UDim2.new(0, 22, 0, 27),
+                Size = UDim2.new(0.6, 0, 0, 16),
+                Parent = card,
+            })
+            txt({
+                Name = "ValueLabel",
+                Text = tostring(initial),
+                Font = Theme.FontTitle,
+                TextSize = 18,
+                TextColor3 = Theme.TextTitle,
+                TextXAlignment = Enum.TextXAlignment.Right,
+                Position = UDim2.new(0.6, 0, 0, 0),
+                Size = UDim2.new(0.4, -18, 0, 54),
+                Parent = card,
+            })
+
+            local Meter
+            if progress ~= nil then
+                local track = make("Frame", {
+                    Size = UDim2.new(1, -30, 0, 3),
+                    Position = UDim2.new(0, 15, 1, -9),
+                    BackgroundColor3 = Color3.fromRGB(34, 38, 56),
+                    Parent = card,
+                }, { pill() })
+                Meter = make("Frame", {
+                    Name = "Meter",
+                    Size = UDim2.new(math.clamp(progress, 0, 1), 0, 1, 0),
+                    BackgroundColor3 = WHITE,
+                    Parent = track,
+                }, {
+                    pill(),
+                    grad(Theme.AccentPrimary, Theme.AccentCyan, 0),
+                })
+            end
+
+            local CardHandle = {}
+            function CardHandle:Set(newVal, color, subText, newProgress)
+                card.ValueLabel.Text = tostring(newVal)
+                if color then tw(card.ValueLabel, { TextColor3 = color }, 0.25) end
+                if subText then card.SubLabel.Text = tostring(subText) end
+                if newProgress ~= nil and Meter then
+                    tw(Meter, { Size = UDim2.new(math.clamp(newProgress, 0, 1), 0, 1, 0) }, 0.35)
+                end
+            end
+            return CardHandle
+        end
+
+        TabObj.AddStat = TabObj.AddStatCard
+
+        function TabObj:AddToggle(togConfig)
+            togConfig = togConfig or {}
+            local name     = togConfig.Name or "Toggle Switch"
+            local desc     = togConfig.Desc or ""
+            local default  = togConfig.Default or false
+            local callback = togConfig.Callback or function() end
+
+            local isToggled = default
+            local cardHeight = desc ~= "" and 56 or 46
+            local OFF_COLOR = Color3.fromRGB(34, 38, 56)
+
+            local ToggleCard = makeCard(TabPage, cardHeight, true)
+            hoverable(ToggleCard)
+
+            txt({
+                Text = name,
+                Font = Theme.FontSemi,
+                TextSize = 13,
+                TextColor3 = Theme.TextTitle,
+                Position = UDim2.new(0, 16, 0, desc ~= "" and 10 or 0),
+                Size = UDim2.new(1, -90, 0, desc ~= "" and 18 or cardHeight),
+                Parent = ToggleCard,
+            })
+            if desc ~= "" then
+                txt({
+                    Text = desc,
+                    TextSize = 10,
+                    TextColor3 = Theme.TextDim,
+                    Position = UDim2.new(0, 16, 0, 29),
+                    Size = UDim2.new(1, -90, 0, 16),
+                    Parent = ToggleCard,
+                })
+            end
+
+            local Track = make("Frame", {
+                Size = UDim2.new(0, 44, 0, 24),
+                Position = UDim2.new(1, -58, 0.5, -12),
+                BackgroundColor3 = OFF_COLOR,
+                Parent = ToggleCard,
+            }, {
+                pill(),
+                stroke(Theme.CardBorder, 1, 0.3, "TrackStroke"),
+            })
+
+            local OnFill = make("Frame", {
+                Name = "OnFill",
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundColor3 = WHITE,
+                BackgroundTransparency = isToggled and 0 or 1,
+                Parent = Track,
+            }, {
+                pill(),
+                grad(Theme.AccentPrimary, Theme.AccentCyan, 0),
+            })
+
+            local Knob = make("Frame", {
+                Size = UDim2.new(0, 18, 0, 18),
+                Position = isToggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9),
+                BackgroundColor3 = WHITE,
+                Parent = Track,
+            }, { pill() })
+
+            local TrackStroke = Track.TrackStroke
+            local CardStroke = ToggleCard.CardStroke
+            TrackStroke.Color = isToggled and Theme.AccentCyan or Theme.CardBorder
+            TrackStroke.Thickness = isToggled and 2.4 or 1
+            TrackStroke.Transparency = isToggled and 0.65 or 0.3
+
+            local function syncVisual(fire)
+                if isToggled then
+                    tw(OnFill, { BackgroundTransparency = 0 }, 0.25)
+                    tw(Knob, { Position = UDim2.new(1, -21, 0.5, -9) }, 0.32, Enum.EasingStyle.Back)
+                    tw(TrackStroke, { Color = Theme.AccentCyan, Thickness = 2.4, Transparency = 0.65 }, 0.25)
+                    tw(CardStroke, { Color = Theme.AccentPrimary, Transparency = 0.35 }, 0.25)
+                else
+                    tw(OnFill, { BackgroundTransparency = 1 }, 0.25)
+                    tw(Knob, { Position = UDim2.new(0, 3, 0.5, -9) }, 0.32, Enum.EasingStyle.Back)
+                    tw(TrackStroke, { Color = Theme.CardBorder, Thickness = 1, Transparency = 0.3 }, 0.25)
+                    tw(CardStroke, { Color = Theme.CardBorder, Transparency = 0.35 }, 0.25)
+                end
+                if fire then
+                    task.spawn(callback, isToggled)
+                end
+            end
+
+            if isToggled then
+                CardStroke.Color = Theme.AccentPrimary
+                CardStroke.Transparency = 0.35
+            end
+
+            ToggleCard.MouseButton1Click:Connect(function()
+                isToggled = not isToggled
+                syncVisual(true)
+            end)
+            ToggleCard.MouseButton1Down:Connect(function()
+                tw(Knob, { Size = UDim2.new(0, 22, 0, 18) }, 0.12)
+            end)
+            ToggleCard.MouseButton1Up:Connect(function()
+                tw(Knob, { Size = UDim2.new(0, 18, 0, 18) }, 0.18)
+            end)
+
+            local ToggleHandle = {}
+            function ToggleHandle:Set(val)
+                isToggled = val and true or false
+                syncVisual(true)
+            end
+            function ToggleHandle:Get()
+                return isToggled
+            end
+            return ToggleHandle
+        end
+
+        function TabObj:AddSlider(sldConfig)
+            sldConfig = sldConfig or {}
+            local name     = sldConfig.Name or "Slider"
+            local min      = sldConfig.Min or 0
+            local max      = sldConfig.Max or 100
+            local default  = math.clamp(sldConfig.Default or min, min, max)
+            local inc      = sldConfig.Increment or 1
+            local suffix   = sldConfig.ValueName or ""
+            local callback = sldConfig.Callback or function() end
+
+            local range = math.max(max - min, 1e-9)
+            local decimals = 0
+            do
+                local s = tostring(inc)
+                local dot = string.find(s, "%.")
+                if dot then decimals = #s - dot end
+            end
+            local fmt = "%." .. decimals .. "f"
+            local function fmtVal(v)
+                return string.format(fmt, v) .. (suffix ~= "" and (" " .. suffix) or "")
+            end
+
+            local currentVal = default
+            local lastFired = nil
+
+            local SliderCard = makeCard(TabPage, 70, false)
+            hoverable(SliderCard)
+
+            txt({
+                Text = name,
+                Font = Theme.FontSemi,
+                TextSize = 12,
+                TextColor3 = Theme.TextTitle,
+                Position = UDim2.new(0, 16, 0, 8),
+                Size = UDim2.new(0.65, 0, 0, 16),
+                Parent = SliderCard,
+            })
+            txt({
+                Name = "ValText",
+                Text = fmtVal(currentVal),
+                Font = Theme.FontTitle,
+                TextSize = 13,
+                TextColor3 = Theme.AccentCyan,
+                TextXAlignment = Enum.TextXAlignment.Right,
+                Position = UDim2.new(0.65, 0, 0, 8),
+                Size = UDim2.new(0.35, -16, 0, 16),
+                Parent = SliderCard,
+            })
+
+            local Hit = make("TextButton", {
+                Size = UDim2.new(1, -32, 0, 26),
+                Position = UDim2.new(0, 16, 0, 40),
+                BackgroundTransparency = 1,
+                AutoButtonColor = false,
+                Text = "",
+                Parent = SliderCard,
+            })
+
+            local Rail = make("Frame", {
+                Size = UDim2.new(1, 0, 0, 6),
+                Position = UDim2.new(0, 0, 0.5, -3),
+                BackgroundColor3 = Color3.fromRGB(32, 36, 54),
+                Parent = Hit,
+            }, { pill() })
+
+            local fillRatio = (currentVal - min) / range
+            local Fill = make("Frame", {
+                Size = UDim2.new(fillRatio, 0, 1, 0),
+                BackgroundColor3 = WHITE,
+                Parent = Rail,
+            }, {
+                pill(),
+                grad(Theme.AccentPrimary, Theme.AccentCyan, 0),
+            })
+
+            local Scrubber = make("Frame", {
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Size = UDim2.new(0, 14, 0, 14),
+                Position = UDim2.new(fillRatio, 0, 0.5, 0),
+                BackgroundColor3 = WHITE,
+                ZIndex = 2,
+                Parent = Rail,
+            }, {
+                pill(),
+                stroke(Theme.AccentCyan, 2, 0.5, "Halo"),
+            })
+
+            local Tip = make("Frame", {
+                AnchorPoint = Vector2.new(0.5, 1),
+                Position = UDim2.new(fillRatio, 0, 0, -8),
+                Size = UDim2.new(0, 0, 0, 18),
+                AutomaticSize = Enum.AutomaticSize.X,
+                BackgroundColor3 = Theme.AccentPrimary,
+                BackgroundTransparency = 1,
+                ZIndex = 3,
+                Parent = Rail,
+            }, {
+                corner(6),
+                make("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }),
+                txt({
+                    Name = "TipText",
+                    Text = fmtVal(currentVal),
+                    Font = Theme.FontBold,
+                    TextSize = 10,
+                    TextColor3 = WHITE,
+                    TextTransparency = 1,
+                    TextXAlignment = Enum.TextXAlignment.Center,
+                    AutomaticSize = Enum.AutomaticSize.X,
+                    Size = UDim2.new(0, 0, 1, 0),
+                    ZIndex = 4,
+                }),
+            })
+
+            local function showTip(show)
+                tw(Tip, { BackgroundTransparency = show and 0 or 1 }, 0.15)
+                tw(Tip.TipText, { TextTransparency = show and 0 or 1 }, 0.15)
+                tw(Scrubber.Halo, { Thickness = show and 4.5 or 2, Transparency = show and 0.6 or 0.5 }, 0.15)
+                tw(Scrubber, { Size = show and UDim2.new(0, 16, 0, 16) or UDim2.new(0, 14, 0, 14) }, 0.15)
+            end
+
+            local function applyValue(v, fire)
+                local pct = (v - min) / range
+                currentVal = v
+                tw(Fill, { Size = UDim2.new(pct, 0, 1, 0) }, 0.07, Enum.EasingStyle.Sine)
+                tw(Scrubber, { Position = UDim2.new(pct, 0, 0.5, 0) }, 0.07, Enum.EasingStyle.Sine)
+                tw(Tip, { Position = UDim2.new(pct, 0, 0, -8) }, 0.07, Enum.EasingStyle.Sine)
+                SliderCard.ValText.Text = fmtVal(v)
+                Tip.TipText.Text = fmtVal(v)
+                if fire and lastFired ~= v then
+                    lastFired = v
+                    task.spawn(callback, v)
+                end
+            end
+
+            local function updateFromX(inputX)
+                local railX = Rail.AbsolutePosition.X
+                local railW = math.max(Rail.AbsoluteSize.X, 1)
+                local pct = math.clamp((inputX - railX) / railW, 0, 1)
+                local raw = min + range * pct
+                local stepped = min + math.floor((raw - min) / inc + 0.5) * inc
+                stepped = math.clamp(stepped, min, max)
+                stepped = tonumber(string.format(fmt, stepped)) or stepped
+                applyValue(stepped, true)
+            end
+
+            local isSliding = false
+            Hit.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    isSliding = true
+                    showTip(true)
+                    updateFromX(input.Position.X)
+                end
+            end)
+            bind(UserInputService.InputChanged, function(input)
+                if isSliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    updateFromX(input.Position.X)
+                end
+            end)
+            bind(UserInputService.InputEnded, function(input)
+                if isSliding and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+                    isSliding = false
+                    showTip(false)
+                end
+            end)
+
+            local SliderHandle = {}
+            function SliderHandle:Set(v)
+                applyValue(math.clamp(v, min, max), true)
+            end
+            function SliderHandle:Get()
+                return currentVal
+            end
+            return SliderHandle
+        end
+
+        function TabObj:AddButton(btnConfig)
+            btnConfig = btnConfig or {}
+            local name     = btnConfig.Name or "Execute Command"
+            local icon     = btnConfig.Icon or "⚡"
+            local callback = btnConfig.Callback or function() end
+
+            local Btn = makeCard(TabPage, 44, true)
+            Btn.ClipsDescendants = true
+            hoverable(Btn, Theme.AccentCyan)
+
+            local PressScale = make("UIScale", { Scale = 1, Parent = Btn })
+
+            local Chip = make("Frame", {
+                Name = "IconChip",
+                Size = UDim2.new(0, 26, 0, 26),
+                Position = UDim2.new(0, 10, 0.5, -13),
+                BackgroundColor3 = Theme.AccentPrimary,
+                BackgroundTransparency = 0.8,
+                Parent = Btn,
+            }, {
+                corner(8),
+                txt({
+                    Text = icon,
+                    Font = Theme.FontBold,
+                    TextSize = 13,
+                    TextColor3 = Theme.AccentCyan,
+                    TextXAlignment = Enum.TextXAlignment.Center,
+                    Size = UDim2.new(1, 0, 1, 0),
+                }),
+            })
+
+            local TitleLbl = txt({
+                Name = "Title",
+                Text = name,
+                Font = Theme.FontSemi,
+                TextSize = 12,
+                TextColor3 = Theme.TextTitle,
+                Position = UDim2.new(0, 46, 0, 0),
+                Size = UDim2.new(1, -80, 1, 0),
+                Parent = Btn,
+            })
+
+            local Chevron = txt({
+                Name = "Chevron",
+                Text = "›",
+                Font = Theme.FontBold,
+                TextSize = 20,
+                TextColor3 = Theme.TextDim,
+                TextXAlignment = Enum.TextXAlignment.Right,
+                Position = UDim2.new(1, -30, 0, 0),
+                Size = UDim2.new(0, 16, 1, -2),
+                Parent = Btn,
+            })
+
+            Btn.MouseEnter:Connect(function()
+                tw(Chip, { BackgroundTransparency = 0.6 }, 0.15)
+                tw(Chevron, { Position = UDim2.new(1, -24, 0, 0), TextColor3 = Theme.AccentCyan }, 0.18)
+            end)
+            Btn.MouseLeave:Connect(function()
+                tw(Chip, { BackgroundTransparency = 0.8 }, 0.15)
+                tw(Chevron, { Position = UDim2.new(1, -30, 0, 0), TextColor3 = Theme.TextDim }, 0.18)
+                tw(PressScale, { Scale = 1 }, 0.15)
+            end)
+
+            Btn.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    tw(PressScale, { Scale = 0.975 }, 0.08)
+
+                    local rel = Vector2.new(input.Position.X, input.Position.Y) - Btn.AbsolutePosition
+                    local ripple = make("Frame", {
+                        AnchorPoint = Vector2.new(0.5, 0.5),
+                        Position = UDim2.new(0, rel.X, 0, rel.Y),
+                        Size = UDim2.new(0, 0, 0, 0),
+                        BackgroundColor3 = Theme.AccentCyan,
+                        BackgroundTransparency = 0.7,
+                        ZIndex = 0,
+                        Parent = Btn,
+                    }, { pill() })
+                    local d = math.max(Btn.AbsoluteSize.X, 200) * 1.5
+                    tw(ripple, { Size = UDim2.new(0, d, 0, d), BackgroundTransparency = 1 }, 0.55, Enum.EasingStyle.Quad)
+                    task.delay(0.6, function()
+                        ripple:Destroy()
+                    end)
+                end
+            end)
+            Btn.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    tw(PressScale, { Scale = 1 }, 0.2, Enum.EasingStyle.Back)
+                end
+            end)
+
+            Btn.MouseButton1Click:Connect(function()
+                task.spawn(callback)
+            end)
+
+            local BtnHandle = {}
+            function BtnHandle:SetName(newName)
+                TitleLbl.Text = tostring(newName)
+            end
+            return BtnHandle
+        end
+
+        function TabObj:AddDropdown(dropConfig)
+            dropConfig = dropConfig or {}
+            local name     = dropConfig.Name or dropConfig.Title or "Dropdown Selection"
+            local desc     = dropConfig.Desc or dropConfig.Description or ""
+            local options  = dropConfig.Options or dropConfig.Values or {}
+            local isMulti  = dropConfig.Multi or false
+            local default  = dropConfig.Default or (isMulti and {} or options[1])
+            local callback = dropConfig.Callback or function() end
+
+            local isExpanded = false
+            local selected = default
+            if isMulti then
+                if type(selected) ~= "table" then
+                    selected = {}
+                else
+                    selected = table.clone(selected)
+                end
+            end
+
+            local function getSelectedSummary()
+                if isMulti then
+                    local count = 0
+                    for k, v in pairs(selected) do
+                        if v == true or (type(k) == "number" and type(v) == "string") then
+                            count = count + 1
+                        end
+                    end
+                    if count == 0 then
+                        return "เลือก 0 ชนิด"
+                    else
+                        return string.format("(เลือก %d ชนิด)", count)
+                    end
+                else
+                    return tostring(selected or options[1] or "None")
+                end
+            end
+
+            local cardHeight = desc ~= "" and 56 or 46
+            local maxScrollH = math.min(#options * 32, 220)
+            local expandedH = cardHeight + 8 + maxScrollH
+
+            local DropCard = makeCard(TabPage, cardHeight, false)
+            DropCard.ClipsDescendants = true
+            hoverable(DropCard)
+
+            local Header = make("TextButton", {
+                Name = "Header",
+                Size = UDim2.new(1, 0, 0, cardHeight),
+                BackgroundTransparency = 1,
+                Text = "",
+                AutoButtonColor = false,
+                Parent = DropCard,
+            })
+
+            txt({
+                Text = name,
+                Font = Theme.FontSemi,
+                TextSize = 12,
+                TextColor3 = Theme.TextTitle,
+                Position = UDim2.new(0, 16, 0, desc ~= "" and 10 or 0),
+                Size = UDim2.new(0.55, 0, 0, desc ~= "" and 18 or cardHeight),
+                Parent = Header,
+            })
+
+            if desc ~= "" then
+                txt({
+                    Text = desc,
+                    TextSize = 10,
+                    TextColor3 = Theme.TextDim,
+                    Position = UDim2.new(0, 16, 0, 29),
+                    Size = UDim2.new(0.55, 0, 0, 16),
+                    Parent = Header,
+                })
+            end
+
+            local SelectedLabel = txt({
+                Name = "SelectedText",
+                Text = getSelectedSummary(),
+                Font = Theme.FontBold,
+                TextSize = 11,
+                TextColor3 = Theme.AccentCyan,
+                TextXAlignment = Enum.TextXAlignment.Right,
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                Position = UDim2.new(0.5, 0, 0, 0),
+                Size = UDim2.new(0.5, -42, 1, 0),
+                Parent = Header,
+            })
+
+            local ArrowLabel = txt({
+                Name = "Arrow",
+                Text = "▾",
+                Font = Theme.FontBold,
+                TextSize = 13,
+                TextColor3 = Theme.TextDim,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.new(1, -20, 0.5, 0),
+                Size = UDim2.new(0, 18, 0, 18),
+                Parent = Header,
+            })
+
+            Header.MouseEnter:Connect(function()
+                tw(DropCard, { BackgroundColor3 = Theme.CardHover }, 0.15)
+                tw(DropCard.CardStroke, { Color = Theme.CardBorderGlow, Transparency = 0.1 }, 0.15)
+            end)
+            Header.MouseLeave:Connect(function()
+                tw(DropCard, { BackgroundColor3 = Theme.CardBg }, 0.15)
+                tw(DropCard.CardStroke, { Color = Theme.CardBorder, Transparency = 0.35 }, 0.15)
+            end)
+
+            make("Frame", {
+                Size = UDim2.new(1, -24, 0, 1),
+                Position = UDim2.new(0, 12, 0, cardHeight),
+                BackgroundColor3 = Theme.CardBorderGlow,
+                BackgroundTransparency = 0.7,
+                Parent = DropCard,
+            })
+
+            local OptionsContainer = make("ScrollingFrame", {
+                Size = UDim2.new(1, -24, 0, maxScrollH),
+                Position = UDim2.new(0, 12, 0, cardHeight + 6),
+                BackgroundTransparency = 1,
+                ScrollBarThickness = 4,
+                ScrollBarImageColor3 = Theme.AccentCyan,
+                ScrollBarImageTransparency = 0.2,
+                CanvasSize = UDim2.new(0, 0, 0, #options * 32),
+                BorderSizePixel = 0,
+                ClipsDescendants = true,
+                Parent = DropCard,
+            }, {
+                make("UIListLayout", {
+                    SortOrder = Enum.SortOrder.LayoutOrder,
+                    Padding = UDim.new(0, 4),
+                }),
+            })
+
+            local optionButtons = {}
+            local function paintOptions()
+                for opt, b in pairs(optionButtons) do
+                    local active = false
+                    if isMulti then
+                        active = (selected[opt] == true)
+                    else
+                        active = (opt == selected)
+                    end
+
+                    tw(b, {
+                        BackgroundColor3 = active and Theme.AccentPrimary or Color3.fromRGB(30, 34, 50),
+                        BackgroundTransparency = active and 0.6 or 0.2,
+                        TextColor3 = active and WHITE or Theme.TextBody,
+                    }, 0.15)
+                    b.Check.Visible = active
+                end
+            end
+
+            local function setExpanded(state)
+                isExpanded = state
+                tw(DropCard, { Size = UDim2.new(1, 0, 0, state and expandedH or cardHeight) }, state and 0.3 or 0.24, Enum.EasingStyle.Quart)
+                tw(ArrowLabel, { Rotation = state and 180 or 0, TextColor3 = state and Theme.AccentCyan or Theme.TextDim }, 0.25)
+            end
+
+            for i, opt in ipairs(options) do
+                local OptBtn = make("TextButton", {
+                    Size = UDim2.new(1, -8, 0, 28),
+                    BackgroundColor3 = Color3.fromRGB(30, 34, 50),
+                    BackgroundTransparency = 0.2,
+                    Text = "  " .. tostring(opt),
+                    Font = Theme.FontRegular,
+                    TextSize = 11,
+                    TextColor3 = Theme.TextBody,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    AutoButtonColor = false,
+                    LayoutOrder = i,
+                    Parent = OptionsContainer,
+                }, {
+                    corner(7),
+                    txt({
+                        Name = "Check",
+                        Text = "✓",
+                        Font = Theme.FontBold,
+                        TextSize = 12,
+                        TextColor3 = Theme.AccentCyan,
+                        TextXAlignment = Enum.TextXAlignment.Right,
+                        Position = UDim2.new(0, 0, 0, 0),
+                        Size = UDim2.new(1, -10, 1, 0),
+                        Visible = false,
+                    }),
+                })
+                optionButtons[opt] = OptBtn
+
+                OptBtn.MouseButton1Click:Connect(function()
+                    if isMulti then
+                        selected[opt] = not selected[opt]
+                        SelectedLabel.Text = getSelectedSummary()
+                        paintOptions()
+                        task.spawn(callback, selected)
+                    else
+                        selected = opt
+                        SelectedLabel.Text = tostring(opt)
+                        paintOptions()
+                        setExpanded(false)
+                        task.spawn(callback, selected)
+                    end
+                end)
+                OptBtn.MouseEnter:Connect(function()
+                    local active = isMulti and (selected[opt] == true) or (opt == selected)
+                    if not active then
+                        tw(OptBtn, { BackgroundColor3 = Theme.AccentPrimary, BackgroundTransparency = 0.55, TextColor3 = WHITE }, 0.12)
+                    end
+                end)
+                OptBtn.MouseLeave:Connect(function()
+                    local active = isMulti and (selected[opt] == true) or (opt == selected)
+                    if not active then
+                        tw(OptBtn, { BackgroundColor3 = Color3.fromRGB(30, 34, 50), BackgroundTransparency = 0.2, TextColor3 = Theme.TextBody }, 0.12)
+                    end
+                end)
+            end
+            paintOptions()
+
+            Header.MouseButton1Click:Connect(function()
+                setExpanded(not isExpanded)
+            end)
+
+            local DropHandle = {}
+            function DropHandle:Set(newVal)
+                if isMulti then
+                    if type(newVal) == "table" then
+                        selected = table.clone(newVal)
+                    else
+                        selected = {}
+                    end
+                    SelectedLabel.Text = getSelectedSummary()
+                    paintOptions()
+                    task.spawn(callback, selected)
+                else
+                    if optionButtons[newVal] then
+                        selected = newVal
+                        SelectedLabel.Text = tostring(newVal)
+                        paintOptions()
+                        task.spawn(callback, selected)
+                    end
+                end
+            end
+            function DropHandle:Get()
+                return selected
+            end
+            return DropHandle
+        end
+
+        function TabObj:AddTextbox(txtConfig)
+            txtConfig = txtConfig or {}
+            local name     = txtConfig.Name or "Input Key / Text"
+            local default  = txtConfig.Default or ""
+            local place    = txtConfig.Placeholder or txtConfig.PlaceholderText or "Enter value..."
+            local callback = txtConfig.Callback or function() end
+
+            local BoxCard = makeCard(TabPage, 48, false)
+            hoverable(BoxCard)
+
+            txt({
+                Text = name,
+                Font = Theme.FontSemi,
+                TextSize = 12,
+                TextColor3 = Theme.TextTitle,
+                Position = UDim2.new(0, 16, 0, 0),
+                Size = UDim2.new(0.45, 0, 1, 0),
+                Parent = BoxCard,
+            })
+
+            local Input = make("TextBox", {
+                Size = UDim2.new(0, 170, 0, 30),
+                Position = UDim2.new(1, -184, 0.5, -15),
+                BackgroundColor3 = Theme.InputBg,
+                Text = tostring(default),
+                PlaceholderText = place,
+                PlaceholderColor3 = Theme.TextDim,
+                Font = Theme.FontRegular,
+                TextSize = 12,
+                TextColor3 = Theme.TextTitle,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ClearTextOnFocus = false,
+                ClipsDescendants = true,
+                Parent = BoxCard,
+            }, {
+                corner(8),
+                make("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }),
+                stroke(Theme.CardBorder, 1, 0.1, "InputStroke"),
+            })
+
+            Input.Focused:Connect(function()
+                tw(Input.InputStroke, { Color = Theme.AccentCyan, Thickness = 1.6, Transparency = 0 }, 0.2)
+                tw(Input, { BackgroundColor3 = Color3.fromRGB(18, 21, 34) }, 0.2)
+            end)
+            Input.FocusLost:Connect(function(enter)
+                tw(Input.InputStroke, { Color = Theme.CardBorder, Thickness = 1, Transparency = 0.1 }, 0.2)
+                tw(Input, { BackgroundColor3 = Theme.InputBg }, 0.2)
+                task.spawn(callback, Input.Text, enter)
+            end)
+
+            local BoxHandle = {}
+            function BoxHandle:Set(v)
+                Input.Text = tostring(v)
+            end
+            function BoxHandle:Get()
+                return Input.Text
+            end
+            return BoxHandle
         end
 
         function TabObj:AddLabel(labelText)
@@ -666,25 +2023,23 @@ function PB_UI:CreateWindow(config)
                 BackgroundColor3 = Theme.CardBg,
                 Parent = TabPage
             }, {
-                make("UICorner", { CornerRadius = UDim.new(0, 10) }),
-                make("UIStroke", { Color = Theme.CardBorder, Thickness = 1.1, Transparency = 0.3 }),
+                corner(10),
+                stroke(Theme.CardBorder, 1.1, 0.35),
                 make("Frame", {
                     Size = UDim2.new(0, 3, 1, -12),
                     Position = UDim2.new(0, 8, 0, 6),
                     BackgroundColor3 = Theme.AccentCyan
                 }, {
-                    make("UICorner", { CornerRadius = UDim.new(1, 0) })
+                    pill()
                 }),
-                make("TextLabel", {
+                txt({
                     Name = "LabelText",
                     Text = tostring(labelText or ""),
                     Font = Theme.FontSemi,
                     TextSize = 12,
                     TextColor3 = Theme.TextTitle,
-                    TextXAlignment = Enum.TextXAlignment.Left,
                     Position = UDim2.new(0, 20, 0, 0),
                     Size = UDim2.new(1, -28, 1, 0),
-                    BackgroundTransparency = 1
                 })
             })
             local handle = {}
@@ -696,423 +2051,38 @@ function PB_UI:CreateWindow(config)
             return handle
         end
 
-        function TabObj:AddToggle(togConfig)
-            togConfig = togConfig or {}
-            local name     = togConfig.Name or "Toggle"
-            local desc     = togConfig.Desc or ""
-            local default  = togConfig.Default or false
-            local callback = togConfig.Callback or function() end
-
-            local isToggled = default
-            local cardHeight = desc ~= "" and 52 or 42
-
-            local ToggleCard = make("TextButton", {
-                Size = UDim2.new(1, 0, 0, cardHeight),
-                BackgroundColor3 = Theme.CardBg,
-                AutoButtonColor = false,
-                Text = "",
-                Parent = TabPage
-            }, {
-                make("UICorner", { CornerRadius = UDim.new(0, 10) }),
-                make("UIStroke", { Name = "CardStroke", Color = Theme.CardBorder, Thickness = 1.1, Transparency = 0.3 }),
-                make("TextLabel", {
-                    Text = name,
-                    Font = Theme.FontSemi,
-                    TextSize = 12,
-                    TextColor3 = Theme.TextTitle,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Position = UDim2.new(0, 16, 0, desc ~= "" and 8 or 0),
-                    Size = UDim2.new(1, -80, 0, desc ~= "" and 18 or cardHeight),
-                    BackgroundTransparency = 1
-                })
-            })
-
-            if desc ~= "" then
-                make("TextLabel", {
-                    Text = desc,
-                    Font = Theme.FontRegular,
-                    TextSize = 10,
-                    TextColor3 = Theme.TextDim,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Position = UDim2.new(0, 16, 0, 26),
-                    Size = UDim2.new(1, -80, 0, 16),
-                    BackgroundTransparency = 1,
-                    Parent = ToggleCard
-                })
-            end
-
-            local Track = make("Frame", {
-                Size = UDim2.new(0, 42, 0, 22),
-                Position = UDim2.new(1, -56, 0.5, -11),
-                BackgroundColor3 = isToggled and Theme.AccentPrimary or Color3.fromRGB(36, 40, 56),
-                Parent = ToggleCard
-            }, {
-                make("UICorner", { CornerRadius = UDim.new(1, 0) }),
-                make("UIStroke", {
-                    Color = isToggled and Theme.AccentCyan or Theme.CardBorder,
-                    Thickness = 1,
-                    Transparency = 0.4
-                })
-            })
-
-            local Knob = make("Frame", {
-                Size = UDim2.new(0, 16, 0, 16),
-                Position = isToggled and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8),
-                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-                Parent = Track
-            }, {
-                make("UICorner", { CornerRadius = UDim.new(1, 0) })
-            })
-
-            local function syncVisual(fire)
-                if isToggled then
-                    tw(Track, { BackgroundColor3 = Theme.AccentPrimary }, 0.22)
-                    tw(Track.UIStroke, { Color = Theme.AccentCyan }, 0.22)
-                    tw(Knob, { Position = UDim2.new(1, -19, 0.5, -8) }, 0.22, Enum.EasingStyle.Quart)
-                    tw(ToggleCard.CardStroke, { Color = Theme.AccentPrimary, Transparency = 0.5 }, 0.22)
-                else
-                    tw(Track, { BackgroundColor3 = Color3.fromRGB(36, 40, 56) }, 0.22)
-                    tw(Track.UIStroke, { Color = Theme.CardBorder }, 0.22)
-                    tw(Knob, { Position = UDim2.new(0, 3, 0.5, -8) }, 0.22, Enum.EasingStyle.Quart)
-                    tw(ToggleCard.CardStroke, { Color = Theme.CardBorder, Transparency = 0.3 }, 0.22)
-                end
-                if fire then task.spawn(callback, isToggled) end
-            end
-
-            ToggleCard.MouseButton1Click:Connect(function()
-                isToggled = not isToggled
-                syncVisual(true)
-            end)
-
-            local handle = {}
-            function handle:Set(val)
-                isToggled = val
-                syncVisual(true)
-            end
-            return handle
-        end
-
-        function TabObj:AddSlider(sldConfig)
-            sldConfig = sldConfig or {}
-            local name      = sldConfig.Name or "Slider"
-            local min       = sldConfig.Min or 0
-            local max       = sldConfig.Max or 100
-            local default   = math.clamp(sldConfig.Default or min, min, max)
-            local inc       = sldConfig.Increment or 1
-            local suffix    = sldConfig.ValueName or ""
-            local callback  = sldConfig.Callback or function() end
-
-            local currentVal = default
-
-            local SliderCard = make("Frame", {
-                Size = UDim2.new(1, 0, 0, 54),
-                BackgroundColor3 = Theme.CardBg,
-                Parent = TabPage
-            }, {
-                make("UICorner", { CornerRadius = UDim.new(0, 10) }),
-                make("UIStroke", { Color = Theme.CardBorder, Thickness = 1.1, Transparency = 0.3 }),
-                make("TextLabel", {
-                    Text = name,
-                    Font = Theme.FontSemi,
-                    TextSize = 12,
-                    TextColor3 = Theme.TextTitle,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Position = UDim2.new(0, 16, 0, 8),
-                    Size = UDim2.new(0.65, 0, 0, 16),
-                    BackgroundTransparency = 1
-                }),
-                make("TextLabel", {
-                    Name = "ValText",
-                    Text = tostring(currentVal) .. (suffix ~= "" and (" " .. suffix) or ""),
-                    Font = Theme.FontTitle,
-                    TextSize = 12,
-                    TextColor3 = Theme.AccentCyan,
-                    TextXAlignment = Enum.TextXAlignment.Right,
-                    Position = UDim2.new(0.65, 0, 0, 8),
-                    Size = UDim2.new(0.35, -16, 0, 16),
-                    BackgroundTransparency = 1
-                })
-            })
-
-            local Rail = make("TextButton", {
-                Size = UDim2.new(1, -32, 0, 7),
-                Position = UDim2.new(0, 16, 0, 34),
-                BackgroundColor3 = Color3.fromRGB(34, 38, 54),
-                AutoButtonColor = false,
-                Text = "",
-                Parent = SliderCard
-            }, {
-                make("UICorner", { CornerRadius = UDim.new(1, 0) })
-            })
-
-            local fillRatio = (currentVal - min) / (max - min)
-            local Fill = make("Frame", {
-                Size = UDim2.new(fillRatio, 0, 1, 0),
-                BackgroundColor3 = Theme.AccentPrimary,
-                Parent = Rail
-            }, {
-                make("UICorner", { CornerRadius = UDim.new(1, 0) }),
-                make("UIGradient", {
-                    Color = ColorSequence.new({
-                        ColorSequenceKeypoint.new(0.0, Theme.AccentPrimary),
-                        ColorSequenceKeypoint.new(1.0, Theme.AccentCyan)
-                    })
-                })
-            })
-
-            local Scrubber = make("Frame", {
-                Size = UDim2.new(0, 13, 0, 13),
-                Position = UDim2.new(fillRatio, -6, 0.5, -6),
-                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-                Parent = Rail
-            }, {
-                make("UICorner", { CornerRadius = UDim.new(1, 0) }),
-                make("UIStroke", { Color = Theme.AccentCyan, Thickness = 2 })
-            })
-
-            local isSliding = false
-            local function updateSlider(inputX)
-                local railX = Rail.AbsolutePosition.X
-                local railW = Rail.AbsoluteSize.X
-                local pct = math.clamp((inputX - railX) / railW, 0, 1)
-                local rawVal = min + (max - min) * pct
-                local stepped = math.floor((rawVal / inc) + 0.5) * inc
-                stepped = math.clamp(stepped, min, max)
-
-                currentVal = stepped
-                Fill.Size = UDim2.new(pct, 0, 1, 0)
-                Scrubber.Position = UDim2.new(pct, -6, 0.5, -6)
-                SliderCard.ValText.Text = tostring(currentVal) .. (suffix ~= "" and (" " .. suffix) or "")
-                task.spawn(callback, currentVal)
-            end
-
-            Rail.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    isSliding = true
-                    updateSlider(input.Position.X)
-                end
-            end)
-
-            UserInputService.InputChanged:Connect(function(input)
-                if isSliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                    updateSlider(input.Position.X)
-                end
-            end)
-
-            UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    isSliding = false
-                end
-            end)
-        end
-
-        function TabObj:AddDropdown(dropConfig)
-            dropConfig = dropConfig or {}
-            local name      = dropConfig.Name or "Dropdown"
-            local options   = dropConfig.Options or {}
-            local default   = dropConfig.Default or options[1]
-            local callback  = dropConfig.Callback or function() end
-
-            local isExpanded = false
-            local selected   = default
-
-            local DropCard = make("Frame", {
-                Size = UDim2.new(1, 0, 0, 42),
-                BackgroundColor3 = Theme.CardBg,
-                ClipsDescendants = true,
-                Parent = TabPage
-            }, {
-                make("UICorner", { CornerRadius = UDim.new(0, 10) }),
-                make("UIStroke", { Color = Theme.CardBorder, Thickness = 1.1, Transparency = 0.3 })
-            })
-
-            local Header = make("TextButton", {
-                Size = UDim2.new(1, 0, 0, 42),
-                BackgroundTransparency = 1,
-                Text = "",
-                AutoButtonColor = false,
-                Parent = DropCard
-            }, {
-                make("TextLabel", {
-                    Text = name,
-                    Font = Theme.FontSemi,
-                    TextSize = 12,
-                    TextColor3 = Theme.TextTitle,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Position = UDim2.new(0, 16, 0, 0),
-                    Size = UDim2.new(0.5, 0, 1, 0),
-                    BackgroundTransparency = 1
-                }),
-                make("TextLabel", {
-                    Name = "SelectedText",
-                    Text = tostring(selected) .. "  ▾",
-                    Font = Theme.FontBold,
-                    TextSize = 11,
-                    TextColor3 = Theme.AccentCyan,
-                    TextXAlignment = Enum.TextXAlignment.Right,
-                    Position = UDim2.new(0.5, 0, 0, 0),
-                    Size = UDim2.new(0.5, -16, 1, 0),
-                    BackgroundTransparency = 1
-                })
-            })
-
-            local OptionsContainer = make("Frame", {
-                Size = UDim2.new(1, -24, 0, #options * 30),
-                Position = UDim2.new(0, 12, 0, 44),
-                BackgroundTransparency = 1,
-                Parent = DropCard
-            }, {
-                make("UIListLayout", {
-                    SortOrder = Enum.SortOrder.LayoutOrder,
-                    Padding = UDim.new(0, 4)
-                })
-            })
-
-            for _, opt in ipairs(options) do
-                local OptBtn = make("TextButton", {
-                    Size = UDim2.new(1, 0, 0, 26),
-                    BackgroundColor3 = Color3.fromRGB(30, 34, 50),
-                    Text = tostring(opt),
-                    Font = Theme.FontRegular,
-                    TextSize = 11,
-                    TextColor3 = Theme.TextBody,
-                    AutoButtonColor = false,
-                    Parent = OptionsContainer
-                }, {
-                    make("UICorner", { CornerRadius = UDim.new(0, 6) })
-                })
-
-                OptBtn.MouseButton1Click:Connect(function()
-                    selected = opt
-                    Header.SelectedText.Text = tostring(opt) .. "  ▾"
-                    isExpanded = false
-                    tw(DropCard, { Size = UDim2.new(1, 0, 0, 42) }, 0.22)
-                    task.spawn(callback, selected)
-                end)
-            end
-
-            Header.MouseButton1Click:Connect(function()
-                isExpanded = not isExpanded
-                if isExpanded then
-                    local targetH = 50 + (#options * 30)
-                    tw(DropCard, { Size = UDim2.new(1, 0, 0, targetH) }, 0.25, Enum.EasingStyle.Quart)
-                    Header.SelectedText.Text = tostring(selected) .. "  ▴"
-                else
-                    tw(DropCard, { Size = UDim2.new(1, 0, 0, 42) }, 0.22, Enum.EasingStyle.Quart)
-                    Header.SelectedText.Text = tostring(selected) .. "  ▾"
-                end
-            end)
-        end
-
-        function TabObj:AddButton(btnConfig)
-            btnConfig = btnConfig or {}
-            local name      = btnConfig.Name or "Button"
-            local callback  = btnConfig.Callback or function() end
-
-            local Btn = make("TextButton", {
-                Size = UDim2.new(1, 0, 0, 40),
-                BackgroundColor3 = Theme.CardBg,
-                AutoButtonColor = false,
-                Text = "",
-                Parent = TabPage
-            }, {
-                make("UICorner", { CornerRadius = UDim.new(0, 10) }),
-                make("UIStroke", { Name = "BtnStroke", Color = Theme.CardBorder, Thickness = 1.1, Transparency = 0.3 }),
-                make("TextLabel", {
-                    Text = "⚡",
-                    Font = Theme.FontBold,
-                    TextSize = 13,
-                    Position = UDim2.new(0, 16, 0.5, -10),
-                    Size = UDim2.new(0, 20, 0, 20),
-                    TextColor3 = Theme.AccentCyan,
-                    BackgroundTransparency = 1
-                }),
-                make("TextLabel", {
-                    Text = name,
-                    Font = Theme.FontSemi,
-                    TextSize = 12,
-                    TextColor3 = Theme.TextTitle,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Position = UDim2.new(0, 42, 0, 0),
-                    Size = UDim2.new(1, -50, 1, 0),
-                    BackgroundTransparency = 1
-                })
-            })
-
-            Btn.MouseButton1Click:Connect(function()
-                tw(Btn, { BackgroundColor3 = Theme.CardHover }, 0.1)
-                task.wait(0.08)
-                tw(Btn, { BackgroundColor3 = Theme.CardBg }, 0.18)
-                task.spawn(callback)
-            end)
-        end
-
-        function TabObj:AddTextbox(txtConfig)
-            txtConfig = txtConfig or {}
-            local name      = txtConfig.Name or "Input"
-            local default   = txtConfig.Default or ""
-            local place     = txtConfig.Placeholder or "Enter value..."
-            local callback  = txtConfig.Callback or function() end
-
-            local BoxCard = make("Frame", {
-                Size = UDim2.new(1, 0, 0, 44),
-                BackgroundColor3 = Theme.CardBg,
-                Parent = TabPage
-            }, {
-                make("UICorner", { CornerRadius = UDim.new(0, 10) }),
-                make("UIStroke", { Color = Theme.CardBorder, Thickness = 1.1, Transparency = 0.3 }),
-                make("TextLabel", {
-                    Text = name,
-                    Font = Theme.FontSemi,
-                    TextSize = 12,
-                    TextColor3 = Theme.TextTitle,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Position = UDim2.new(0, 16, 0, 0),
-                    Size = UDim2.new(0.5, 0, 1, 0),
-                    BackgroundTransparency = 1
-                })
-            })
-
-            local Input = make("TextBox", {
-                Size = UDim2.new(0, 160, 0, 28),
-                Position = UDim2.new(1, -174, 0.5, -14),
-                BackgroundColor3 = Color3.fromRGB(28, 32, 48),
-                Text = tostring(default),
-                PlaceholderText = place,
-                PlaceholderColor3 = Theme.TextDim,
-                Font = Theme.FontRegular,
-                TextSize = 12,
-                TextColor3 = Theme.TextTitle,
-                ClearTextOnFocus = false,
-                Parent = BoxCard
-            }, {
-                make("UICorner", { CornerRadius = UDim.new(0, 8) }),
-                make("UIStroke", { Name = "InputStroke", Color = Theme.CardBorder, Thickness = 1 })
-            })
-
-            Input.Focused:Connect(function()
-                tw(Input.InputStroke, { Color = Theme.AccentCyan }, 0.2)
-            end)
-            Input.FocusLost:Connect(function(enter)
-                tw(Input.InputStroke, { Color = Theme.CardBorder }, 0.2)
-                task.spawn(callback, Input.Text, enter)
-            end)
-        end
-
         TabObj.MakeTab = TabObj.CreateTab
         return TabObj
     end
 
     WindowObj.MakeTab = WindowObj.CreateTab
+
+    task.defer(function()
+        setVisible(true)
+    end)
+
     return WindowObj
 end
 
-PB_UI.MakeWindow = PB_UI.CreateWindow
-PB_UI.Init = function() end
+UI.MakeWindow = UI.CreateWindow
+UI.Init = function() end
+function UI:MakeNotification(cfg)
+    cfg = cfg or {}
+    if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
+        _G.PB_ActiveWindow:Notify({
+            Title = cfg.Name or cfg.Title or "PROJECT BARUN",
+            Content = cfg.Content or "",
+            Duration = cfg.Time or cfg.Duration or 3.5,
+            Type = cfg.Type or "info"
+        })
+    end
+end
 
-local OrionLib = PB_UI
+local OrionLib = UI
 
--- ─── Settings / Configuration ─────────────────────────────────────
+-- ═══════════════════════════════════════════════════════════════════
+-- 5. SETTINGS / CONFIGURATION STATE
+-- ═══════════════════════════════════════════════════════════════════
 local Settings = {
     -- Train
     AutoTrain            = false,
@@ -1130,10 +2100,10 @@ local Settings = {
 
     -- Forge (Engineered with 2SKI Smart Slicing)
     AutoForge            = false,
-    ForgeType            = "All", -- "Weapon" | "Armor" | "Hat" | "All" (หมุนเวียน 3 ชิ้น)
-    MinOreToForge        = 4,     -- เกมนี้ต้องการขั้นต่ำ 4 แร่
+    ForgeType            = "All", -- "Weapon" | "Armor" | "Hat" | "All"
+    MinOreToForge        = 4,
     ForgeDelay           = 0.6,
-    OreQualityMode       = "Best", -- "Best" (แร่เกรดสูงก่อน) | "Low" (แร่เกรดต่ำก่อน)
+    OreQualityMode       = "Best", -- "Best" | "Low"
     AutoEquipBestAfter   = false,
 
     -- Auto Equip Best Gear
@@ -1142,7 +2112,7 @@ local Settings = {
     -- Enhance & Safe Sell
     AutoEnhance          = false,
     UseProtect           = false,
-    AutoSellTrashGear    = false, -- ขายเฉพาะขยะอาวุธ/เกราะ/หมวก ไม่แตะต้องแร่เด็ดขาด
+    AutoSellTrashGear    = false,
 
     -- SuperLoot & Dungeon
     AutoSuperLoot        = false,
@@ -1161,19 +2131,15 @@ local Settings = {
     AttackDelay          = 0.1,
 }
 
--- ─── Services & Remotes ───────────────────────────────────────────
-local Players           = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local MarketplaceService = game:GetService("MarketplaceService")
-local LocalPlayer       = Players.LocalPlayer or Players.PlayerAdded:Wait()
-
-local Remote            = ReplicatedStorage:WaitForChild("Remote", 10)
+-- ═══════════════════════════════════════════════════════════════════
+-- 6. SERVICES & REMOTES
+-- ═══════════════════════════════════════════════════════════════════
+local Remote = ReplicatedStorage:WaitForChild("Remote", 10)
 local function R(folder, name)
     local f = Remote and Remote:FindFirstChild(folder)
     return f and f:FindFirstChild(name)
 end
 
--- Remotes setup
 local TrainRE_Start       = R("Train",      "StartTrainRE")
 local TrainRE_Once        = R("Train",      "TrainOnceRE")
 local TrainRE_IntoArea    = R("Train",      "IntoAutoTrainRE")
@@ -1200,10 +2166,8 @@ local AttackRE_Kill       = R("Attack",     "KillEnemyRE")
 local SuperLootRE_Kill    = R("SuperLoot",  "KillSuperLootRE")
 local ProfileRF           = R("Profile",    "GetTotalDataRF")
 
--- Bindables for Instant Silent Kill
 local Bindable_EnemyHit   = Remote and Remote:FindFirstChild("Attack") and Remote.Attack:FindFirstChild("EnemyHitBE")
 
--- Internal Controllers & Modules
 local TrainCTRL, EnemyCTRL, HPCTRL, OreHelper, WeaponHelper, ArmorHelper, RarityHelper, UpgradeHelper
 pcall(function() TrainCTRL   = require(ReplicatedStorage.CTRL.TrainCTRL) end)
 pcall(function() EnemyCTRL   = require(ReplicatedStorage.CTRL.EnemyCTRL) end)
@@ -1220,19 +2184,18 @@ local function safe(fn)
 end
 
 -- ═══════════════════════════════════════════════════════════════════
--- 1. GAMEPASS BYPASS INJECTOR (SkipForge, VIP, MoreOre, UltraLuck)
+-- 7. GAMEPASS BYPASS INJECTOR
 -- ═══════════════════════════════════════════════════════════════════
 local GamePassMap = {
-    [1962630901] = "VIP",           -- VIP (x2 Coins, x2 EXP)
-    [1963566878] = "SuperLuck",     -- Super Luck (x200% Luck)
-    [1965960643] = "CommonLuck",    -- Common Luck (x150% Luck)
-    [1963764856] = "MoreOre",       -- More Ore (x200% Ore Drop)
-    [1982474360] = "UltraLuck",     -- Ultra Luck (x500% Luck)
-    [1962564854] = "SkipForge",     -- Skip Forge (หลอมทันทีไม่ต้องรอ)
+    [1962630901] = "VIP",
+    [1963566878] = "SuperLuck",
+    [1965960643] = "CommonLuck",
+    [1963764856] = "MoreOre",
+    [1982474360] = "UltraLuck",
+    [1962564854] = "SkipForge",
 }
 
 local function applyGamePassBypass()
-    -- Inject flags into Pem store
     pcall(function()
         local ProfileData = require(ReplicatedStorage.ProfileData)
         local pemStore = ProfileData and ProfileData.GetStoreData and ProfileData.GetStoreData("Pem")
@@ -1244,7 +2207,6 @@ local function applyGamePassBypass()
         end
     end)
 
-    -- Hook __namecall to fake ownership
     if hookmetamethod and newcclosure and getnamecallmethod then
         pcall(function()
             local oldNamecall
@@ -1263,7 +2225,7 @@ end
 safe(applyGamePassBypass)
 
 -- ═══════════════════════════════════════════════════════════════════
--- 2. BACKPACK SANITIZER (Prevents in-game ForgeGUI Line 508 Crash)
+-- 8. BACKPACK SANITIZER (Prevents in-game ForgeGUI Line 508 Crash)
 -- ═══════════════════════════════════════════════════════════════════
 local BackpackData
 pcall(function()
@@ -1275,7 +2237,6 @@ pcall(function()
             local res = origGetData(...)
             if res and type(res.have) == "table" then
                 for _, item in pairs(res.have) do
-                    -- Fix enhancement stones miscategorized as Type="Ore"
                     if item.Type == "Ore" and type(item.ID) ~= "string" then
                         item.Type = "Material"
                     end
@@ -1310,7 +2271,7 @@ local function getBackpackData()
 end
 
 -- ═══════════════════════════════════════════════════════════════════
--- 3. SMART FORGE ENGINE (Extracted from 2SKI Architecture)
+-- 9. SMART FORGE ENGINE (2SKI Slicing Architecture)
 -- ═══════════════════════════════════════════════════════════════════
 local forgeCycleIndex = 1
 
@@ -1320,7 +2281,6 @@ local function executeForgeNow(forgeType, minOres)
     forgeType = forgeType or Settings.ForgeType or "All"
     minOres = minOres or Settings.MinOreToForge or 4
 
-    -- 1. Gather all real string-ID ores
     local oreEntries = {}
     local totalOres = 0
     for uuid, item in pairs(have) do
@@ -1339,14 +2299,12 @@ local function executeForgeNow(forgeType, minOres)
         return false, "Not enough ores (Minimum 4 required)"
     end
 
-    -- 2. Sort ores based on user preference
     if Settings.OreQualityMode == "Best" then
         table.sort(oreEntries, function(a, b) return a.power > b.power end)
     else
         table.sort(oreEntries, function(a, b) return a.power < b.power end)
     end
 
-    -- 3. Determine actual slot and serverConfigType
     local actualSlot = "Weapon"
     local isRotate = (forgeType == "All")
 
@@ -1366,22 +2324,21 @@ local function executeForgeNow(forgeType, minOres)
 
     if actualSlot == "Weapon" then
         serverConfigType = "Weapon"
-        targetOreCount = math.clamp(totalOres, 4, 13) -- 13 ores = 100% Greatsword
+        targetOreCount = math.clamp(totalOres, 4, 13)
     elseif actualSlot == "Hat" then
-        serverConfigType = "Armor" -- Game server categorizes Hat under "Armor"
+        serverConfigType = "Armor"
         targetOreCount = (totalOres >= 16) and 16 or 4
     elseif actualSlot == "Armor" then
         serverConfigType = "Armor"
         if totalOres >= 23 then
-            targetOreCount = 23 -- 100% Heavy Armor
+            targetOreCount = 23
         elseif totalOres >= 11 then
-            targetOreCount = 11 -- 80% Light Armor
+            targetOreCount = 11
         else
             targetOreCount = math.clamp(totalOres, 4, 11)
         end
     end
 
-    -- 4. Slice required ores into dictionary
     local oreList = {}
     local collected = 0
     for _, entry in ipairs(oreEntries) do
@@ -1398,7 +2355,6 @@ local function executeForgeNow(forgeType, minOres)
         return false, "Slicing failed"
     end
 
-    -- 5. Invoke Forge with exact parameters
     local ok, res = pcall(function()
         return ForgeRF:InvokeServer({
             ConfigType = serverConfigType,
@@ -1420,7 +2376,7 @@ local function executeForgeNow(forgeType, minOres)
 end
 
 -- ═══════════════════════════════════════════════════════════════════
--- 4. AUTO EQUIP BEST GEAR
+-- 10. AUTO EQUIP BEST GEAR
 -- ═══════════════════════════════════════════════════════════════════
 function calculateGearScore(item)
     if not item or not item.ID then return -1 end
@@ -1463,7 +2419,7 @@ function equipBestGearNow(targetSlot)
 end
 
 -- ═══════════════════════════════════════════════════════════════════
--- 5. TRAIN MULTIPLIER ZONES CONFIG
+-- 11. TRAIN MULTIPLIER ZONES CONFIG
 -- ═══════════════════════════════════════════════════════════════════
 local TrainAreaConfig = {
     { Id = 1,  Name = "Train_1 (x1.5 Power | Reb 0)",  Rebirth = 0,  PadPos = Vector3.new(-53.0, 3.0, -41.0), DummyPos = Vector3.new(-53.0, 3.0, -45.0) },
@@ -1488,67 +2444,87 @@ local function getBestTrainZone()
 end
 
 -- ═══════════════════════════════════════════════════════════════════
--- 6. ORION UI WINDOW SETUP
+-- 12. WINDOW & TAB CREATION (AURORA v3.0)
 -- ═══════════════════════════════════════════════════════════════════
-local Window = OrionLib:MakeWindow({
-    Name = "PROJECT BARUN | Loot To Forge",
-    HidePremium = true,
-    SaveConfig = false,
-    ConfigFolder = "ProjectBarunForge"
+local Window = UI:CreateWindow({
+    Title = "PROJECT BARUN",
+    Subtitle = "LOOT TO FORGE • MASTER HUB v3.0",
+    Size = UDim2.fromOffset(720, 500),
+    Name = "ProjectBarunForge",
+    ToggleKey = Enum.KeyCode.RightShift,
 })
+_G.PB_ActiveWindow = Window
 
-local TabFarming = Window:MakeTab({ Name = "Farming & Stage", Icon = "rbxassetid://4483345998" })
-local TabForge   = Window:MakeTab({ Name = "Forge & Gear",    Icon = "rbxassetid://4483345998" })
-local TabCombat  = Window:MakeTab({ Name = "Combat & Train",  Icon = "rbxassetid://4483345998" })
-local TabMisc    = Window:MakeTab({ Name = "Misc & Upgrades", Icon = "rbxassetid://4483345998" })
-local TabConfig  = Window:MakeTab({ Name = "Settings & Save",  Icon = "rbxassetid://4483345998" })
+local TabFarming = Window:CreateTab({ Name = "Farming & Stage", Icon = "⚡", Subtitle = "Stage, Mobs & Ore Mining" })
+local TabForge   = Window:CreateTab({ Name = "Forge & Gear",    Icon = "💎", Subtitle = "Smart 2SKI Slicing & Auto Equip" })
+local TabCombat  = Window:CreateTab({ Name = "Combat & Train",  Icon = "⚔️", Subtitle = "Auto Training & Enemy Slaying" })
+local TabMisc    = Window:CreateTab({ Name = "Misc & Upgrades", Icon = "⚙️", Subtitle = "Economy, Upgrades & SuperLoot" })
+local TabConfig  = Window:CreateTab({ Name = "Settings & Save",  Icon = "💾", Subtitle = "Persistent JSON Profile Engine" })
 
--- ─── Tab: Farming & Stage ─────────────────────────────────────────
-TabFarming:AddSection({ Name = "Stage Automation" })
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 1: FARMING & STAGE
+-- ─────────────────────────────────────────────────────────────────────
+TabFarming:AddSection("LIVE TELEMETRY")
+local StatRebirth = TabFarming:AddStatCard({ Title = "Current Rebirth", Value = "0", Subtext = "Live Player Rebirth" })
+local StatBestZone = TabFarming:AddStatCard({ Title = "Best Multiplier Zone", Value = "Zone 1", Subtext = "Optimal Training Multiplier" })
+local StatBackpackOres = TabFarming:AddStatCard({ Title = "Ores in Backpack", Value = "0", Subtext = "Ready to Forge" })
 
+TabFarming:AddSection("STAGE AUTOMATION")
 TabFarming:AddToggle({
     Name = "Auto Stage & Claim Ore",
+    Desc = "เคลียร์ด่านและเก็บแร่ทั้งหมดส่งตรงเข้าคลังอัตโนมัติ",
     Default = Settings.AutoStageOre,
-    Callback = function(Value) Settings.AutoStageOre = Value end
+    Callback = function(Value)
+        Settings.AutoStageOre = Value
+        Window:Notify({ Title = "Auto Stage", Content = Value and "Active!" or "Paused.", Type = Value and "success" or "warning" })
+    end
 })
 
 TabFarming:AddToggle({
     Name = "Auto Max Stage (ลุยด่านสูงสุดอัตโนมัติ)",
+    Desc = "ดันด่านระดับสูงสุดที่ผ่านได้เพื่อรับแร่คุณภาพสูง",
     Default = Settings.AutoMaxStage,
     Callback = function(Value) Settings.AutoMaxStage = Value end
 })
 
 TabFarming:AddTextbox({
     Name = "Specific Stage Name",
+    Placeholder = "e.g. Stage_27",
     Default = Settings.StageName,
-    TextDisappear = false,
     Callback = function(Value) Settings.StageName = Value end
 })
 
 TabFarming:AddToggle({
     Name = "Silent Insta-Kill Mobs (สังหารม็อบในสเตจทันที)",
+    Desc = "ยิงสัญญาณดาเมจ 1e30 สังหารม็อบทั้งฉากแบบไร้รอยต่อ",
     Default = Settings.SilentKillMobs,
     Callback = function(Value) Settings.SilentKillMobs = Value end
 })
 
 TabFarming:AddSlider({
     Name = "Stage Delay",
-    Min = 0.15, Max = 2.0, Default = Settings.StageDelay, Color = Color3.fromRGB(255, 255, 255),
+    Min = 0.15, Max = 2.0, Default = Settings.StageDelay,
     Increment = 0.05, ValueName = "sec",
     Callback = function(Value) Settings.StageDelay = Value end
 })
 
--- ─── Tab: Forge & Gear ───────────────────────────────────────────
-TabForge:AddSection({ Name = "PROJECT BARUN Smart Forge Engine" })
-
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 2: FORGE & GEAR
+-- ─────────────────────────────────────────────────────────────────────
+TabForge:AddSection("SMART FORGE ENGINE (2SKI SMART SLICING)")
 TabForge:AddToggle({
     Name = "Auto Forge (หลอมอัตโนมัติ)",
+    Desc = "เปิดระบบหลอมแร่อัจฉริยะ เลือกลำดับแร่และการคำนวณขั้นสูง",
     Default = Settings.AutoForge,
-    Callback = function(Value) Settings.AutoForge = Value end
+    Callback = function(Value)
+        Settings.AutoForge = Value
+        Window:Notify({ Title = "Auto Forge", Content = Value and "Forge Engine Active!" or "Forge Engine Paused.", Type = Value and "success" or "warning" })
+    end
 })
 
 TabForge:AddDropdown({
     Name = "Forge Mode",
+    Desc = "เลือกประเภทของอุปกรณ์ที่ต้องการหลอม",
     Default = "All",
     Options = {"All", "Weapon", "Armor", "Hat"},
     Callback = function(Value) Settings.ForgeType = Value end
@@ -1556,6 +2532,7 @@ TabForge:AddDropdown({
 
 TabForge:AddDropdown({
     Name = "Ore Quality Priority",
+    Desc = "เลือกว่าจะใช้แร่เกรดสูงสุดหรือต่ำสุดก่อน",
     Default = "Best",
     Options = {"Best", "Low"},
     Callback = function(Value) Settings.OreQualityMode = Value end
@@ -1563,118 +2540,135 @@ TabForge:AddDropdown({
 
 TabForge:AddSlider({
     Name = "Min Ores To Forge (เกมนี้ต้องการขั้นต่ำ 4)",
-    Min = 4, Max = 23, Default = Settings.MinOreToForge, Color = Color3.fromRGB(255, 255, 255),
+    Min = 4, Max = 23, Default = Settings.MinOreToForge,
     Increment = 1, ValueName = "ores",
     Callback = function(Value) Settings.MinOreToForge = Value end
 })
 
 TabForge:AddSlider({
     Name = "Forge Loop Delay",
-    Min = 0.2, Max = 2.0, Default = Settings.ForgeDelay, Color = Color3.fromRGB(255, 255, 255),
+    Min = 0.2, Max = 2.0, Default = Settings.ForgeDelay,
     Increment = 0.1, ValueName = "sec",
     Callback = function(Value) Settings.ForgeDelay = Value end
 })
 
-TabForge:AddSection({ Name = "Gear Management" })
-
+TabForge:AddSection("GEAR MANAGEMENT")
 TabForge:AddButton({
     Name = "Equip Best Gear Now (สวมใส่อุปกรณ์ที่ดีที่สุดทันที)",
-    Callback = function() equipBestGearNow("All") end
+    Icon = "💎",
+    Callback = function()
+        equipBestGearNow("All")
+        Window:Notify({ Title = "Equip Gear", Content = "Equipped best weapon, armor, and hat!", Type = "success" })
+    end
 })
 
 TabForge:AddToggle({
     Name = "Auto Equip Best After Forge",
+    Desc = "ตรวจสอบและสวมใส่ชิ้นที่ดีกว่าทันทีหลังจากหลอมสำเร็จ",
     Default = Settings.AutoEquipBestAfter,
     Callback = function(Value) Settings.AutoEquipBestAfter = Value end
 })
 
 TabForge:AddToggle({
     Name = "Auto Enhance Equipped Weapon",
+    Desc = "อัปเกรดตีบวกอาวุธที่กำลังสวมใส่ต่อเนื่อง",
     Default = Settings.AutoEnhance,
     Callback = function(Value) Settings.AutoEnhance = Value end
 })
 
 TabForge:AddToggle({
     Name = "Use Protection Item (หินกันแตก)",
+    Desc = "ใช้หินป้องกันอุปกรณ์เสียหายขณะตีบวก",
     Default = Settings.UseProtect,
     Callback = function(Value) Settings.UseProtect = Value end
 })
 
 TabForge:AddToggle({
     Name = "Auto Sell Trash Gear (ขายขยะอุปกรณ์ - ไม่แตะต้องแร่)",
+    Desc = "สแกนขายเฉพาะอาวุธ/เกราะ/หมวกที่มีค่าสเตตัสต่ำ ไม่ขายแร่เด็ดขาด",
     Default = Settings.AutoSellTrashGear,
     Callback = function(Value) Settings.AutoSellTrashGear = Value end
 })
 
--- ─── Tab: Combat & Train ──────────────────────────────────────────
-TabCombat:AddSection({ Name = "Training Automation" })
-
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 3: COMBAT & TRAIN
+-- ─────────────────────────────────────────────────────────────────────
+TabCombat:AddSection("TRAINING AUTOMATION")
 TabCombat:AddToggle({
     Name = "Auto Train (ฟันดาบเก็บพลัง)",
+    Desc = "ส่งคำสั่งฝึกซ้อมความเร็วสูงต่อเนื่อง",
     Default = Settings.AutoTrain,
     Callback = function(Value) Settings.AutoTrain = Value end
 })
 
 TabCombat:AddToggle({
     Name = "Auto Best Multiplier Zone (ยืนแท่นคูณสูงสุดที่ปลดล็อค)",
+    Desc = "วาร์ปและส่งคำสั่งเข้าแท่นที่ให้ตัวคูณพลังสูงสุดตาม Rebirth",
     Default = Settings.AutoTrainBestZone,
     Callback = function(Value) Settings.AutoTrainBestZone = Value end
 })
 
 TabCombat:AddSlider({
     Name = "Manual Train Zone (1-8)",
-    Min = 1, Max = 8, Default = Settings.TrainAreaIndex, Color = Color3.fromRGB(255, 255, 255),
+    Min = 1, Max = 8, Default = Settings.TrainAreaIndex,
     Increment = 1, ValueName = "Zone",
     Callback = function(Value) Settings.TrainAreaIndex = Value end
 })
 
-TabCombat:AddSection({ Name = "Boss & World Combat" })
-
+TabCombat:AddSection("BOSS & WORLD COMBAT")
 TabCombat:AddToggle({
     Name = "Auto Attack Nearby Enemies",
+    Desc = "โจมตีและส่งดาเมจใส่ม็อบรอบข้างอัตโนมัติ",
     Default = Settings.AutoAttack,
     Callback = function(Value) Settings.AutoAttack = Value end
 })
 
 TabCombat:AddToggle({
     Name = "Auto SuperLoot Hunter",
+    Desc = "ค้นหาและสังหารกล่องสมบัติ SuperLoot ทันทีที่เกิด",
     Default = Settings.AutoSuperLoot,
     Callback = function(Value) Settings.AutoSuperLoot = Value end
 })
 
--- ─── Tab: Misc & Upgrades ─────────────────────────────────────────
-TabMisc:AddSection({ Name = "Automation & Economy" })
-
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 4: MISC & UPGRADES
+-- ─────────────────────────────────────────────────────────────────────
+TabMisc:AddSection("AUTOMATION & ECONOMY")
 TabMisc:AddToggle({
     Name = "Auto Claim All Rewards (Online, Update, Offline, Ticket)",
+    Desc = "กดรับรางวัลออนไลน์ อัปเดต และตั๋วดันเจี้ยนอัตโนมัติ",
     Default = Settings.AutoClaimRewards,
     Callback = function(Value) Settings.AutoClaimRewards = Value end
 })
 
 TabMisc:AddToggle({
     Name = "Auto Upgrades (Train / OrePack / Luck)",
+    Desc = "อัปเกรดความสามารถสายฝึกซ้อม ความจุแร่ และดวงอัตโนมัติ",
     Default = Settings.AutoUpgrade,
     Callback = function(Value) Settings.AutoUpgrade = Value end
 })
 
 TabMisc:AddToggle({
-    Name = "Auto Rebirth (ขายขยะก่อนจุติอัตโนมัติ)",
+    Name = "Auto Rebirth (จุติอัตโนมัติเมื่อครบเงื่อนไข)",
+    Desc = "จุติตัวละครเพื่อรับตัวคูณพลังถาวร",
     Default = Settings.AutoRebirth,
     Callback = function(Value) Settings.AutoRebirth = Value end
 })
 
 TabMisc:AddToggle({
     Name = "Auto Class Luck Roll",
+    Desc = "สุ่มคลาสเพื่อรับดวงโบนัส",
     Default = Settings.AutoLuckRoll,
     Callback = function(Value) Settings.AutoLuckRoll = Value end
 })
 
--- ═══════════════════════════════════════════════════════════════════
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 5: SETTINGS & CONFIGURATION PROFILES (SAVE & LOAD)
+-- ─────────────────────────────────────────────────────────────────────
+TabConfig:AddSection("💾 CONFIGURATION PROFILES")
 
--- ═════════════════════════════════════════════════════════════════════
--- TAB: SETTINGS & CONFIGURATION PROFILES (SAVE & LOAD)
--- ═════════════════════════════════════════════════════════════════════
 local CONFIG_FILE = "PB_LootToForge_Config.json"
+local currentProfile = "default"
 
 local ConfigManager = {}
 do
@@ -1718,14 +2712,10 @@ do
     end
 end
 
-TabConfig:AddSection({ Name = "💾 Configuration Profiles" })
-
-local currentProfile = "default"
-
 TabConfig:AddTextbox({
     Name = "Profile Name (ชื่อคอนฟิก)",
+    Placeholder = "e.g. default",
     Default = "default",
-    TextDisappear = false,
     Callback = function(val)
         currentProfile = (val and val:gsub("%s+", "") ~= "") and val:gsub("%s+", "") or "default"
     end
@@ -1733,19 +2723,20 @@ TabConfig:AddTextbox({
 
 TabConfig:AddButton({
     Name = "💾 Save Config (บันทึกคอนฟิก)",
+    Icon = "💾",
     Callback = function()
         local ok, path = ConfigManager.Save(currentProfile)
         if ok then
-            OrionLib:MakeNotification({
-                Name = "Config Saved",
+            Window:Notify({
+                Title = "Config Saved",
                 Content = "บันทึกการตั้งค่าลงไฟล์ " .. currentProfile .. " สำเร็จ!",
-                Time = 4
+                Type = "success"
             })
         else
-            OrionLib:MakeNotification({
-                Name = "Save Failed",
+            Window:Notify({
+                Title = "Save Failed",
                 Content = tostring(path),
-                Time = 4
+                Type = "error"
             })
         end
     end
@@ -1753,30 +2744,32 @@ TabConfig:AddButton({
 
 TabConfig:AddButton({
     Name = "📂 Load Config (โหลดคอนฟิก)",
+    Icon = "📂",
     Callback = function()
         local ok, path = ConfigManager.Load(currentProfile)
         if ok then
-            OrionLib:MakeNotification({
-                Name = "Config Loaded",
+            Window:Notify({
+                Title = "Config Loaded",
                 Content = "โหลดการตั้งค่าจากไฟล์ " .. currentProfile .. " เรียบร้อย!",
-                Time = 4
+                Type = "success"
             })
         else
-            OrionLib:MakeNotification({
-                Name = "Load Failed",
+            Window:Notify({
+                Title = "Load Failed",
                 Content = tostring(path),
-                Time = 4
+                Type = "error"
             })
         end
     end
 })
 
--- 7. EXECUTION THREADS
+-- ═══════════════════════════════════════════════════════════════════
+-- 13. EXECUTION THREADS
 -- ═══════════════════════════════════════════════════════════════════
 
 -- Thread 1: Auto Train & Best Multiplier Zone
 task.spawn(function()
-    while true do
+    while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoTrain or Settings.AutoTrainBestZone then
             safe(function()
                 if Settings.AutoTrainBestZone then
@@ -1805,10 +2798,9 @@ end)
 
 -- Thread 2: Auto Stage Clearing + Silent Mobs Kill + Auto Sweep
 task.spawn(function()
-    while true do
+    while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoStageOre and StageRF_Finish then
             safe(function()
-                -- 1. Determine Stage
                 local stageId = Settings.StageName
                 if Settings.AutoMaxStage then
                     pcall(function()
@@ -1819,7 +2811,6 @@ task.spawn(function()
                     end)
                 end
 
-                -- 2. Clear Stage on Server & Claim Loot
                 local ok, loot = pcall(function() return StageRF_Finish:InvokeServer(stageId) end)
                 if ok and type(loot) == "table" then
                     for oreKey in pairs(loot) do
@@ -1828,7 +2819,6 @@ task.spawn(function()
                     if StageRE_Claim then StageRE_Claim:FireServer() end
                 end
 
-                -- 3. Silent Insta-Kill Mobs in EnemyFolder
                 if Settings.SilentKillMobs and Bindable_EnemyHit then
                     local ef = workspace:FindFirstChild("EnemyFolder")
                     if ef then
@@ -1849,7 +2839,7 @@ end)
 
 -- Thread 3: Dedicated Smart Auto Forge
 task.spawn(function()
-    while true do
+    while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoForge then
             safe(function()
                 executeForgeNow(Settings.ForgeType, Settings.MinOreToForge)
@@ -1863,7 +2853,7 @@ end)
 
 -- Thread 4: Auto Enhance Equipped Weapon
 task.spawn(function()
-    while true do
+    while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoEnhance and BackpackRF_Enhance and ProfileRF then
             safe(function()
                 local prof = ProfileRF:InvokeServer()
@@ -1883,12 +2873,11 @@ end)
 
 -- Thread 5: Safe Auto Sell Trash Gear
 task.spawn(function()
-    while true do
+    while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoSellTrashGear and BackpackRE_SellItem then
             safe(function()
                 local have = getBackpackData()
                 for uuid, item in pairs(have) do
-                    -- Sell only Weapons, Armors, Hats below top tier; NEVER sell ores or stones
                     if item.Type == "Weapon" or item.Type == "Armor" or item.Type == "Hat" then
                         local isEquipped = false
                         pcall(function()
@@ -1898,7 +2887,6 @@ task.spawn(function()
                         end)
                         if not isEquipped then
                             local score = calculateGearScore(item)
-                            -- If gear score is low, sell it
                             if score < 5e11 then
                                 BackpackRE_SellItem:FireServer(uuid)
                                 task.wait(0.05)
@@ -1916,7 +2904,7 @@ end)
 
 -- Thread 6: Rewards & Claim Automation
 task.spawn(function()
-    while true do
+    while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoClaimRewards then
             safe(function()
                 if OnlineRE_Claim then for i = 1, 12 do OnlineRE_Claim:FireServer(i) end end
@@ -1933,7 +2921,7 @@ end)
 
 -- Thread 7: Auto Upgrades & Rebirth
 task.spawn(function()
-    while true do
+    while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoUpgrade and UpgradeRE then
             safe(function()
                 UpgradeRE:FireServer("Train")
@@ -1952,7 +2940,7 @@ end)
 
 -- Thread 8: Auto SuperLoot Hunter
 task.spawn(function()
-    while true do
+    while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoSuperLoot and SuperLootRE_Kill then
             safe(function()
                 local slf = workspace:FindFirstChild("SuperLootFolder")
@@ -1974,7 +2962,7 @@ end)
 
 -- Thread 9: Combat Attack
 task.spawn(function()
-    while true do
+    while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoAttack then
             safe(function()
                 local ef = workspace:FindFirstChild("EnemyFolder")
@@ -1995,4 +2983,35 @@ task.spawn(function()
     end
 end)
 
-OrionLib:Init()
+-- Thread 10: Real-time Telemetry Live Feed
+task.spawn(function()
+    while Running and _G.LootToForgeActiveToken == myToken do
+        safe(function()
+            local ProfileData = require(ReplicatedStorage.ProfileData)
+            local pd = ProfileData and ProfileData.GetTotalData and ProfileData.GetTotalData()
+            local curReb = pd and pd.Eco and tonumber(pd.Eco.rebirth) or 0
+            if StatRebirth then StatRebirth:Set(tostring(curReb), Theme.AccentCyan, "Player Rebirth Count") end
+
+            local bestZone = getBestTrainZone()
+            if StatBestZone and bestZone then StatBestZone:Set(bestZone.Name, Theme.Success, "Best Multiplier Zone") end
+
+            local have = getBackpackData()
+            local oreCount = 0
+            for _, item in pairs(have) do
+                if type(item) == "table" and type(item.ID) == "string" and (item.Type == "Ore" or item.ID:find("Ore")) then
+                    local count = (type(item.Number) == "number" and item.Number > 0) and item.Number or 1
+                    oreCount = oreCount + count
+                end
+            end
+            if StatBackpackOres then StatBackpackOres:Set(tostring(oreCount), Theme.Warning, "Total Ores Available") end
+        end)
+        task.wait(1.5)
+    end
+end)
+
+Window:Notify({
+    Title = "PROJECT BARUN",
+    Content = "Loot To Forge Hub v3.0 Loaded Successfully!",
+    Type = "success",
+    Duration = 4.0
+})
