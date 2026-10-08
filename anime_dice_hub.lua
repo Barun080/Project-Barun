@@ -2392,7 +2392,7 @@ local Config = {
     -- Towers & Dungeon Supreme
     AutoTowers                  = false,
     SelectedTower               = TowerList[1],
-    TargetTowerFloor            = 100,
+    TargetTowerFloor            = 200,
     AutoTowerFloorDelay         = 0.15,
     HideTowerScreen             = false,
     AutoCycleTowers             = false,
@@ -3545,7 +3545,7 @@ local TowerMaxFloors = {
     ["Hidden Leaf Tower"] = 100,
     ["Slayer Tower"]      = 100,
     ["Shadow Tower"]      = 150,
-    ["Infinity Tower"]    = 9999,
+    ["Infinity Tower"]    = 200, -- สูงสุด 200 ชั้นตามสั่ง
 }
 
 local function instantClearCurrentFloor()
@@ -3613,14 +3613,19 @@ task.spawn(function()
                 end)
 
                 local maxFloor = TowerMaxFloors[towerName] or 100
-                if not Config.EndlessInfinityMode and Config.TargetTowerFloor and Config.TargetTowerFloor > 0 then
+                if Config.TargetTowerFloor and Config.TargetTowerFloor > 0 then
                     maxFloor = math.min(maxFloor, Config.TargetTowerFloor)
                 end
+                maxFloor = math.min(maxFloor, 200) -- ลิมิตสูงสุด 200 ชั้นเพื่อความรวดเร็ว
 
                 local failedAttempts = 0
                 for floor = 1, maxFloor do
                     if not Config.AutoTowers or not Running or _G.AnimeDiceActiveToken ~= myToken then
                         State.CurrentTowerStatus = "Paused"
+                        break
+                    end
+                    if floor > 200 then
+                        State.CurrentTowerStatus = string.format("[%s] จบที่ชั้น 200 (Cap Reached)", towerName)
                         break
                     end
 
@@ -3784,7 +3789,7 @@ local DefaultCleanConfig = {
     },
     AutoTowers = false,
     SelectedTower = TowerList[1],
-    TargetTowerFloor = 50,
+    TargetTowerFloor = 200,
     AutoTowerFloorDelay = 0.35,
     HideTowerScreen = false,
     AutoClaimRewards = false
@@ -4659,9 +4664,14 @@ local TabContent = Window:CreateTab({
 TabContent:AddSection("TOWER DUNGEON SUPREME AUTOMATION")
 TabContent:AddToggle({
     Name = "Auto Towers (ลงหอคอยดันเจี้ยนอัตโนมัติ)",
-    Desc = "ลงหอคอยอัตโนมัติ จัดทีมที่ดีที่สุด เคลียร์ชั้นต่อเนื่องความเร็วสูง",
+    Desc = "ลงหอคอยอัตโนมัติ จัดทีมที่ดีที่สุด เคลียร์ชั้นต่อเนื่องความเร็วสูง (ลิมิตสูงสุด 200 ชั้น)",
     Default = Config.AutoTowers,
-    Callback = function(v) Config.AutoTowers = v end,
+    Callback = function(v)
+        Config.AutoTowers = v
+        if not v and CancelTowerRF then
+            pcall(function() CancelTowerRF:InvokeServer() end)
+        end
+    end,
 })
 UIHandles.SelectedTower = TabContent:AddDropdown({
     Name = "Select Tower (เลือกระดับหอคอย)",
@@ -4679,13 +4689,13 @@ TabContent:AddToggle({
     Callback = function(v) Config.AutoCycleTowers = v end,
 })
 TabContent:AddSlider({
-    Name = "Target Floor (เคลียร์ถึงชั้นเป้าหมาย)",
+    Name = "Target Floor (เคลียร์ถึงชั้นเป้าหมาย - ลิมิต 200)",
     Min = 1,
-    Max = 150,
-    Default = Config.TargetTowerFloor,
+    Max = 200,
+    Default = math.min(Config.TargetTowerFloor or 200, 200),
     Increment = 1,
     Format = "%d",
-    Callback = function(v) Config.TargetTowerFloor = v end,
+    Callback = function(v) Config.TargetTowerFloor = math.min(v, 200) end,
 })
 TabContent:AddSlider({
     Name = "Floor Clear Speed (ความเร็วเคลียร์ชั้น - ดีเลย์)",
@@ -4709,8 +4719,8 @@ TabContent:AddToggle({
     Callback = function(v) Config.AutoRetryFailedFloor = v end,
 })
 TabContent:AddToggle({
-    Name = "Endless Infinity Mode (โหมดหอคอยไร้ที่สิ้นสุด)",
-    Desc = "ดันชั้น Infinity Tower ไปเรื่อยๆ จนสุดขีดความสามารถโดยไม่จำกัดชั้น",
+    Name = "Endless Infinity Mode (โหมดดันชั้นสูงสุด 200)",
+    Desc = "ดันชั้น Infinity Tower จนสุดเพดาน 200 ชั้น แล้วเคลียร์จบรอบทันที ไม่ลากยาว",
     Default = Config.EndlessInfinityMode,
     Callback = function(v) Config.EndlessInfinityMode = v end,
 })
