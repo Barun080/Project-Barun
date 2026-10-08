@@ -3023,7 +3023,8 @@ local function autoDrinkPotionsNow()
         if pot.enabled then
             local hasBuff = false
             if BuffData and BuffData.IsHaveBuff then
-                hasBuff = BuffData.IsHaveBuff(pot.buff) or (BuffData.GetBuffLastTime and BuffData.GetBuffLastTime(pot.buff) > 0)
+                local lastTime = BuffData.GetBuffLastTime and tonumber(BuffData.GetBuffLastTime(pot.buff)) or 0
+                hasBuff = (BuffData.IsHaveBuff(pot.buff) == true) or (lastTime > 0)
             end
             if not hasBuff then
                 local count = pData and pData[pot.id] or 0
