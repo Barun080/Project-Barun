@@ -2732,13 +2732,24 @@ local function pumpRealEmberStones(targetAmount)
 end
 
 local function equipArmorSet(armorId, hatId, setName)
-    if Remote_GetArmor and armorId then Remote_GetArmor:FireServer(armorId) end
-    if Remote_GetArmor and hatId then Remote_GetArmor:FireServer(hatId) end
+    if not Remote_GetArmor then
+        if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
+            _G.PB_ActiveWindow:Notify({
+                Title = "GOD SPAWNER",
+                Content = "ไม่พบ Dev Remote (เซิร์ฟเวอร์อาจทำการ Patch แล้ว)",
+                Type = "error",
+                Duration = 3.5
+            })
+        end
+        return false
+    end
+    if armorId then Remote_GetArmor:FireServer(armorId) end
+    if hatId then Remote_GetArmor:FireServer(hatId) end
     task.spawn(function()
         local t0 = tick()
-        while (tick() - t0 < 3) do
+        local eqArmor, eqHat = false, false
+        while (tick() - t0 < 3.5) do
             local have = getBackpackData()
-            local eqArmor, eqHat = false, false
             for uuid, item in pairs(have) do
                 if item.ID == armorId and not eqArmor then
                     if BackpackRE_TryEquip then BackpackRE_TryEquip:FireServer(uuid, "Armor") end
@@ -2752,26 +2763,48 @@ local function equipArmorSet(armorId, hatId, setName)
             task.wait(0.15)
         end
         if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
-            _G.PB_ActiveWindow:Notify({
-                Title = "GOD GEAR EQUIPPED",
-                Content = "สวมใส่ชุด " .. (setName or "") .. " สำเร็จ! (เซฟลง Server DataStore ถาวร)",
-                Type = "success",
-                Duration = 3.5
-            })
+            if eqArmor or eqHat then
+                _G.PB_ActiveWindow:Notify({
+                    Title = "GOD GEAR EQUIPPED",
+                    Content = "สวมใส่ชุด " .. (setName or "") .. " สำเร็จ! (เซฟลง Server DataStore ถาวร)",
+                    Type = "success",
+                    Duration = 3.5
+                })
+            else
+                _G.PB_ActiveWindow:Notify({
+                    Title = "GOD SPAWNER",
+                    Content = "เซิร์ฟเวอร์ไม่ตอบรับ หรือช่องเก็บของเต็ม",
+                    Type = "warning",
+                    Duration = 3.5
+                })
+            end
         end
     end)
     return true
 end
 
 local function equipWeapon(weaponId, weaponName)
-    if Remote_GetWeapon and weaponId then Remote_GetWeapon:FireServer(weaponId) end
+    if not Remote_GetWeapon then
+        if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
+            _G.PB_ActiveWindow:Notify({
+                Title = "GOD SPAWNER",
+                Content = "ไม่พบ Dev Remote (เซิร์ฟเวอร์อาจทำการ Patch แล้ว)",
+                Type = "error",
+                Duration = 3.5
+            })
+        end
+        return false
+    end
+    Remote_GetWeapon:FireServer(weaponId)
     task.spawn(function()
         local t0 = tick()
-        while (tick() - t0 < 3) do
+        local equipped = false
+        while (tick() - t0 < 3.5) do
             local have = getBackpackData()
             for uuid, item in pairs(have) do
                 if item.ID == weaponId then
                     if BackpackRE_TryEquip then BackpackRE_TryEquip:FireServer(uuid, "Weapon") end
+                    equipped = true
                     if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
                         _G.PB_ActiveWindow:Notify({
                             Title = "GOD WEAPON EQUIPPED",
@@ -2784,6 +2817,14 @@ local function equipWeapon(weaponId, weaponName)
                 end
             end
             task.wait(0.15)
+        end
+        if not equipped and _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
+            _G.PB_ActiveWindow:Notify({
+                Title = "GOD SPAWNER",
+                Content = "เซิร์ฟเวอร์ไม่ตอบรับ หรือช่องเก็บของเต็ม",
+                Type = "warning",
+                Duration = 3.5
+            })
         end
     end)
     return true
