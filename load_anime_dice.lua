@@ -160,19 +160,35 @@ local function setProgress(pct, status)
 end
 
 -- ═══════════════════════════════════════════════════════════════════
--- 3. MULTI-CDN HIGH-SPEED LOADER WITH FAILOVER MIRRORS
+-- 3. MULTI-CDN HIGH-SPEED LOADER WITH ZERO-CACHE SHA RESOLVER
 -- ═══════════════════════════════════════════════════════════════════
-local MirrorEndpoints = {
-    "https://raw.githubusercontent.com/Barun080/Project-Barun/main/anime_dice_hub.lua?v=" .. tick(),
-    "https://cdn.jsdelivr.net/gh/Barun080/Project-Barun@main/anime_dice_hub.lua?v=" .. tick(),
-}
-
 task.spawn(function()
     task.wait(0.15)
     setProgress(0.20, "ตรวจสอบสภาพแวดล้อม Executor และระบบป้องกัน...")
     task.wait(0.2)
 
-    setProgress(0.45, "เชื่อมต่อไปยัง Multi-CDN Server...")
+    setProgress(0.40, "กำลังตรวจสอบเวอร์ชันล่าสุด (Zero-Cache Resolver)...")
+
+    local latestSha = nil
+    pcall(function()
+        local apiRes = game:HttpGet("https://api.github.com/repos/Barun080/Project-Barun/commits/main", true)
+        if apiRes and #apiRes > 10 then
+            local data = HttpService:JSONDecode(apiRes)
+            if data and data.sha then
+                latestSha = data.sha
+            end
+        end
+    end)
+
+    local MirrorEndpoints = {}
+    if latestSha then
+        table.insert(MirrorEndpoints, "https://raw.githubusercontent.com/Barun080/Project-Barun/" .. latestSha .. "/anime_dice_hub.lua")
+        table.insert(MirrorEndpoints, "https://cdn.jsdelivr.net/gh/Barun080/Project-Barun@" .. latestSha .. "/anime_dice_hub.lua")
+    end
+    table.insert(MirrorEndpoints, "https://cdn.jsdelivr.net/gh/Barun080/Project-Barun@main/anime_dice_hub.lua?v=" .. tick())
+    table.insert(MirrorEndpoints, "https://raw.githubusercontent.com/Barun080/Project-Barun/main/anime_dice_hub.lua?v=" .. tick())
+
+    setProgress(0.60, "เชื่อมต่อไปยัง Multi-CDN Server...")
     
     local scriptCode = nil
     local lastError = nil
