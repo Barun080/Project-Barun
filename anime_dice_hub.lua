@@ -2038,6 +2038,38 @@ local CancelTowerRF        = TowersNet and TowersNet:FindFirstChild("RF") and To
 
 -- Grade Remotes
 local RollGradeRE          = GradeNetwork and GradeNetwork:FindFirstChild("RE") and GradeNetwork.RE:FindFirstChild("Roll")
+local SetGradeProtectedRE  = GradeNetwork and GradeNetwork:FindFirstChild("RE") and GradeNetwork.RE:FindFirstChild("SetGradeProtected")
+
+-- Trait Remotes (Dynamic Detection for UPD 7 Traits Stall & Remotes)
+local TraitNetwork         = Network and (Network:FindFirstChild("TraitService") or Network:FindFirstChild("TraitsService") or Network:FindFirstChild("Traits") or Network:FindFirstChild("Trait"))
+local RollTraitRE          = TraitNetwork and TraitNetwork:FindFirstChild("RE") and (TraitNetwork.RE:FindFirstChild("Roll") or TraitNetwork.RE:FindFirstChild("Reroll") or TraitNetwork.RE:FindFirstChild("RollTrait"))
+local RollTraitRF          = TraitNetwork and TraitNetwork:FindFirstChild("RF") and (TraitNetwork.RF:FindFirstChild("Roll") or TraitNetwork.RF:FindFirstChild("Reroll") or TraitNetwork.RF:FindFirstChild("RollTrait"))
+
+local function resolveTraitRemote()
+    if RollTraitRE then return RollTraitRE, false end
+    if RollTraitRF then return RollTraitRF, true end
+    if Network then
+        for _, desc in ipairs(Network:GetDescendants()) do
+            local dName = desc.Name:lower()
+            local pName = desc.Parent and desc.Parent.Name:lower() or ""
+            local isTrait = dName:find("trait") or pName:find("trait")
+            local isRoll = dName:find("roll") or dName:find("reroll")
+            if isTrait and isRoll then
+                if desc:IsA("RemoteEvent") then
+                    RollTraitRE = desc
+                    return desc, false
+                elseif desc:IsA("RemoteFunction") then
+                    RollTraitRF = desc
+                    return desc, true
+                end
+            end
+        end
+    end
+    return nil, false
+end
+
+-- Lucky Wheel Remotes
+local SpinWheelRE          = SpinService and SpinService:FindFirstChild("RE") and (SpinService.RE:FindFirstChild("Use") or SpinService.RE:FindFirstChild("Spin"))
 
 -- Sell Remotes
 local SellInventoryRF      = SellNetwork and SellNetwork:FindFirstChild("RF") and SellNetwork.RF:FindFirstChild("SellInventory")
@@ -2303,10 +2335,33 @@ local Config = {
     ProtectLockedUnits = false,
     ProtectGradeSPlus = false,
 
-    -- Grade Reroll
+    -- Hyper Burst Roll & Dice Gacha
+    BurstRolls = false,
+    BurstRollCount = 3,
+
+    -- Grade Reroll Supreme
     AutoRerollGrade = false,
-    TargetGrade = "S",
+    TargetGrade = "S+",
+    GradeRollMode = "All Plotted Units",
     TargetGradeUnitKey = "",
+    GradeRollDelay = 0.25,
+    ServerProtectGrades = {
+        ["S"]  = true,
+        ["S+"] = true,
+        ["Z"]  = true,
+        ["Z+"] = true,
+        ["神"] = true,
+    },
+
+    -- Trait Reroll Supreme (Traits Stall)
+    AutoRerollTrait = false,
+    TargetTrait = "Godly",
+    TraitRollMode = "All Plotted Units",
+    TargetTraitUnitKey = "",
+    TraitRollDelay = 0.35,
+
+    -- Lucky Wheel Spins
+    AutoSpinWheel = false,
 
     -- Potions & Boosts
     AutoUsePotions = false,
@@ -2371,6 +2426,9 @@ local State = {
     TotalPotionsUsedSession = 0,
     TotalRebirthsSession = 0,
     TotalSoldUnitsSession = 0,
+    GradeRerollsSession = 0,
+    TraitRerollsSession = 0,
+    WheelSpinsSession = 0,
     FloorsClearedSession = 0,
     CurrentTowerStatus = "Standby",
     SlotLevels = {}
@@ -3181,41 +3239,274 @@ task.spawn(function()
     end
 end)
 
--- ── 10. AUTO ROLL GRADE ENGINE ────────────────────────────────────────
-local function rollGradeForSelectedUnit()
-    local success = false
+-- ── 10. GACHA & REROLL SUPREME LOGIC ENGINE ───────────────────────────
+local function getInventoryUnitOptions()
+    local opts = {}
+    local map = {}
     pcall(function()
-        if not RollGradeRE or not Config.TargetGradeUnitKey or Config.TargetGradeUnitKey == "" or not DataController then return end
-        local inv = DataController.Inventory and DataController.Inventory()
+        local inv = DataController and DataController.Inventory and DataController.Inventory()
+        if not inv then return end
+        for id, item in pairs(inv) do
+            local itemData = type(item) == "function" and item() or item
+            if type(itemData) == "table" and itemData.name then
+                local isUnit = false
+                if EntryRegistry and EntryRegistry.getEntryConfig then
+                    local cfg = EntryRegistry.getEntryConfig(itemData.name)
+                    if cfg and (cfg.kind == "Unit" or cfg.type == "Unit") then
+                        isUnit = true
+                    end
+                elseif itemData.attributes and (itemData.attributes.grade or itemData.attributes.level) then
+                    isUnit = true
+                end
+
+                if isUnit then
+                    local grade = (itemData.attributes and itemData.attributes.grade) or "D"
+                    local lvl = (itemData.attributes and itemData.attributes.level) or 1
+                    local rawTrait = (itemData.attributes and (itemData.attributes.trait or itemData.attributes.traits)) or "None"
+                    local traitStr = type(rawTrait) == "table" and (rawTrait[1] or "None") or tostring(rawTrait)
+                    local label = string.format("%s [Lv.%s | %s | %s] (ID: %s)", itemData.name, tostring(lvl), grade, traitStr, string.sub(tostring(id), 1, 8))
+                    table.insert(opts, label)
+                    map[label] = tostring(id)
+                end
+            end
+        end
+    end)
+    if #opts == 0 then
+        table.insert(opts, "ไม่พบตัวละครในคลัง")
+    end
+    table.sort(opts)
+    return opts, map
+end
+
+local function getUnitsForGradeReroll()
+    local unitList = {}
+    pcall(function()
+        local inv = DataController and DataController.Inventory and DataController.Inventory()
         if not inv then return end
 
-        local unit = inv[Config.TargetGradeUnitKey]
-        if not unit or not unit.attributes then return end
-
-        local curGrade = unit.attributes.grade or "D"
-        local curOrder = GradeOrder[curGrade] or 1
-        local targetOrder = GradeOrder[Config.TargetGrade] or 6
-
-        if curOrder >= targetOrder then return end
-
-        RollGradeRE:FireServer(Config.TargetGradeUnitKey, true)
-        success = true
+        if Config.GradeRollMode == "All Plotted Units" then
+            if DataController.Slots then
+                for slot = 1, 24 do
+                    local sData = DataController.Slots[tostring(slot)] and DataController.Slots[tostring(slot)]()
+                    if sData and sData.unitId and inv[sData.unitId] then
+                        local u = inv[sData.unitId]
+                        local uData = type(u) == "function" and u() or u
+                        if uData and uData.attributes then
+                            local g = uData.attributes.grade or "D"
+                            table.insert(unitList, {
+                                id = sData.unitId,
+                                name = uData.name or ("Slot " .. tostring(slot)),
+                                grade = g,
+                                slot = slot
+                            })
+                        end
+                    end
+                end
+            end
+        elseif Config.GradeRollMode == "Tower Team Units" then
+            if DataController.TowerTeam then
+                local tt = DataController.TowerTeam()
+                if type(tt) == "table" then
+                    for _, uId in pairs(tt) do
+                        if uId and inv[uId] then
+                            local u = inv[uId]
+                            local uData = type(u) == "function" and u() or u
+                            if uData and uData.attributes then
+                                local g = uData.attributes.grade or "D"
+                                table.insert(unitList, {
+                                    id = uId,
+                                    name = uData.name or "Tower Unit",
+                                    grade = g
+                                })
+                            end
+                        end
+                    end
+                end
+            end
+        else -- "Selected Unit"
+            local uId = Config.TargetGradeUnitKey
+            if uId and uId ~= "" and inv[uId] then
+                local u = inv[uId]
+                local uData = type(u) == "function" and u() or u
+                if uData and uData.attributes then
+                    local g = uData.attributes.grade or "D"
+                    table.insert(unitList, {
+                        id = uId,
+                        name = uData.name or "Selected Unit",
+                        grade = g
+                    })
+                end
+            end
+        end
     end)
-    return success
+    return unitList
+end
+
+local function executeGradeRerollStep()
+    if not RollGradeRE then return false end
+    local units = getUnitsForGradeReroll()
+    if #units == 0 then return false end
+
+    local targetOrder = GradeOrder[Config.TargetGrade] or 7
+    for _, entry in ipairs(units) do
+        local curOrder = GradeOrder[entry.grade] or 1
+        if curOrder < targetOrder then
+            local ok = pcall(function()
+                RollGradeRE:FireServer(entry.id, true)
+            end)
+            if ok then
+                State.GradeRerollsSession = (State.GradeRerollsSession or 0) + 1
+                return true
+            end
+        end
+    end
+    return false
 end
 
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
         if Config.AutoRerollGrade then
-            rollGradeForSelectedUnit()
-            task.wait(0.35)
+            local didRoll = executeGradeRerollStep()
+            task.wait(didRoll and (Config.GradeRollDelay or 0.25) or 0.75)
         else
             task.wait(1)
         end
     end
 end)
 
--- ── 11. AUTO ROLL ENGINE (2K DYNAMIC BUFF DURATION SYNC) ──────────────
+local function getUnitsForTraitReroll()
+    local unitList = {}
+    pcall(function()
+        local inv = DataController and DataController.Inventory and DataController.Inventory()
+        if not inv then return end
+
+        if Config.TraitRollMode == "All Plotted Units" then
+            if DataController.Slots then
+                for slot = 1, 24 do
+                    local sData = DataController.Slots[tostring(slot)] and DataController.Slots[tostring(slot)]()
+                    if sData and sData.unitId and inv[sData.unitId] then
+                        local u = inv[sData.unitId]
+                        local uData = type(u) == "function" and u() or u
+                        if uData and uData.attributes then
+                            local tr = uData.attributes.trait or uData.attributes.traits or "None"
+                            if type(tr) == "table" then tr = tr[1] or "None" end
+                            table.insert(unitList, {
+                                id = sData.unitId,
+                                name = uData.name or ("Slot " .. tostring(slot)),
+                                trait = tostring(tr),
+                                slot = slot
+                            })
+                        end
+                    end
+                end
+            end
+        elseif Config.TraitRollMode == "Tower Team Units" then
+            if DataController.TowerTeam then
+                local tt = DataController.TowerTeam()
+                if type(tt) == "table" then
+                    for _, uId in pairs(tt) do
+                        if uId and inv[uId] then
+                            local u = inv[uId]
+                            local uData = type(u) == "function" and u() or u
+                            if uData and uData.attributes then
+                                local tr = uData.attributes.trait or uData.attributes.traits or "None"
+                                if type(tr) == "table" then tr = tr[1] or "None" end
+                                table.insert(unitList, {
+                                    id = uId,
+                                    name = uData.name or "Tower Unit",
+                                    trait = tostring(tr)
+                                })
+                            end
+                        end
+                    end
+                end
+            end
+        else -- "Selected Unit"
+            local uId = Config.TargetTraitUnitKey
+            if uId and uId ~= "" and inv[uId] then
+                local u = inv[uId]
+                local uData = type(u) == "function" and u() or u
+                if uData and uData.attributes then
+                    local tr = uData.attributes.trait or uData.attributes.traits or "None"
+                    if type(tr) == "table" then tr = tr[1] or "None" end
+                    table.insert(unitList, {
+                        id = uId,
+                        name = uData.name or "Selected Unit",
+                        trait = tostring(tr)
+                    })
+                end
+            end
+        end
+    end)
+    return unitList
+end
+
+local function executeTraitRerollStep()
+    local remote, isRF = resolveTraitRemote()
+    if not remote then return false end
+
+    local units = getUnitsForTraitReroll()
+    if #units == 0 then return false end
+
+    local target = Config.TargetTrait or "Godly"
+    for _, entry in ipairs(units) do
+        local cur = entry.trait:lower()
+        local isMatch = false
+        if target == "Any Top Tier" then
+            local topTraits = {"godly", "overpowered", "celestial", "cosmic", "shiny"}
+            for _, t in ipairs(topTraits) do
+                if cur:find(t) then isMatch = true break end
+            end
+        else
+            if cur:find(target:lower()) then
+                isMatch = true
+            end
+        end
+
+        if not isMatch then
+            local ok = pcall(function()
+                if isRF then
+                    remote:InvokeServer(entry.id)
+                else
+                    remote:FireServer(entry.id)
+                end
+            end)
+            if ok then
+                State.TraitRerollsSession = (State.TraitRerollsSession or 0) + 1
+                return true
+            end
+        end
+    end
+    return false
+end
+
+task.spawn(function()
+    while Running and _G.AnimeDiceActiveToken == myToken do
+        if Config.AutoRerollTrait then
+            local didRoll = executeTraitRerollStep()
+            task.wait(didRoll and (Config.TraitRollDelay or 0.35) or 1.0)
+        else
+            task.wait(1)
+        end
+    end
+end)
+
+-- ── 10.1 AUTO LUCKY WHEEL SPIN ENGINE ─────────────────────────────────
+task.spawn(function()
+    while Running and _G.AnimeDiceActiveToken == myToken do
+        if Config.AutoSpinWheel and SpinWheelRE then
+            pcall(function()
+                SpinWheelRE:FireServer()
+                State.WheelSpinsSession = (State.WheelSpinsSession or 0) + 1
+            end)
+            task.wait(8)
+        else
+            task.wait(2)
+        end
+    end
+end)
+
+-- ── 11. AUTO ROLL ENGINE (2K DYNAMIC BUFF DURATION SYNC & HYPER BURST) ─
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
         if Config.AutoRoll and RollService and RollService:FindFirstChild("RF") and RollService.RF:FindFirstChild("RollDice") then
@@ -3229,11 +3520,14 @@ task.spawn(function()
                 end
             end)
 
-            local success = pcall(function()
-                RollService.RF.RollDice:InvokeServer()
-            end)
-            if success then
-                State.TotalRollsSession = State.TotalRollsSession + 1
+            local burstCount = Config.BurstRolls and math.clamp(tonumber(Config.BurstRollCount) or 3, 1, 10) or 1
+            for b = 1, burstCount do
+                local success = pcall(function()
+                    RollService.RF.RollDice:InvokeServer()
+                end)
+                if success then
+                    State.TotalRollsSession = State.TotalRollsSession + 1
+                end
             end
             task.wait(duration)
         else
@@ -3449,9 +3743,26 @@ local DefaultCleanConfig = {
     ProtectTowerTeam = false,
     ProtectLockedUnits = false,
     ProtectGradeSPlus = false,
+    BurstRolls = false,
+    BurstRollCount = 3,
     AutoRerollGrade = false,
-    TargetGrade = "S",
+    TargetGrade = "S+",
+    GradeRollMode = "All Plotted Units",
     TargetGradeUnitKey = "",
+    GradeRollDelay = 0.25,
+    ServerProtectGrades = {
+        ["S"]  = true,
+        ["S+"] = true,
+        ["Z"]  = true,
+        ["Z+"] = true,
+        ["神"] = true,
+    },
+    AutoRerollTrait = false,
+    TargetTrait = "Godly",
+    TraitRollMode = "All Plotted Units",
+    TargetTraitUnitKey = "",
+    TraitRollDelay = 0.35,
+    AutoSpinWheel = false,
     AutoUsePotions = false,
     AutoUseAllOwned = false,
     PotionInterval = 2,
@@ -3743,6 +4054,21 @@ UIHandles.RollSpeedDelay = TabMain:AddSlider({
     Format = "%.2fs",
     Callback = function(v) Config.RollSpeedDelay = v end,
 })
+UIHandles.BurstRolls = TabMain:AddToggle({
+    Name = "Hyper Burst Rolls (ทอยรัวแพ็กเก็ต)",
+    Desc = "ทอยหลายครั้งต่อ 1 รอบการทำงาน เพื่อเร่งความเร็วขั้นสุด",
+    Default = Config.BurstRolls,
+    Callback = function(v) Config.BurstRolls = v end,
+})
+TabMain:AddSlider({
+    Name = "Burst Multiplier (จำนวนทอยต่อรอบ)",
+    Min = 1,
+    Max = 10,
+    Default = Config.BurstRollCount,
+    Increment = 1,
+    Format = "%dx",
+    Callback = function(v) Config.BurstRollCount = v end,
+})
 TabMain:AddButton({
     Name = "Roll Dice 1x Now (ทดลองทอย 1 ครั้ง)",
     Icon = "🎲",
@@ -4016,12 +4342,318 @@ local StatBuffMonitor = TabEconomy:AddStatCard({
 })
 
 -- ─────────────────────────────────────────────────────────────────────
--- TAB 3: CONTENT (คอนเทนต์ & กิจกรรม)
+-- TAB 2.5: GACHA & REROLL SUPREME (ระบบสุ่มทั้งหมด)
+-- ─────────────────────────────────────────────────────────────────────
+local TabGacha = Window:CreateTab({
+    Name = "Gacha & Reroll",
+    Icon = "✨",
+    Subtitle = "Dice, Grades, Traits & Spins Supreme",
+})
+
+local currentUnitOptions, currentUnitMap = getInventoryUnitOptions()
+
+TabGacha:AddSection("LIVE GACHA TELEMETRY")
+local StatGradeRerolls = TabGacha:AddStatCard({ Title = "Grade Rerolls", Value = "0", Subtext = "Upgrades this session", Progress = 0 })
+local StatTraitRerolls = TabGacha:AddStatCard({ Title = "Trait Rerolls", Value = "0", Subtext = "Traits rolled this session", Progress = 0 })
+local StatWheelSpins   = TabGacha:AddStatCard({ Title = "Wheel Spins", Value = "0", Subtext = "Spins used this session", Progress = 0 })
+
+TabGacha:AddSection("🌟 SMART GRADE REROLL (ระบบสุ่มเกรดอัจฉริยะ)")
+UIHandles.AutoRerollGrade = TabGacha:AddToggle({
+    Name = "Auto Reroll Grade (เปิดสุ่มเกรดอัตโนมัติ)",
+    Desc = "สุ่มเกรดตัวละครด้วย Gem จนกว่าจะถึงเกรดเป้าหมายแบบอัตโนมัติ",
+    Default = Config.AutoRerollGrade,
+    Callback = function(v)
+        Config.AutoRerollGrade = v
+        Window:Notify({ Title = "Grade Reroll", Content = v and "Grade reroll engine activated!" or "Paused.", Type = v and "success" or "warning" })
+    end,
+})
+
+UIHandles.GradeRollMode = TabGacha:AddDropdown({
+    Name = "Target Mode (เลือกกลุ่มเป้าหมายที่จะสุ่มเกรด)",
+    Options = {
+        "All Plotted Units",
+        "Tower Team Units",
+        "Selected Unit"
+    },
+    Default = Config.GradeRollMode,
+    Callback = function(v)
+        Config.GradeRollMode = v
+        Window:Notify({ Title = "Grade Mode", Content = "Target Mode: " .. tostring(v), Type = "info" })
+    end,
+})
+
+UIHandles.TargetGrade = TabGacha:AddDropdown({
+    Name = "Target Grade Threshold (เกรดเป้าหมาย)",
+    Options = {"神", "Z+", "Z", "S+", "S", "A+", "A", "B", "C"},
+    Default = Config.TargetGrade,
+    Callback = function(v) Config.TargetGrade = v end,
+})
+
+local dropGradeUnitRef = nil
+dropGradeUnitRef = TabGacha:AddDropdown({
+    Name = "Select Unit (เลือกตัวละครในคลังเฉพาะเจาะจง)",
+    Options = currentUnitOptions,
+    Default = currentUnitOptions[1] or "",
+    Callback = function(val)
+        local uId = currentUnitMap[val]
+        if uId then
+            Config.TargetGradeUnitKey = uId
+        end
+    end,
+})
+
+TabGacha:AddSlider({
+    Name = "Grade Roll Delay (ความเร็วการสุ่มเกรด)",
+    Min = 0.1,
+    Max = 1.0,
+    Default = Config.GradeRollDelay,
+    Increment = 0.05,
+    Format = "%.2fs",
+    Callback = function(v) Config.GradeRollDelay = v end,
+})
+
+TabGacha:AddButton({
+    Name = "⚡ Reroll Selected Unit Grade 1x (สุ่มเกรดตัวนี้ 1 ครั้ง)",
+    Icon = "⚡",
+    Callback = function()
+        if RollGradeRE and Config.TargetGradeUnitKey and Config.TargetGradeUnitKey ~= "" then
+            RollGradeRE:FireServer(Config.TargetGradeUnitKey, true)
+            Window:Notify({ Title = "Grade Reroll", Content = "Fired 1x grade roll on selected unit!", Type = "info" })
+        else
+            Window:Notify({ Title = "Grade Reroll", Content = "กรุณาเลือกตัวละครจากคลังก่อน!", Type = "warning" })
+        end
+    end,
+})
+
+TabGacha:AddButton({
+    Name = "🌟 Reroll All Plotted Units Grade 1x (สุ่มเกรดทุกตัวบนแท่น 1 รอบ)",
+    Icon = "🌟",
+    Callback = function()
+        local rolled = 0
+        pcall(function()
+            if RollGradeRE and DataController and DataController.Slots then
+                for slot = 1, 24 do
+                    local sData = DataController.Slots[tostring(slot)] and DataController.Slots[tostring(slot)]()
+                    if sData and sData.unitId then
+                        RollGradeRE:FireServer(sData.unitId, true)
+                        rolled = rolled + 1
+                    end
+                end
+            end
+        end)
+        Window:Notify({ Title = "Plot Grade Roll", Content = "Sent 1x roll to " .. tostring(rolled) .. " plotted units!", Type = "success" })
+    end,
+})
+
+TabGacha:AddSection("🔒 SERVER GRADE PROTECTION (ระบบล็อกเกรดเซิร์ฟเวอร์)")
+local protectGrades = {"神", "Z+", "Z", "S+", "S"}
+for _, g in ipairs(protectGrades) do
+    TabGacha:AddToggle({
+        Name = "Lock Grade " .. g .. " (ล็อกเกรด " .. g .. " บนเซิร์ฟเวอร์)",
+        Desc = "เปิดการป้องกันเกรด " .. g .. " ไม่ให้ถูกลบหรือสุ่มทับ",
+        Default = Config.ServerProtectGrades[g] == true,
+        Callback = function(v)
+            Config.ServerProtectGrades[g] = v
+            if SetGradeProtectedRE then
+                pcall(function() SetGradeProtectedRE:FireServer(g, v) end)
+            end
+            Window:Notify({ Title = "Server Lock", Content = "Grade " .. g .. " lock set to " .. tostring(v), Type = "info" })
+        end,
+    })
+end
+
+TabGacha:AddSection("✨ TRAITS REROLL SUPREME (ระบบสุ่มคุณสมบัติพิเศษ - TRAITS STALL)")
+UIHandles.AutoRerollTrait = TabGacha:AddToggle({
+    Name = "Auto Reroll Trait (เปิดสุ่มคุณสมบัติพิเศษอัตโนมัติ)",
+    Desc = "สุ่มคุณสมบัติ Trait อัตโนมัติจนกว่าจะได้ Trait เทพตามที่กำหนด",
+    Default = Config.AutoRerollTrait,
+    Callback = function(v)
+        Config.AutoRerollTrait = v
+        Window:Notify({ Title = "Trait Reroll", Content = v and "Trait reroll engine activated!" or "Paused.", Type = v and "success" or "warning" })
+    end,
+})
+
+UIHandles.TraitRollMode = TabGacha:AddDropdown({
+    Name = "Trait Target Mode (เลือกกลุ่มเป้าหมายที่จะสุ่ม Trait)",
+    Options = {
+        "All Plotted Units",
+        "Tower Team Units",
+        "Selected Unit"
+    },
+    Default = Config.TraitRollMode,
+    Callback = function(v)
+        Config.TraitRollMode = v
+        Window:Notify({ Title = "Trait Mode", Content = "Target Mode: " .. tostring(v), Type = "info" })
+    end,
+})
+
+UIHandles.TargetTrait = TabGacha:AddDropdown({
+    Name = "Target Trait (คุณสมบัติเป้าหมาย)",
+    Options = {
+        "Godly",
+        "Overpowered",
+        "Celestial",
+        "Cosmic",
+        "Shiny",
+        "Fortune",
+        "Speedy",
+        "Rich",
+        "Strength",
+        "Mythical",
+        "Legendary",
+        "Any Top Tier"
+    },
+    Default = Config.TargetTrait,
+    Callback = function(v) Config.TargetTrait = v end,
+})
+
+local dropTraitUnitRef = nil
+dropTraitUnitRef = TabGacha:AddDropdown({
+    Name = "Select Unit (เลือกตัวละครในคลังสำหรับสุ่ม Trait)",
+    Options = currentUnitOptions,
+    Default = currentUnitOptions[1] or "",
+    Callback = function(val)
+        local uId = currentUnitMap[val]
+        if uId then
+            Config.TargetTraitUnitKey = uId
+        end
+    end,
+})
+
+TabGacha:AddSlider({
+    Name = "Trait Roll Delay (ความเร็วการสุ่ม Trait)",
+    Min = 0.1,
+    Max = 1.0,
+    Default = Config.TraitRollDelay,
+    Increment = 0.05,
+    Format = "%.2fs",
+    Callback = function(v) Config.TraitRollDelay = v end,
+})
+
+TabGacha:AddButton({
+    Name = "⚡ Reroll Selected Unit Trait 1x (สุ่ม Trait ตัวนี้ 1 ครั้ง)",
+    Icon = "⚡",
+    Callback = function()
+        local rem, isRF = resolveTraitRemote()
+        if rem and Config.TargetTraitUnitKey and Config.TargetTraitUnitKey ~= "" then
+            pcall(function()
+                if isRF then rem:InvokeServer(Config.TargetTraitUnitKey) else rem:FireServer(Config.TargetTraitUnitKey) end
+            end)
+            Window:Notify({ Title = "Trait Reroll", Content = "Fired 1x trait roll!", Type = "info" })
+        else
+            Window:Notify({ Title = "Trait Reroll", Content = "กรุณาเลือกตัวละครจากคลังก่อน!", Type = "warning" })
+        end
+    end,
+})
+
+TabGacha:AddButton({
+    Name = "👑 Reroll All Plotted Units Trait 1x (สุ่ม Trait ทุกตัวบนแท่น 1 รอบ)",
+    Icon = "👑",
+    Callback = function()
+        local rem, isRF = resolveTraitRemote()
+        local rolled = 0
+        if rem and DataController and DataController.Slots then
+            pcall(function()
+                for slot = 1, 24 do
+                    local sData = DataController.Slots[tostring(slot)] and DataController.Slots[tostring(slot)]()
+                    if sData and sData.unitId then
+                        if isRF then rem:InvokeServer(sData.unitId) else rem:FireServer(sData.unitId) end
+                        rolled = rolled + 1
+                    end
+                end
+            end)
+        end
+        Window:Notify({ Title = "Plot Trait Roll", Content = "Sent 1x trait roll to " .. tostring(rolled) .. " plotted units!", Type = "success" })
+    end,
+})
+
+TabGacha:AddButton({
+    Name = "📍 Teleport to Traits Stall (NPC King)",
+    Icon = "📍",
+    Callback = function()
+        pcall(function()
+            local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then hrp.CFrame = CFrame.new(325, 12, 82) end
+        end)
+        Window:Notify({ Title = "Teleport", Content = "Teleported to Traits Stall (King)!", Type = "info" })
+    end,
+})
+
+TabGacha:AddSection("🔄 INVENTORY UNIT CONTROLS (จัดการคลังตัวละคร)")
+TabGacha:AddButton({
+    Name = "🔄 Refresh Units List (รีเฟรชรายชื่อตัวละครในคลัง)",
+    Icon = "🔄",
+    Callback = function()
+        currentUnitOptions, currentUnitMap = getInventoryUnitOptions()
+        if dropGradeUnitRef and dropGradeUnitRef.Refresh then
+            dropGradeUnitRef:Refresh(currentUnitOptions, true)
+        end
+        if dropTraitUnitRef and dropTraitUnitRef.Refresh then
+            dropTraitUnitRef:Refresh(currentUnitOptions, true)
+        end
+        Window:Notify({ Title = "Units Refreshed", Content = "Loaded " .. tostring(#currentUnitOptions) .. " units from inventory!", Type = "success" })
+    end,
+})
+
+TabGacha:AddSection("🎡 LUCKY WHEEL & GACHA REWARDS (วงล้อ & สุ่มของรางวัล)")
+UIHandles.AutoSpinWheel = TabGacha:AddToggle({
+    Name = "Auto Spin Lucky Wheel (หมุนวงล้อนำโชคอัตโนมัติ)",
+    Desc = "ใช้สิทธิ์หมุนวงล้อฟรีทันทีที่พร้อมใช้งาน",
+    Default = Config.AutoSpinWheel,
+    Callback = function(v)
+        Config.AutoSpinWheel = v
+        Window:Notify({ Title = "Wheel Spin", Content = v and "Auto spin wheel active!" or "Paused.", Type = v and "success" or "warning" })
+    end,
+})
+
+TabGacha:AddButton({
+    Name = "🎡 Instant 10x Wheel Spins Burst (กดหมุนวงล้อรวดเดียว 10 ครั้ง)",
+    Icon = "🎡",
+    Callback = function()
+        task.spawn(function()
+            for i = 1, 10 do
+                if SpinWheelRE then pcall(function() SpinWheelRE:FireServer() end) end
+                task.wait(0.2)
+            end
+        end)
+        Window:Notify({ Title = "Wheel Burst", Content = "Dispatched 10x spins burst!", Type = "success" })
+    end,
+})
+
+TabGacha:AddButton({
+    Name = "🎁 Claim All Free Gacha & Daily Rewards (กดรับรางวัลฟรีทั้งหมด)",
+    Icon = "🎁",
+    Callback = function()
+        ClaimAllRewards()
+        Window:Notify({ Title = "Claim Rewards", Content = "Claimed Daily, Offline, Spin and Group rewards!", Type = "success" })
+    end,
+})
+
+TabGacha:AddSection("🎲 DICE ROLLER BURST SETTINGS (ตั้งค่าทอยเต๋าผสานพลัง)")
+TabGacha:AddToggle({
+    Name = "Hyper Burst Rolls (เปิดโหมดทอยรัวแพ็กเก็ต)",
+    Desc = "ส่งคำสั่งทอยลูกเต๋าหลายชุดต่อ 1 รอบการทำงาน เพื่อเร่งความเร็วในการสุ่มขั้นสุด",
+    Default = Config.BurstRolls,
+    Callback = function(v) Config.BurstRolls = v end,
+})
+
+TabGacha:AddSlider({
+    Name = "Burst Roll Multiplier (จำนวนแพ็กเก็ตทอยต่อรอบ)",
+    Min = 1,
+    Max = 10,
+    Default = Config.BurstRollCount,
+    Increment = 1,
+    Format = "%dx",
+    Callback = function(v) Config.BurstRollCount = v end,
+})
+
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 3: CONTENT (หอคอยดันเจี้ยน)
 -- ─────────────────────────────────────────────────────────────────────
 local TabContent = Window:CreateTab({
-    Name = "Content",
+    Name = "Dungeons",
     Icon = "🏰",
-    Subtitle = "Towers Dungeon & Grade Reroll",
+    Subtitle = "Towers & Floor Climber",
 })
 
 TabContent:AddSection("TOWER DUNGEON SUPREME AUTOMATION")
@@ -4115,25 +4747,7 @@ TabContent:AddButton({
     end,
 })
 
-TabContent:AddSection("GRADE REROLL ENGINE")
-UIHandles.AutoRerollGrade = TabContent:AddToggle({
-    Name = "Auto Reroll Grade (สุ่มเกรดอัตโนมัติ)",
-    Desc = "สุ่มเกรดตัวละครด้วย Gem จนกว่าจะถึงเกรดเป้าหมาย",
-    Default = Config.AutoRerollGrade,
-    Callback = function(v) Config.AutoRerollGrade = v end,
-})
-UIHandles.TargetGrade = TabContent:AddDropdown({
-    Name = "Target Grade (เกรดเป้าหมาย)",
-    Options = {"S", "S+", "Z", "Z+", "神"},
-    Default = Config.TargetGrade,
-    Callback = function(v) Config.TargetGrade = v end,
-})
-TabContent:AddTextbox({
-    Name = "Target Unit Key (คีย์ตัวละครที่จะสุ่มเกรด)",
-    Default = Config.TargetGradeUnitKey,
-    Placeholder = "เช่น 1_UnitKey จากคลัง",
-    Callback = function(v) Config.TargetGradeUnitKey = v end,
-})
+
 
 -- ─────────────────────────────────────────────────────────────────────
 -- TAB 4: PROGRESSION (พัฒนาการ & อัปเกรด)
@@ -4664,6 +5278,16 @@ task.spawn(function()
             if StatBuffMonitor and StatBuffMonitor.Set then
                 local buffsText = getActiveBuffsSummary()
                 StatBuffMonitor:Set("Active", Color3.fromRGB(52, 211, 153), buffsText)
+            end
+
+            if StatGradeRerolls and StatGradeRerolls.Set then
+                StatGradeRerolls:Set(tostring(State.GradeRerollsSession), Theme.AccentGold, "Upgrades this session")
+            end
+            if StatTraitRerolls and StatTraitRerolls.Set then
+                StatTraitRerolls:Set(tostring(State.TraitRerollsSession), Theme.AccentPrimary, "Traits rolled this session")
+            end
+            if StatWheelSpins and StatWheelSpins.Set then
+                StatWheelSpins:Set(tostring(State.WheelSpinsSession), Theme.AccentCyan, "Spins used this session")
             end
         end)
         task.wait(0.7)
