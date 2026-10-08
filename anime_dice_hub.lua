@@ -2345,8 +2345,31 @@ local TowerList = {
     "Cursed Tower",
     "Pirate Tower",
     "Hidden Leaf Tower",
+    "Slayer Tower",
+    "Shadow Tower",
     "Infinity Tower"
 }
+
+pcall(function()
+    local RS = game:GetService("ReplicatedStorage")
+    local TowersMod = (RS:FindFirstChild("Framework") and RS.Framework:FindFirstChild("Features") and RS.Framework.Features:FindFirstChild("Towers") and RS.Framework.Features.Towers:FindFirstChild("Towers"))
+        or RS:FindFirstChild("Towers", true)
+    if TowersMod and TowersMod:IsA("ModuleScript") then
+        local tData = require(TowersMod)
+        if type(tData) == "table" then
+            local liveList = {}
+            for k, v in pairs(tData) do
+                if type(k) == "string" and not table.find(liveList, k) then
+                    table.insert(liveList, k)
+                end
+            end
+            if #liveList >= 5 then
+                table.sort(liveList)
+                TowerList = liveList
+            end
+        end
+    end
+end)
 
 local AllPotionsList = {
     "Luck IV", "Luck III", "Luck II", "Luck I",
@@ -3612,6 +3635,9 @@ local TowerMaxFloors = {
     ["Cursed Tower"]      = 100,
     ["Pirate Tower"]      = 100,
     ["Hidden Leaf Tower"] = 100,
+    ["Leaf Tower"]        = 100,
+    ["Slayer Tower"]      = 100,
+    ["Shadow Tower"]      = 150,
     ["Infinity Tower"]    = 200, -- สูงสุด 200 ชั้นตามสั่ง (อินลง 200)
 }
 
@@ -3686,18 +3712,27 @@ local function startTowerLegit(towerName)
     -- 2. Ensure combat accelerator is patched
     speedUpTowerCombat()
 
-    -- 3. Enter selected tower strictly as chosen by user
-    local started = false
-    if TowerController and TowerController.startTower then
-        local ok, res = pcall(function() return TowerController.startTower(towerName) end)
-        started = (ok and res == true)
-    end
-    if not started and PlayTowerRF then
-        local ok, res = pcall(function() return PlayTowerRF:InvokeServer(towerName) end)
-        started = (ok and res == true)
+    -- 3. Enter selected tower strictly as chosen by user (with name variations support)
+    local variations = { towerName }
+    if towerName == "Hidden Leaf Tower" then table.insert(variations, "Leaf Tower") end
+    if towerName == "Leaf Tower" then table.insert(variations, "Hidden Leaf Tower") end
+    if towerName == "Slayer Tower" then table.insert(variations, "Demon Slayer Tower") end
+    if towerName == "Shadow Tower" then table.insert(variations, "Solo Tower") end
+
+    for _, name in ipairs(variations) do
+        if TowerController and TowerController.startTower then
+            pcall(function() TowerController.startTower(name) end)
+        end
+        if PlayTowerRF then
+            pcall(function() PlayTowerRF:InvokeServer(name) end)
+        end
+        task.wait(0.3)
+        if isPlayerInTower() then
+            return true
+        end
     end
 
-    return started
+    return isPlayerInTower()
 end
 
 local function instantClearCurrentFloor()
@@ -4802,7 +4837,7 @@ UIHandles.SelectedTower = TabContent:AddDropdown({
 })
 TabContent:AddToggle({
     Name = "Auto Cycle All Towers (ลงวนทุกหอคอยอัตโนมัติ)",
-    Desc = "ลงวนทุกหอคอยต่อเนื่องอัตโนมัติ (Dragon -> Cursed -> Pirate -> Hidden Leaf -> Infinity)",
+    Desc = "ลงวนทุกหอคอยต่อเนื่องอัตโนมัติ (ครบทั้ง 7 หอคอย: Dragon -> Cursed -> Pirate -> Leaf -> Slayer -> Shadow -> Infinity)",
     Default = Config.AutoCycleTowers,
     Callback = function(v) Config.AutoCycleTowers = v end,
 })
@@ -4810,7 +4845,7 @@ TabContent:AddSection("📊 DUNGEON PRESET TIERS (ระบบกำหนดช
 TabContent:AddStatCard({
     Title = "Preset Dungeons Cap",
     Value = "Infinity: 200 ชั้น | หอคอยทั่วไป: 100 ชั้น",
-    Desc = "Dragon, Cursed, Pirate, Leaf: 100F • Infinity: 200F",
+    Desc = "5 หอคอยแรก: 100F • Shadow: 150F • Infinity: 200F",
 })
 TabContent:AddSlider({
     Name = "Floor Clear Speed (ความเร็วเคลียร์ชั้น - ดีเลย์)",
