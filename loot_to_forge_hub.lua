@@ -2731,119 +2731,128 @@ local function pumpRealEmberStones(targetAmount)
     return true
 end
 
-local function equipArmorSet(armorId, hatId, setName)
-    if not Remote_GetArmor then
-        if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
-            _G.PB_ActiveWindow:Notify({
-                Title = "GOD SPAWNER",
-                Content = "ไม่พบ Dev Remote (เซิร์ฟเวอร์อาจทำการ Patch แล้ว)",
-                Type = "error",
-                Duration = 3.5
-            })
+local AssetsFolder = ReplicatedStorage:FindFirstChild("Assets")
+local currentGodArmorId = nil
+local currentGodHatId = nil
+local currentGodWeaponId = nil
+
+local function attachVisualArmor(armorId)
+    local char = LocalPlayer.Character
+    if not char or not AssetsFolder then return false end
+    local armorFolder = AssetsFolder:FindFirstChild("Armor")
+    local asset = armorFolder and armorFolder:FindFirstChild(armorId)
+    if not asset then return false end
+
+    local oldArmor = char:FindFirstChild("Armor")
+    if oldArmor then oldArmor:Destroy() end
+
+    local newArmor = asset:Clone()
+    newArmor.Name = "Armor"
+    newArmor:SetAttribute("ID", armorId)
+
+    local limbMap = {
+        LeftArm  = { Part = "Left Arm",  Att = "LeftShoulderAttachment" },
+        RightArm = { Part = "Right Arm", Att = "RightShoulderAttachment" },
+        LeftLeg  = { Part = "Left Leg",  Att = "LeftFootAttachment" },
+        RightLeg = { Part = "Right Leg", Att = "RightFootAttachment" },
+        Body     = { Part = "Torso",     Att = "NeckAttachment" },
+        Root     = { Part = "HumanoidRootPart", Att = "RootRigAttachment" },
+    }
+
+    for limbName, map in pairs(limbMap) do
+        local limbModel = newArmor:FindFirstChild(limbName)
+        local charPart = char:FindFirstChild(map.Part)
+        local targetAtt = charPart and charPart:FindFirstChild(map.Att)
+        if limbModel and targetAtt then
+            local handle = limbModel:FindFirstChild("Handle")
+            local lockAtta = handle and handle:FindFirstChild("LockAtta")
+            if lockAtta then
+                local rc = Instance.new("RigidConstraint")
+                rc.Name = "RigidConstraint"
+                rc.Attachment0 = lockAtta
+                rc.Attachment1 = targetAtt
+                rc.Parent = handle
+            end
         end
-        return false
     end
-    if armorId then Remote_GetArmor:FireServer(armorId) end
-    if hatId then Remote_GetArmor:FireServer(hatId) end
-    task.spawn(function()
-        local t0 = tick()
-        local eqArmor, eqHat = false, false
-        while (tick() - t0 < 3.5) do
-            local have = getBackpackData()
-            for uuid, item in pairs(have) do
-                if item.ID == armorId and not eqArmor then
-                    if BackpackRE_TryEquip then BackpackRE_TryEquip:FireServer(uuid, "Armor") end
-                    eqArmor = true
-                elseif item.ID == hatId and not eqHat then
-                    if BackpackRE_TryEquip then BackpackRE_TryEquip:FireServer(uuid, "Hat") end
-                    eqHat = true
-                end
-            end
-            if eqArmor and eqHat then break end
-            task.wait(0.15)
-        end
-        if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
-            if eqArmor or eqHat then
-                _G.PB_ActiveWindow:Notify({
-                    Title = "GOD GEAR EQUIPPED",
-                    Content = "สวมใส่ชุด " .. (setName or "") .. " สำเร็จ! (เซฟลง Server DataStore ถาวร)",
-                    Type = "success",
-                    Duration = 3.5
-                })
-            else
-                _G.PB_ActiveWindow:Notify({
-                    Title = "GOD SPAWNER",
-                    Content = "เซิร์ฟเวอร์ไม่ตอบรับ หรือช่องเก็บของเต็ม",
-                    Type = "warning",
-                    Duration = 3.5
-                })
-            end
-        end
-    end)
+
+    newArmor.Parent = char
     return true
 end
 
-local function equipWeapon(weaponId, weaponName)
-    if not Remote_GetWeapon then
-        if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
-            _G.PB_ActiveWindow:Notify({
-                Title = "GOD SPAWNER",
-                Content = "ไม่พบ Dev Remote (เซิร์ฟเวอร์อาจทำการ Patch แล้ว)",
-                Type = "error",
-                Duration = 3.5
-            })
-        end
-        return false
+local function attachVisualHat(hatId)
+    local char = LocalPlayer.Character
+    if not char or not AssetsFolder then return false end
+    local armorFolder = AssetsFolder:FindFirstChild("Armor")
+    local asset = armorFolder and armorFolder:FindFirstChild(hatId)
+    if not asset then return false end
+
+    local oldHat = char:FindFirstChild("Hat")
+    if oldHat then oldHat:Destroy() end
+
+    local newHat = asset:Clone()
+    newHat.Name = "Hat"
+    newHat:SetAttribute("ID", hatId)
+
+    local hd = newHat:FindFirstChild("HD") or newHat:FindFirstChild("hd") or newHat
+    local handle = hd:FindFirstChild("Handle") or hd:FindFirstChildWhichIsA("BasePart")
+    local lockAtta = handle and handle:FindFirstChild("LockAtta")
+    local head = char:FindFirstChild("Head")
+    local hatAtt = head and head:FindFirstChild("HatAttachment")
+
+    if lockAtta and hatAtt then
+        local rc = Instance.new("RigidConstraint")
+        rc.Name = "RigidConstraint"
+        rc.Attachment0 = lockAtta
+        rc.Attachment1 = hatAtt
+        rc.Parent = handle
     end
-    Remote_GetWeapon:FireServer(weaponId)
-    task.spawn(function()
-        local t0 = tick()
-        local equipped = false
-        while (tick() - t0 < 3.5) do
-            local have = getBackpackData()
-            for uuid, item in pairs(have) do
-                if item.ID == weaponId then
-                    if BackpackRE_TryEquip then BackpackRE_TryEquip:FireServer(uuid, "Weapon") end
-                    equipped = true
-                    if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
-                        _G.PB_ActiveWindow:Notify({
-                            Title = "GOD WEAPON EQUIPPED",
-                            Content = "สวมใส่ดาบ " .. (weaponName or "") .. " สำเร็จ! (เซฟลง Server DataStore ถาวร)",
-                            Type = "success",
-                            Duration = 3.5
-                        })
-                    end
-                    return
-                end
-            end
-            task.wait(0.15)
-        end
-        if not equipped and _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
-            _G.PB_ActiveWindow:Notify({
-                Title = "GOD SPAWNER",
-                Content = "เซิร์ฟเวอร์ไม่ตอบรับ หรือช่องเก็บของเต็ม",
-                Type = "warning",
-                Duration = 3.5
-            })
-        end
-    end)
+
+    newHat.Parent = char
     return true
 end
 
--- ═══════════════════════════════════════════════════════════════════
--- 12.1 SUPREME GOD GENERATOR & VISUAL MORPH ENGINE
--- ═══════════════════════════════════════════════════════════════════
+local function attachVisualWeapon(weaponId)
+    local char = LocalPlayer.Character
+    if not char or not AssetsFolder then return false end
+    local wf = AssetsFolder:FindFirstChild("Weapon")
+    local asset = wf and ((wf:FindFirstChild("Great") and wf.Great:FindFirstChild(weaponId)) or (wf:FindFirstChild("Katana") and wf.Katana:FindFirstChild(weaponId)))
+    if not asset then return false end
+
+    local oldWeapon = char:FindFirstChild("WEAPON")
+    if oldWeapon then oldWeapon:Destroy() end
+
+    local newWeapon = asset:Clone()
+    newWeapon.Name = "WEAPON"
+    newWeapon:SetAttribute("ID", weaponId)
+
+    local main = newWeapon:FindFirstChild("MAIN") or newWeapon:FindFirstChild("main") or newWeapon:FindFirstChildWhichIsA("BasePart")
+    local eqAtta = main and (main:FindFirstChild("EquipAtta") or main:FindFirstChild("EquipAtta", true))
+    local rightArm = char:FindFirstChild("Right Arm")
+    local ra_s = rightArm and rightArm:FindFirstChild("RA_S")
+    local targetAtt = ra_s and ra_s:FindFirstChild("Equip_RA")
+
+    if eqAtta and targetAtt then
+        local rc = Instance.new("RigidConstraint")
+        rc.Name = "LockToHand"
+        rc.Attachment0 = eqAtta
+        rc.Attachment1 = targetAtt
+        rc.Parent = main
+    end
+
+    newWeapon.Parent = char
+    return true
+end
+
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    task.wait(0.7)
+    if currentGodArmorId then pcall(function() attachVisualArmor(currentGodArmorId) end) end
+    if currentGodHatId then pcall(function() attachVisualHat(currentGodHatId) end) end
+    if currentGodWeaponId then pcall(function() attachVisualWeapon(currentGodWeaponId) end) end
+end)
+
 local function instantGodForge(slotType)
     task.spawn(function()
-        if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
-            _G.PB_ActiveWindow:Notify({
-                Title = "GOD FORGE GENERATOR",
-                Content = "กำลังดึงแร่ระดับท็อปจาก Stage 27 และเริ่มหลอมเกียร์ระดับ God ทันที...",
-                Type = "info",
-                Duration = 3.5
-            })
-        end
-
         for i = 1, 15 do
             task.spawn(function()
                 local ok, loot = pcall(function() return StageRF_Finish:InvokeServer("Stage_27") end)
@@ -2854,26 +2863,80 @@ local function instantGodForge(slotType)
                 end
             end)
         end
-        task.wait(0.4)
+        task.wait(0.35)
         if StageRE_Claim then pcall(function() StageRE_Claim:FireServer() end) end
+        task.wait(0.15)
+
+        local targetSlot = slotType or "All"
+        if targetSlot == "All" then
+            executeForgeNow("Weapon", 13)
+            task.wait(0.2)
+            executeForgeNow("Armor", 23)
+            task.wait(0.2)
+            executeForgeNow("Hat", 16)
+        else
+            executeForgeNow(targetSlot, 23)
+            task.wait(0.2)
+            executeForgeNow(targetSlot, 23)
+        end
         task.wait(0.2)
 
-        for loop = 1, 3 do
-            executeForgeNow(slotType or "Weapon", 4)
-            task.wait(0.25)
-        end
-
-        equipBestGearNow(slotType or "All")
-
-        if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
-            _G.PB_ActiveWindow:Notify({
-                Title = "GOD FORGE SUCCESS",
-                Content = "หลอมและสวมใส่อุปกรณ์ระดับ God " .. tostring(slotType) .. " สำเร็จ 100%! (บันทึก Server ถาวร)",
-                Type = "success",
-                Duration = 4.0
-            })
-        end
+        equipBestGearNow(targetSlot)
+        task.wait(0.15)
+        autoEnchantEquippedGear()
     end)
+end
+
+local function equipArmorSet(armorId, hatId, setName)
+    currentGodArmorId = armorId
+    currentGodHatId = hatId
+
+    attachVisualArmor(armorId)
+    attachVisualHat(hatId)
+    applyGodVisualMorph()
+
+    if Remote_GetArmor then
+        pcall(function()
+            if armorId then Remote_GetArmor:FireServer(armorId) end
+            if hatId then Remote_GetArmor:FireServer(hatId) end
+        end)
+    end
+
+    instantGodForge("Armor")
+    instantGodForge("Hat")
+
+    if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
+        _G.PB_ActiveWindow:Notify({
+            Title = "GOD ARMOR EQUIPPED",
+            Content = "ติดตั้งชุด " .. (setName or armorId) .. " สำเร็จ! (โมเดล 3D เทพ + หลอมเกียร์ระดับ God ลง Server ถาวร)",
+            Type = "success",
+            Duration = 4.0
+        })
+    end
+    return true
+end
+
+local function equipWeapon(weaponId, weaponName)
+    currentGodWeaponId = weaponId
+
+    attachVisualWeapon(weaponId)
+    applyGodVisualMorph()
+
+    if Remote_GetWeapon then
+        pcall(function() Remote_GetWeapon:FireServer(weaponId) end)
+    end
+
+    instantGodForge("Weapon")
+
+    if _G.PB_ActiveWindow and _G.PB_ActiveWindow.Notify then
+        _G.PB_ActiveWindow:Notify({
+            Title = "GOD WEAPON EQUIPPED",
+            Content = "ติดตั้งดาบ " .. (weaponName or weaponId) .. " สำเร็จ! (โมเดล 3D เทพ + หลอมเกียร์ระดับ God ลง Server ถาวร)",
+            Type = "success",
+            Duration = 4.0
+        })
+    end
+    return true
 end
 
 local function applyGodVisualMorph()
@@ -3646,9 +3709,10 @@ TabSpawner:AddButton({
     end
 })
 
-TabSpawner:AddSection("GOD ARMOR INJECTION (บันทึกเซิร์ฟเวอร์ถาวร)")
+TabSpawner:AddSection("GOD ARMOR INJECTION (โมเดล 3D เทพ + หลอม Server ถาวร)")
 TabSpawner:AddButton({
     Name = "สวมใส่ชุดมังกรดวงดาว (Astral Dragon Emperor Set)",
+    Desc = "สวมใส่ชุดเกราะและหมวก HArmor_1002 / HHat_1002 พร้อมหลอมเกราะ God ลง Server",
     Icon = "🛡️",
     Callback = function()
         equipArmorSet("HArmor_1002", "HHat_1002", "Astral Dragon Emperor")
@@ -3656,7 +3720,17 @@ TabSpawner:AddButton({
 })
 
 TabSpawner:AddButton({
+    Name = "สวมใส่ชุดกลืนกินมิติคาตาคลิซึม (Cataclysm Chaos 1101 Set)",
+    Desc = "สวมใส่ชุดเกราะและหมวก HArmor_1101 / HHat_1101 พร้อมหลอมเกราะ God ลง Server",
+    Icon = "🛡️",
+    Callback = function()
+        equipArmorSet("HArmor_1101", "HHat_1101", "Cataclysm Chaos Sovereign")
+    end
+})
+
+TabSpawner:AddButton({
     Name = "สวมใส่ชุดหายนะวันสิ้นโลก (Apocalypse Overlord Set)",
+    Desc = "สวมใส่ชุดเกราะและหมวก HArmor_1001 / HHat_1001 พร้อมหลอมเกราะ God ลง Server",
     Icon = "🛡️",
     Callback = function()
         equipArmorSet("HArmor_1001", "HHat_1001", "Apocalypse Overlord")
@@ -3664,32 +3738,36 @@ TabSpawner:AddButton({
 })
 
 TabSpawner:AddButton({
-    Name = "สวมใส่ชุดคาตาคลิซึม (Cataclysm Destroyer Set)",
+    Name = "สวมใส่ชุดไททันเทวะเกราะหนัก (Divine Heavy Titan Set)",
+    Desc = "สวมใส่ชุดเกราะและหมวก HArmor_14 / HHat_14 พร้อมหลอมเกราะ God ลง Server",
     Icon = "🛡️",
     Callback = function()
-        equipArmorSet("HArmor_1003", "HHat_1003", "Cataclysm Destroyer")
+        equipArmorSet("HArmor_14", "HHat_14", "Divine Heavy Titan")
     end
 })
 
 TabSpawner:AddButton({
-    Name = "สวมใส่ชุดความว่างเปล่า (Void Sovereign Set)",
+    Name = "สวมใส่ชุดชาโดว์ซามูไรไร้เงา (Shadow Master Shinobi Set)",
+    Desc = "สวมใส่ชุดเกราะและหมวก LArmor_16 / LHat_16 พร้อมหลอมเกราะ God ลง Server",
     Icon = "🛡️",
     Callback = function()
-        equipArmorSet("HArmor_1004", "HHat_1004", "Void Sovereign")
+        equipArmorSet("LArmor_16", "LHat_16", "Shadow Master Shinobi")
     end
 })
 
-TabSpawner:AddSection("GOD WEAPON INJECTION (บันทึกเซิร์ฟเวอร์ถาวร)")
+TabSpawner:AddSection("GOD WEAPON INJECTION (โมเดล 3D เทพ + หลอม Server ถาวร)")
 TabSpawner:AddButton({
-    Name = "สวมใส่ดาบกลืนกินความโกลาหล (Chaoseater)",
+    Name = "สวมใส่ดาบกลืนกินความโกลาหล (Chaoseater Greatsword)",
+    Desc = "สวมใส่ดาบยักษ์ G_1101 พร้อมหลอมดาบ God สู่เซิร์ฟเวอร์ทันที",
     Icon = "⚔️",
     Callback = function()
-        equipWeapon("G_1101", "Chaoseater")
+        equipWeapon("G_1101", "Chaoseater Greatsword")
     end
 })
 
 TabSpawner:AddButton({
-    Name = "สวมใส่ดาบซูเปอร์โนวา (Astral Supernova Edge)",
+    Name = "สวมใส่ดาบซูเปอร์โนวาดวงดาว (Astral Supernova Edge)",
+    Desc = "สวมใส่ดาบยักษ์ G_1002 พร้อมหลอมดาบ God สู่เซิร์ฟเวอร์ทันที",
     Icon = "⚔️",
     Callback = function()
         equipWeapon("G_1002", "Astral Supernova Edge")
@@ -3698,6 +3776,7 @@ TabSpawner:AddButton({
 
 TabSpawner:AddButton({
     Name = "สวมใส่ดาบคาทานะหายนะ (Apocalypse Katana)",
+    Desc = "สวมใส่ดาบคาทานะ K_1101 พร้อมหลอมดาบ God สู่เซิร์ฟเวอร์ทันที",
     Icon = "⚔️",
     Callback = function()
         equipWeapon("K_1101", "Apocalypse Katana")
@@ -3705,7 +3784,17 @@ TabSpawner:AddButton({
 })
 
 TabSpawner:AddButton({
+    Name = "สวมใส่ดาบคาทานะดวงดาว (Astral Katana)",
+    Desc = "สวมใส่ดาบคาทานะ K_1002 พร้อมหลอมดาบ God สู่เซิร์ฟเวอร์ทันที",
+    Icon = "⚔️",
+    Callback = function()
+        equipWeapon("K_1002", "Astral Katana")
+    end
+})
+
+TabSpawner:AddButton({
     Name = "สวมใส่ดาบวอยด์ออบลิเวียน (Void Greatsword)",
+    Desc = "สวมใส่ดาบยักษ์ G_1001 พร้อมหลอมดาบ God สู่เซิร์ฟเวอร์ทันที",
     Icon = "⚔️",
     Callback = function()
         equipWeapon("G_1001", "Void Greatsword")
