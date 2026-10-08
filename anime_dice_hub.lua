@@ -3548,18 +3548,106 @@ local TowerMaxFloors = {
     ["Infinity Tower"]    = 200, -- สูงสุด 200 ชั้นตามสั่ง
 }
 
-local function instantClearCurrentFloor()
-    if not TowersNet then return false end
-    local currentFloor = 1
+-- ── 12.1 LEGITIMATE 10X COMBAT ACCELERATOR & TOWER ENGINE ─────────────
+-- Patches internal action wait times to 0.05s so legitimate battle runs 10x faster
+-- while ensuring 100% real server rewards, XP, drops, and floor completion.
+local function speedUpTowerCombat()
     pcall(function()
-        local root = LP.PlayerGui:FindFirstChild("Root")
-        local screen = root and root.Tower and root.Tower:FindFirstChild("Screen")
-        local floorText = screen and screen:FindFirstChild("Floor") and screen.Floor.Text
-        if floorText then
-            local num = floorText:match("%d+")
-            if num then currentFloor = tonumber(num) or 1 end
+        if TowerController and TowerController.startTower then
+            local uvs = debug.getupvalues(TowerController.startTower)
+            local uv4 = uvs and uvs[4]
+            if uv4 and uv4.ActionWaitTime then
+                uv4.ActionWaitTime.damageEnemy = 0.05
+                uv4.ActionWaitTime.damagePlayer = 0.05
+                uv4.ActionWaitTime.floorStarted = 0.05
+                uv4.ActionWaitTime.floorCompleted = 0.05
+            end
         end
     end)
+end
+
+speedUpTowerCombat()
+
+local function isPlayerInTower()
+    local root = LP.PlayerGui:FindFirstChild("Root")
+    local screen = root and root.Tower and root.Tower:FindFirstChild("Screen")
+    local hidden = screen and screen.Parent and screen.Parent:FindFirstChild("Hidden")
+    return (screen and screen.Visible == true) or (hidden and hidden.Visible == true)
+end
+
+local function getRealTowerFloor()
+    local root = LP.PlayerGui:FindFirstChild("Root")
+    local screen = root and root.Tower and root.Tower:FindFirstChild("Screen")
+    local hidden = screen and screen.Parent and screen.Parent:FindFirstChild("Hidden")
+    local fText = (screen and screen:FindFirstChild("Floor") and screen.Floor.Text)
+        or (hidden and hidden:FindFirstChild("Floor", true) and hidden:FindFirstChild("Floor", true).Text)
+    if fText then
+        local num = fText:match("%d+")
+        if num then return tonumber(num) or 1, fText end
+    end
+    return 1, "Floor 1"
+end
+
+local function activateInGameAutoButton()
+    local root = LP.PlayerGui:FindFirstChild("Root")
+    local screen = root and root.Tower and root.Tower:FindFirstChild("Screen")
+    local autoBtn = screen and screen:FindFirstChild("Buttons") and screen.Buttons:FindFirstChild("Auto")
+    if autoBtn and getconnections then
+        local conns = getconnections(autoBtn.Activated)
+        if conns and #conns > 0 then
+            local autoFunc = conns[1].Function
+            local isAutoOn = autoFunc and debug.getupvalues and debug.getupvalues(autoFunc)[1]
+            if isAutoOn == false then
+                pcall(function() conns[1]:Fire() end)
+            end
+        end
+    end
+    if TowersNet and TowersNet:FindFirstChild("RE") and TowersNet.RE:FindFirstChild("SetAutoTower") then
+        pcall(function() TowersNet.RE.SetAutoTower:FireServer(true) end)
+    end
+end
+
+local function startTowerLegit(towerName)
+    if isPlayerInTower() then return true end
+
+    -- 1. Equip best team first
+    if EquipBestTowerTeamRE then
+        pcall(function() EquipBestTowerTeamRE:FireServer() end)
+        task.wait(0.2)
+    end
+
+    -- 2. Ensure combat accelerator is patched
+    speedUpTowerCombat()
+
+    -- 3. Enter selected tower
+    local started = false
+    if TowerController and TowerController.startTower then
+        local ok, res = pcall(function() return TowerController.startTower(towerName) end)
+        started = (ok and res == true)
+    end
+    if not started and PlayTowerRF then
+        local ok, res = pcall(function() return PlayTowerRF:InvokeServer(towerName) end)
+        started = (ok and res == true)
+    end
+
+    -- 4. If selected tower is locked on server, automatically fallback to Dragon Tower
+    if not started and towerName ~= "Dragon Tower" then
+        if TowerController and TowerController.startTower then
+            local ok, res = pcall(function() return TowerController.startTower("Dragon Tower") end)
+            started = (ok and res == true)
+        end
+        if not started and PlayTowerRF then
+            local ok, res = pcall(function() return PlayTowerRF:InvokeServer("Dragon Tower") end)
+            started = (ok and res == true)
+        end
+    end
+
+    return started
+end
+
+local function instantClearCurrentFloor()
+    if not TowersNet then return false end
+    local currentFloor = getRealTowerFloor()
     if CompleteTowerFloorRF then
         local ok = pcall(function() return CompleteTowerFloorRF:InvokeServer(currentFloor) end)
         return ok
@@ -3567,107 +3655,82 @@ local function instantClearCurrentFloor()
     return false
 end
 
+-- ── 12.2 REAL COMBAT AUTO TOWER ENGINE (100% SERVER REWARDS & LOOT) ──
+local lastSeenFloor = 0
 task.spawn(function()
     while Running and _G.AnimeDiceActiveToken == myToken do
         if Config.AutoTowers and TowersNet then
             pcall(function()
-                local towerName = Config.SelectedTower or "Dragon Tower"
-                if Config.AutoCycleTowers then
-                    towerName = TowerList[((towerCycleIndex - 1) % #TowerList) + 1]
-                end
+                local inTower = isPlayerInTower()
 
-                State.CurrentTowerStatus = "Equipping Best Team..."
-                if EquipBestTowerTeamRE then
-                    pcall(function() EquipBestTowerTeamRE:FireServer() end)
-                end
-                task.wait(0.15)
+                if inTower then
+                    -- ── STATE A: INSIDE TOWER (ACTIVE REAL COMBAT) ──
+                    -- 1. Ensure in-game Auto button is active (Green)
+                    activateInGameAutoButton()
 
-                -- Auto Buffs before entering tower
-                if Config.AutoUseDamagePotionsInTower then
-                    pcall(function()
-                        UsePotion("Damage IV")
-                        UsePotion("Damage III")
-                        UsePotion("Luck IV")
-                    end)
-                end
+                    -- 2. Read REAL in-game floor
+                    local curFloor, floorString = getRealTowerFloor()
+                    if curFloor > lastSeenFloor then
+                        State.FloorsClearedSession = State.FloorsClearedSession + (curFloor - lastSeenFloor)
+                        lastSeenFloor = curFloor
+                    end
 
-                State.CurrentTowerStatus = "Entering " .. tostring(towerName) .. "..."
-                if PlayTowerRF then
-                    pcall(function() PlayTowerRF:InvokeServer(towerName) end)
-                end
-                task.wait(0.25)
+                    local towerName = Config.SelectedTower or "Dragon Tower"
+                    local targetMax = math.min(Config.TargetTowerFloor or 200, 200)
 
-                -- Auto In-Game Auto button & Screen visibility control
-                pcall(function()
+                    State.CurrentTowerStatus = string.format("[%s] %s / Max %d (ได้รับของดรอปจริง!)", towerName, floorString, targetMax)
+
+                    -- 3. Check target floor limit (capped at 200)
+                    if curFloor >= targetMax then
+                        State.CurrentTowerStatus = string.format("[%s] ครบ %d ชั้นตามเป้าหมาย! กำลังจบและรับรางวัล...", towerName, curFloor)
+                        if CancelTowerRF then
+                            pcall(function() CancelTowerRF:InvokeServer() end)
+                        end
+                        task.wait(2.0)
+                    end
+
+                    -- 4. Screen visibility control (minimize if HideTowerScreen enabled)
                     local root = LP.PlayerGui:FindFirstChild("Root")
                     local screen = root and root.Tower and root.Tower:FindFirstChild("Screen")
                     local hidden = screen and screen.Parent and screen.Parent:FindFirstChild("Hidden")
                     if Config.HideTowerScreen and screen and screen.Visible and hidden and firesignal then
-                        firesignal(hidden.Activated)
-                    end
-                    if screen and screen:FindFirstChild("Buttons") and screen.Buttons:FindFirstChild("Auto") and firesignal then
-                        firesignal(screen.Buttons.Auto.Activated)
-                    end
-                    local setAuto = TowersNet:FindFirstChild("RE") and TowersNet.RE:FindFirstChild("SetAutoTower")
-                    if setAuto then setAuto:FireServer(true) end
-                end)
-
-                local maxFloor = TowerMaxFloors[towerName] or 100
-                if Config.TargetTowerFloor and Config.TargetTowerFloor > 0 then
-                    maxFloor = math.min(maxFloor, Config.TargetTowerFloor)
-                end
-                maxFloor = math.min(maxFloor, 200) -- ลิมิตสูงสุด 200 ชั้นเพื่อความรวดเร็ว
-
-                local failedAttempts = 0
-                for floor = 1, maxFloor do
-                    if not Config.AutoTowers or not Running or _G.AnimeDiceActiveToken ~= myToken then
-                        State.CurrentTowerStatus = "Paused"
-                        break
-                    end
-                    if floor > 200 then
-                        State.CurrentTowerStatus = string.format("[%s] จบที่ชั้น 200 (Cap Reached)", towerName)
-                        break
+                        pcall(function() firesignal(hidden.Activated) end)
                     end
 
-                    State.CurrentTowerStatus = string.format("[%s] Floor %d / %d", towerName, floor, maxFloor)
-                    local success = false
-                    if CompleteTowerFloorRF then
-                        local ok, res = pcall(function()
-                            return CompleteTowerFloorRF:InvokeServer(floor)
-                        end)
-                        if ok and (res == true or res == nil) then
-                            success = true
-                        end
+                    task.wait(0.4)
+                else
+                    -- ── STATE B: OUTSIDE TOWER (EQUIP & ENTER REAL TOWER) ──
+                    lastSeenFloor = 0
+                    local towerName = Config.SelectedTower or "Dragon Tower"
+                    if Config.AutoCycleTowers then
+                        towerName = TowerList[((towerCycleIndex - 1) % #TowerList) + 1]
                     end
 
-                    if success then
-                        failedAttempts = 0
-                        State.FloorsClearedSession = State.FloorsClearedSession + 1
+                    State.CurrentTowerStatus = "กำลังเข้า " .. tostring(towerName) .. " (ระบบของจริง)..."
+
+                    if Config.AutoUseDamagePotionsInTower then
+                        UsePotion("Damage IV")
+                        UsePotion("Damage III")
+                        UsePotion("Luck IV")
+                    end
+
+                    local started = startTowerLegit(towerName)
+                    if started then
+                        State.CurrentTowerStatus = "ต่อสู้ใน " .. tostring(towerName) .. " สำเร็จ!"
+                        task.wait(1.5)
+                        activateInGameAutoButton()
                     else
-                        failedAttempts = failedAttempts + 1
-                        if Config.AutoRetryFailedFloor and failedAttempts <= 3 then
-                            task.wait(0.25)
-                        else
-                            State.CurrentTowerStatus = string.format("[%s] Run Complete (Floor %d)", towerName, floor)
-                            break
+                        State.CurrentTowerStatus = string.format("หอคอย '%s' ยังไม่ปลดล็อก กำลังรอรอบถัดไป...", tostring(towerName))
+                        if Config.AutoCycleTowers then
+                            towerCycleIndex = towerCycleIndex + 1
                         end
+                        task.wait(2.5)
                     end
-
-                    local delayTime = math.clamp(Config.AutoTowerFloorDelay or 0.15, 0.05, 1.0)
-                    task.wait(delayTime)
                 end
-
-                -- If finished run, cancel and clean up
-                if CancelTowerRF then pcall(function() CancelTowerRF:InvokeServer() end) end
-                if Config.AutoCycleTowers then
-                    towerCycleIndex = towerCycleIndex + 1
-                end
-                State.CurrentTowerStatus = "Run Done! Cooling down..."
             end)
-            task.wait(1.5)
         else
             State.CurrentTowerStatus = "Standby"
-            task.wait(0.5)
+            task.wait(1.0)
         end
     end
 end)
