@@ -2082,7 +2082,8 @@ local OrionLib = UI
 
 -- ═══════════════════════════════════════════════════════════════════
 -- ═══════════════════════════════════════════════════════════════════
--- 5. SETTINGS / CONFIGURATION STATE (SUPERCHARGED WITH 2K GOD SUITE)
+-- ═══════════════════════════════════════════════════════════════════
+-- 5. SETTINGS / CONFIGURATION STATE (SUPREME GOD SUITE)
 -- ═══════════════════════════════════════════════════════════════════
 local Settings = {
     -- Train & VIP Power
@@ -2132,6 +2133,9 @@ local Settings = {
     EnchantFilterMode    = "Sell Selected",
     EnchantRaritiesToSell= { "Common", "Uncommon" },
 
+    -- God Spawner Loops
+    AutoPumpEmberStones  = false,
+
     -- Buff Potions
     AutoDrinkPotions     = false,
     AutoTrainPotion      = true,
@@ -2151,11 +2155,23 @@ local Settings = {
     AutoAttack           = false,
     AttackDelay          = 0.1,
 
+    -- Player & Movement Physics
+    WalkSpeedEnabled     = false,
+    WalkSpeedValue       = 16,
+    JumpPowerEnabled     = false,
+    JumpPowerValue       = 50,
+    InfiniteJump         = false,
+    Noclip               = false,
+    FlyEnabled           = false,
+    FlySpeed             = 50,
+    AutoReconnect        = true,
+
     -- FPS & Performance
     DisableVFX           = false,
     LowGraphics          = false,
     HideOtherPlayers     = false,
     MuteGamePopups       = false,
+    ShowFloatingBadge    = true,
 }
 
 -- ═══════════════════════════════════════════════════════════════════
@@ -2973,6 +2989,7 @@ local TabFarming = Window:CreateTab({ Name = "Farming & Stage", Icon = "⚡", Su
 local TabForge   = Window:CreateTab({ Name = "Forge & Gear",    Icon = "💎", Subtitle = "Smart 2SKI Slicing & Auto Equip" })
 local TabCombat  = Window:CreateTab({ Name = "Combat & Train",  Icon = "⚔️", Subtitle = "Auto Training & VIP x100 Power" })
 local TabSpawner = Window:CreateTab({ Name = "God Spawner",     Icon = "✨", Subtitle = "Dev Exploit & Permanent Gear" })
+local TabPlayer  = Window:CreateTab({ Name = "Player & Physics",Icon = "🏃", Subtitle = "Speed, Jump, Fly & Noclip" })
 local TabFPS     = Window:CreateTab({ Name = "Boost FPS",       Icon = "🚀", Subtitle = "Lag Reducer & RAM Cleaner" })
 local TabMisc    = Window:CreateTab({ Name = "Misc & Upgrades", Icon = "⚙️", Subtitle = "Economy, Upgrades & SuperLoot" })
 local TabConfig  = Window:CreateTab({ Name = "Settings & Save",  Icon = "💾", Subtitle = "Persistent JSON Profile Engine" })
@@ -3401,6 +3418,16 @@ TabCombat:AddSlider({
 -- TAB 4: GOD SPAWNER (2K REVERSE-ENGINEERED DEV EXPLOIT)
 -- ─────────────────────────────────────────────────────────────────────
 TabSpawner:AddSection("EMBER STONE DUPE EXPLOIT (SERVER DATASTORE 100%)")
+TabSpawner:AddToggle({
+    Name = "Auto Pump Ember Stones (ปั๊มต่อเนื่องในพื้นหลัง)",
+    Desc = "รันระบบปั๊มหิน Ember Stones เข้า Server DataStore อัตโนมัติในพื้นหลังตลอดเวลา",
+    Default = Settings.AutoPumpEmberStones,
+    Callback = function(Value)
+        Settings.AutoPumpEmberStones = Value
+        Window:Notify({ Title = "Auto Pump Ember", Content = Value and "เปิดระบบปั๊มต่อเนื่อง!" or "หยุดปั๊ม", Type = Value and "success" or "warning" })
+    end
+})
+
 TabSpawner:AddButton({
     Name = "🔥 เสก Ember Stone (+5,000 ก้อน / คลิกเดียว)",
     Icon = "🔥",
@@ -3484,7 +3511,118 @@ TabSpawner:AddButton({
 })
 
 -- ─────────────────────────────────────────────────────────────────────
--- TAB 5: BOOST FPS & PERFORMANCE
+-- TAB 5: PLAYER & MOVEMENT PHYSICS
+-- ─────────────────────────────────────────────────────────────────────
+TabPlayer:AddSection("MOVEMENT & PHYSICS HACKS")
+TabPlayer:AddToggle({
+    Name = "WalkSpeed Hack (เพิ่มความเร็ววิ่ง)",
+    Default = Settings.WalkSpeedEnabled,
+    Callback = function(Value)
+        Settings.WalkSpeedEnabled = Value
+        if not Value then
+            pcall(function()
+                local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if hum then hum.WalkSpeed = 16 end
+            end)
+        end
+    end
+})
+
+TabPlayer:AddSlider({
+    Name = "WalkSpeed Value",
+    Min = 16, Max = 250, Default = Settings.WalkSpeedValue,
+    Increment = 2, ValueName = "speed",
+    Callback = function(Value) Settings.WalkSpeedValue = Value end
+})
+
+TabPlayer:AddToggle({
+    Name = "JumpPower Hack (เพิ่มพลังกระโดด)",
+    Default = Settings.JumpPowerEnabled,
+    Callback = function(Value)
+        Settings.JumpPowerEnabled = Value
+        if not Value then
+            pcall(function()
+                local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if hum then hum.JumpPower = 50 end
+            end)
+        end
+    end
+})
+
+TabPlayer:AddSlider({
+    Name = "JumpPower Value",
+    Min = 50, Max = 350, Default = Settings.JumpPowerValue,
+    Increment = 5, ValueName = "power",
+    Callback = function(Value) Settings.JumpPowerValue = Value end
+})
+
+TabPlayer:AddToggle({
+    Name = "Infinite Jump (กระโดดลอยฟ้าไม่จำกัด)",
+    Desc = "กระโดดซ้ำกลางอากาศได้อย่างอิสระ",
+    Default = Settings.InfiniteJump,
+    Callback = function(Value) Settings.InfiniteJump = Value end
+})
+
+TabPlayer:AddToggle({
+    Name = "Noclip (เดินทะลุกำแพง)",
+    Desc = "เดินผ่านสิ่งกีดขวางทุกชนิดโดยไม่ติดขัด",
+    Default = Settings.Noclip,
+    Callback = function(Value) Settings.Noclip = Value end
+})
+
+TabPlayer:AddSection("FLY ENGINE")
+local flyBodyVelocity, flyBodyGyro = nil, nil
+TabPlayer:AddToggle({
+    Name = "Flight Mode (บินอิสระตามมุมกล้อง)",
+    Desc = "บินสำรวจแมพตามทิศทางมุมกล้อง",
+    Default = Settings.FlyEnabled,
+    Callback = function(Value)
+        Settings.FlyEnabled = Value
+        pcall(function()
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if Value then
+                if hrp then
+                    flyBodyVelocity = Instance.new("BodyVelocity")
+                    flyBodyVelocity.Name = "PB_FlyVelocity"
+                    flyBodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+                    flyBodyVelocity.Velocity = Vector3.zero
+                    flyBodyVelocity.Parent = hrp
+
+                    flyBodyGyro = Instance.new("BodyGyro")
+                    flyBodyGyro.Name = "PB_FlyGyro"
+                    flyBodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+                    flyBodyGyro.CFrame = hrp.CFrame
+                    flyBodyGyro.Parent = hrp
+                end
+                if hum then hum.PlatformStand = true end
+            else
+                if flyBodyVelocity then flyBodyVelocity:Destroy() flyBodyVelocity = nil end
+                if flyBodyGyro then flyBodyGyro:Destroy() flyBodyGyro = nil end
+                if hum then hum.PlatformStand = false end
+            end
+        end)
+    end
+})
+
+TabPlayer:AddSlider({
+    Name = "Fly Speed",
+    Min = 20, Max = 200, Default = Settings.FlySpeed,
+    Increment = 5, ValueName = "speed",
+    Callback = function(Value) Settings.FlySpeed = Value end
+})
+
+TabPlayer:AddSection("24/7 🛡️ ZERO-DOWNTIME RECONNECT")
+TabPlayer:AddToggle({
+    Name = "Auto Reconnect On Disconnect / Error",
+    Desc = "ตรวจจับหน้าต่างหลุดการเชื่อมต่อหรือโดนเตะ แล้วเชื่อมต่อเข้าเซิร์ฟเวอร์เดิมใหม่อัตโนมัติ",
+    Default = Settings.AutoReconnect,
+    Callback = function(Value) Settings.AutoReconnect = Value end
+})
+
+-- ─────────────────────────────────────────────────────────────────────
+-- TAB 6: BOOST FPS & PERFORMANCE
 -- ─────────────────────────────────────────────────────────────────────
 TabFPS:AddSection("CORE LAG REDUCERS")
 TabFPS:AddToggle({
@@ -3537,7 +3675,7 @@ TabFPS:AddButton({
 })
 
 -- ─────────────────────────────────────────────────────────────────────
--- TAB 6: MISC, UPGRADES & CLASS GACHA
+-- TAB 7: MISC, UPGRADES & CLASS GACHA
 -- ─────────────────────────────────────────────────────────────────────
 TabMisc:AddSection("AUTOMATION & ECONOMY")
 TabMisc:AddToggle({
@@ -3619,7 +3757,7 @@ TabMisc:AddButton({
 })
 
 -- ─────────────────────────────────────────────────────────────────────
--- TAB 7: SETTINGS & CONFIGURATION PROFILES
+-- TAB 8: SETTINGS & CONFIGURATION PROFILES
 -- ─────────────────────────────────────────────────────────────────────
 TabConfig:AddSection("💾 CONFIGURATION PROFILES")
 
@@ -3927,7 +4065,7 @@ task.spawn(function()
     end
 end)
 
--- Thread 9: Combat Attack Loop & Potions
+-- Thread 9: Combat Attack Loop
 task.spawn(function()
     while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoAttack then
@@ -3950,7 +4088,7 @@ task.spawn(function()
     end
 end)
 
--- Thread 10: Auto Buff Potions Loop
+-- Thread 10: Auto Buff Potions Loop & Auto Pump Ember
 task.spawn(function()
     while Running and _G.LootToForgeActiveToken == myToken do
         if Settings.AutoDrinkPotions then
@@ -3962,7 +4100,107 @@ task.spawn(function()
     end
 end)
 
--- Thread 11: Real-time Telemetry Live Feed
+task.spawn(function()
+    while Running and _G.LootToForgeActiveToken == myToken do
+        if Settings.AutoPumpEmberStones and not isPumpingEmber then
+            safe(function() pumpRealEmberStones(1000) end)
+            task.wait(5.0)
+        else
+            task.wait(2.0)
+        end
+    end
+end)
+
+-- Thread 11: Player Physics (WalkSpeed, JumpPower, Fly, Noclip)
+task.spawn(function()
+    while Running and _G.LootToForgeActiveToken == myToken do
+        safe(function()
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if Settings.WalkSpeedEnabled then
+                    hum.WalkSpeed = Settings.WalkSpeedValue or 16
+                end
+                if Settings.JumpPowerEnabled then
+                    hum.JumpPower = Settings.JumpPowerValue or 50
+                end
+            end
+
+            -- Fly Movement Direction
+            if Settings.FlyEnabled and flyBodyVelocity and flyBodyGyro then
+                local cam = workspace.CurrentCamera
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if cam and hrp then
+                    local moveDir = Vector3.zero
+                    local isKeyDown = function(k) return UserInputService:IsKeyDown(k) end
+                    if isKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+                    if isKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+                    if isKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+                    if isKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+                    if isKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+                    if isKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+
+                    if moveDir.Magnitude > 0 then
+                        flyBodyVelocity.Velocity = moveDir.Unit * (Settings.FlySpeed or 50)
+                    else
+                        flyBodyVelocity.Velocity = Vector3.zero
+                    end
+                    flyBodyGyro.CFrame = cam.CFrame
+                end
+            end
+        end)
+        task.wait(0.1)
+    end
+end)
+
+-- Noclip Listener
+RunService.Stepped:Connect(function()
+    if Running and Settings.Noclip then
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- Infinite Jump Listener
+UserInputService.JumpRequest:Connect(function()
+    if Running and Settings.InfiniteJump then
+        pcall(function()
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+        end)
+    end
+end)
+
+-- 24/7 Auto Reconnect Watchdog
+task.spawn(function()
+    while Running and _G.LootToForgeActiveToken == myToken do
+        task.wait(3.0)
+        if Settings.AutoReconnect then
+            pcall(function()
+                local promptGui = CoreGui:FindFirstChild("RobloxPromptGui")
+                local promptOverlay = promptGui and promptGui:FindFirstChild("promptOverlay")
+                if promptOverlay and #promptOverlay:GetChildren() > 0 then
+                    local errorTitle = promptOverlay:FindFirstChild("ErrorTitle", true)
+                    if errorTitle and errorTitle.Text ~= "" then
+                        local ts = game:GetService("TeleportService")
+                        ts:Teleport(game.PlaceId, LocalPlayer)
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- Thread 12: Real-time Telemetry Live Feed
 task.spawn(function()
     while Running and _G.LootToForgeActiveToken == myToken do
         safe(function()
@@ -3994,7 +4232,7 @@ end)
 
 Window:Notify({
     Title = "PROJECT BARUN",
-    Content = "Loot To Forge Hub v3.0 Supreme Loaded Successfully!",
+    Content = "Loot To Forge Master Suite v3.0 Supreme Active!",
     Type = "success",
     Duration = 4.0
 })
