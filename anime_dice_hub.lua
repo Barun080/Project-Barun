@@ -2345,9 +2345,7 @@ local TowerList = {
     "Cursed Tower",
     "Pirate Tower",
     "Hidden Leaf Tower",
-    "Infinity Tower",
-    "Shadow Tower",
-    "Slayer Tower"
+    "Infinity Tower"
 }
 
 local AllPotionsList = {
@@ -3614,9 +3612,7 @@ local TowerMaxFloors = {
     ["Cursed Tower"]      = 100,
     ["Pirate Tower"]      = 100,
     ["Hidden Leaf Tower"] = 100,
-    ["Slayer Tower"]      = 100,
-    ["Shadow Tower"]      = 150,
-    ["Infinity Tower"]    = 200, -- สูงสุด 200 ชั้นตามสั่ง
+    ["Infinity Tower"]    = 200, -- สูงสุด 200 ชั้นตามสั่ง (อินลง 200)
 }
 
 -- ── 12.1 LEGITIMATE 10X COMBAT ACCELERATOR & TOWER ENGINE ─────────────
@@ -3690,7 +3686,7 @@ local function startTowerLegit(towerName)
     -- 2. Ensure combat accelerator is patched
     speedUpTowerCombat()
 
-    -- 3. Enter selected tower
+    -- 3. Enter selected tower strictly as chosen by user
     local started = false
     if TowerController and TowerController.startTower then
         local ok, res = pcall(function() return TowerController.startTower(towerName) end)
@@ -3699,18 +3695,6 @@ local function startTowerLegit(towerName)
     if not started and PlayTowerRF then
         local ok, res = pcall(function() return PlayTowerRF:InvokeServer(towerName) end)
         started = (ok and res == true)
-    end
-
-    -- 4. If selected tower is locked on server, automatically fallback to Dragon Tower
-    if not started and towerName ~= "Dragon Tower" then
-        if TowerController and TowerController.startTower then
-            local ok, res = pcall(function() return TowerController.startTower("Dragon Tower") end)
-            started = (ok and res == true)
-        end
-        if not started and PlayTowerRF then
-            local ok, res = pcall(function() return PlayTowerRF:InvokeServer("Dragon Tower") end)
-            started = (ok and res == true)
-        end
     end
 
     return started
@@ -4818,7 +4802,7 @@ UIHandles.SelectedTower = TabContent:AddDropdown({
 })
 TabContent:AddToggle({
     Name = "Auto Cycle All Towers (ลงวนทุกหอคอยอัตโนมัติ)",
-    Desc = "ลงวนทุกหอคอยต่อเนื่องอัตโนมัติ (Dragon -> Cursed -> Pirate -> Leaf -> Slayer -> Shadow -> Infinity)",
+    Desc = "ลงวนทุกหอคอยต่อเนื่องอัตโนมัติ (Dragon -> Cursed -> Pirate -> Hidden Leaf -> Infinity)",
     Default = Config.AutoCycleTowers,
     Callback = function(v) Config.AutoCycleTowers = v end,
 })
@@ -4826,7 +4810,7 @@ TabContent:AddSection("📊 DUNGEON PRESET TIERS (ระบบกำหนดช
 TabContent:AddStatCard({
     Title = "Preset Dungeons Cap",
     Value = "Infinity: 200 ชั้น | หอคอยทั่วไป: 100 ชั้น",
-    Desc = "Dragon/Cursed/Pirate/Leaf/Slayer 100F • Shadow 150F • Infinity 200F",
+    Desc = "Dragon, Cursed, Pirate, Leaf: 100F • Infinity: 200F",
 })
 TabContent:AddSlider({
     Name = "Floor Clear Speed (ความเร็วเคลียร์ชั้น - ดีเลย์)",
