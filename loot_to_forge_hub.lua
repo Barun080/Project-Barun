@@ -2179,53 +2179,62 @@ local Settings = {
 -- ═══════════════════════════════════════════════════════════════════
 local Remote = ReplicatedStorage:WaitForChild("Remote", 10)
 local function R(folder, name)
-    local f = Remote and Remote:FindFirstChild(folder)
+    if not Remote then return nil end
+    local f = Remote:FindFirstChild(folder .. "_Server") or Remote:FindFirstChild(folder)
     return f and f:FindFirstChild(name)
 end
 
--- Core Remotes
-local TrainRE_Start       = R("Train",      "StartTrainRE")
-local TrainRE_Once        = R("Train",      "TrainOnceRE")
-local TrainRE_IntoArea    = R("Train",      "IntoAutoTrainRE")
-local TrainRE_ExitArea    = R("Train",      "ExitAutoTrainRE")
-local StageRF_Finish      = R("Stage",      "StageFinishedRF")
-local StageRF_GetOre      = R("Stage",      "GetOreRF")
-local StageRE_Claim       = R("Stage",      "ClaimedAllOreRE")
-local OnlineRE_Claim      = R("Online",     "TryClaimRE")
-local UpdateRE_Claim      = R("UpdateLog",  "TryClaimUPDRewardRE")
-local OfflineRE_Claim     = R("Offline",    "TryClaimOfflineRewardRE")
-local DungeonRE_Claim     = R("Dungeon",    "TryClaimDailyDunTicRE")
-local DungeonRF_Into      = R("Dungeon",    "TryIntoDungeonRF")
-local DungeonRE_Exit      = R("Dungeon",    "ExitDungeonRE")
-local UpgradeRE           = R("Upgrade",    "UpgradeOnceRE")
-local ForgeRF             = R("Forge",      "ForgeRF")
-local BackpackRF_GetData  = R("Backpack",   "GetDataRF")
-local BackpackRE_TryEquip = R("Backpack",   "TryEquipItemRE")
-local BackpackRE_SellItem = R("Backpack",   "TrySellItemRE")
-local BackpackRE_SellAll  = R("Backpack",   "TrySellAllRE")
-local BackpackRF_Enhance  = R("Backpack",   "EnhantEquipmentRF")
-local BackpackRE_Enchant  = R("Backpack",   "EnchantRE")
-local ClassRE_Luck        = R("Class",      "LuckOnceRE")
-local RebirthRE           = R("Rebirth",    "TryRebirthRE")
-local AttackRE_Enemy      = R("Attack",     "AttackEnemyServiceRE")
-local AttackRE_Kill       = R("Attack",     "KillEnemyRE")
-local SuperLootRE_Kill    = R("SuperLoot",  "KillSuperLootRE")
-local ProfileRF           = R("Profile",    "GetTotalDataRF")
-local PotionRE_Use        = R("Potion",     "TryUsePotionRE")
-local IndexRF_Exp         = R("Index",      "TryClaimIndexExpRF")
-local IndexRF_Level       = R("Index",      "TryClaimLevelRewardRF")
+-- Core Remotes (Auto-mapped with _Server namespace support)
+local TrainRE_Start           = R("Train",      "StartTrainRE")
+local TrainRE_Once            = R("Train",      "TrainOnceRE")
+local TrainRE_IntoArea        = R("Train",      "IntoAutoTrainRE")
+local TrainRE_ExitArea        = R("Train",      "ExitAutoTrainRE")
+local StageRF_Finish          = R("Stage",      "StageFinishedRF")
+local StageRF_GetOre          = R("Stage",      "GetOreRF")
+local StageRE_Claim           = R("Stage",      "ClaimedAllOreRE")
+local StageRE_OpenAutoCollect = R("Stage",      "OpenAutoCollectRE")
+local StageRE_CloseAutoCollect= R("Stage",      "CloseAutoCollectRE")
+local OnlineRE_Claim          = R("Online",     "TryClaimRE")
+local UpdateRE_Claim          = R("UpdateLog",  "TryClaimUPDRewardRE")
+local OfflineRE_Claim         = R("Offline",    "TryClaimOfflineRewardRE")
+local DungeonRE_Claim         = R("Dungeon",    "TryClaimDailyDunTicRE")
+local DungeonRF_Into          = R("Dungeon",    "TryIntoDungeonRF")
+local DungeonRE_Exit          = R("Dungeon",    "ExitDungeonRE")
+local UpgradeRE               = R("Upgrade",    "UpgradeOnceRE")
+local ForgeRF                 = R("Forge",      "ForgeRF")
+local BackpackRF_GetData      = R("Backpack",   "GetDataRF")
+local BackpackRE_TryEquip     = R("Backpack",   "TryEquipItemRE")
+local BackpackRE_SellItem     = R("Backpack",   "TrySellItemRE")
+local BackpackRE_SellAll      = R("Backpack",   "TrySellAllRE")
+local BackpackRF_Enhance      = R("Backpack",   "EnhantEquipmentRF")
+local BackpackRE_Enchant      = R("Backpack",   "EnchantRE")
+local ClassRE_Luck            = R("Class",      "LuckOnceRE")
+local RebirthRE               = R("Rebirth",    "TryRebirthRE")
+local AttackRE_Enemy          = R("Attack",     "AttackEnemyServiceRE")
+local AttackRE_Kill           = R("Attack",     "KillEnemyRE")
+local SuperLootRE_Kill        = R("SuperLoot",  "KillSuperLootRE")
+local ProfileRF               = R("Profile",    "GetTotalDataRF")
+local PotionRE_Use            = R("Potion",     "TryUsePotionRE")
+local IndexRF_Exp             = R("Index",      "TryClaimIndexExpRF")
+local IndexRF_Level           = R("Index",      "TryClaimLevelRewardRF")
+local WorldBossRE_IntoFight   = R("WorldBoss",  "IntoWorldBossFight")
+local WorldBossRE_ExitFight   = R("WorldBoss",  "ExitWorldBossFight")
+local WorldBossRE_ClaimReward = R("WorldBoss",  "TryClaimBossRewardRE")
+local SeasonRE_ClaimDailyTic  = R("Season",     "TryClaimDailyTicRE")
+local SeasonRE_ClaimAll       = R("Season",     "TryClaimAllRewardRE")
 
 -- Dev Exploit Backdoors (Uncovered from 2K Decompilation)
-local Remote_Dev          = Remote and Remote:FindFirstChild("Dev")
-local Remote_GetArmor     = Remote_Dev and Remote_Dev:FindFirstChild("GetArmorRE")
-local Remote_GetWeapon    = Remote_Dev and Remote_Dev:FindFirstChild("GetWeaponRE")
-local Remote_GetEnhantStone = R("Stage", "GetEnhantStoneRE")
+local Remote_Dev              = Remote and (Remote:FindFirstChild("Dev_Server") or Remote:FindFirstChild("Dev"))
+local Remote_GetArmor         = Remote_Dev and Remote_Dev:FindFirstChild("GetArmorRE")
+local Remote_GetWeapon        = Remote_Dev and Remote_Dev:FindFirstChild("GetWeaponRE")
+local Remote_GetEnhantStone   = R("Stage", "GetEnhantStoneRE")
 
-local Bindable_EnemyHit   = Remote and Remote:FindFirstChild("Attack") and Remote.Attack:FindFirstChild("EnemyHitBE")
+local Bindable_EnemyHit       = Remote and Remote:FindFirstChild("Attack") and Remote.Attack:FindFirstChild("EnemyHitBE")
 
--- Game Modules
+-- Game Modules & Official Engines
 local TrainCTRL, EnemyCTRL, HPCTRL, OreHelper, WeaponHelper, ArmorHelper, RarityHelper, UpgradeHelper
 local PotionData, BuffData, ClassData, ClassConfig, PemData, OnlineData, RebirthHelper
+local BackpackData, DungeonData, OreUtils
 pcall(function() TrainCTRL    = require(ReplicatedStorage.CTRL.TrainCTRL) end)
 pcall(function() EnemyCTRL    = require(ReplicatedStorage.CTRL.EnemyCTRL) end)
 pcall(function() HPCTRL       = require(ReplicatedStorage.CTRL.HPCTRL) end)
@@ -2241,10 +2250,59 @@ pcall(function() ClassConfig  = require(ReplicatedStorage.Config.Class.Config) e
 pcall(function() PemData      = require(ReplicatedStorage.LocalData.PemData) end)
 pcall(function() OnlineData   = require(ReplicatedStorage.LocalData.OnlineData) end)
 pcall(function() RebirthHelper= require(ReplicatedStorage.Config.Rebirth.Helper) end)
+pcall(function() BackpackData = require(ReplicatedStorage.LocalData.BackpackData) end)
+pcall(function() DungeonData  = require(ReplicatedStorage.LocalData.DungeonData) end)
+pcall(function() OreUtils     = require(game.Players.LocalPlayer.PlayerScripts.Manager.StageManager.OreUtils) end)
 
 local function safe(fn)
     local ok, err = pcall(fn)
     if not ok then warn("[PB Hub] " .. tostring(err)) end
+end
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 🚀 GOD-MODE INSTANT SLAY & VACUUM HELPERS
+-- ═══════════════════════════════════════════════════════════════════
+local function getAllActiveEnemies()
+    local list = {}
+    if EnemyCTRL and EnemyCTRL.DeadEnemyData then
+        local uvs = getupvalues and getupvalues(EnemyCTRL.DeadEnemyData)
+        local dict = uvs and uvs[1]
+        if type(dict) == "table" then
+            for _, enemyData in pairs(dict) do
+                table.insert(list, enemyData)
+            end
+        end
+    end
+    return list
+end
+
+local function instantSlayAllEnemies()
+    local enemies = getAllActiveEnemies()
+    for _, e in ipairs(enemies) do
+        pcall(function()
+            EnemyCTRL.DeadEnemyData(e)
+        end)
+    end
+    local ef = workspace:FindFirstChild("EnemyFolder")
+    if ef then
+        for _, enemy in ipairs(ef:GetChildren()) do
+            local uuid = enemy:GetAttribute("UUID") or enemy.Name
+            if Bindable_EnemyHit then Bindable_EnemyHit:Fire(uuid, 1e30) end
+            if AttackRE_Enemy then AttackRE_Enemy:FireServer(enemy) end
+            if AttackRE_Kill then AttackRE_Kill:FireServer(enemy) end
+        end
+    end
+end
+
+local function enableAutoVacuumOres()
+    pcall(function()
+        if OreUtils and OreUtils.OpenAutoCollect then
+            OreUtils.OpenAutoCollect()
+        end
+        if StageRE_OpenAutoCollect then
+            StageRE_OpenAutoCollect:FireServer()
+        end
+    end)
 end
 
 -- ═══════════════════════════════════════════════════════════════════
@@ -4195,18 +4253,12 @@ task.spawn(function()
                     if StageRE_Claim then StageRE_Claim:FireServer() end
                 end
 
-                if Settings.SilentKillMobs and Bindable_EnemyHit then
-                    local ef = workspace:FindFirstChild("EnemyFolder")
-                    if ef then
-                        for _, enemy in ipairs(ef:GetChildren()) do
-                            local uuid = enemy:GetAttribute("UUID") or enemy.Name
-                            Bindable_EnemyHit:Fire(uuid, 1e30)
-                            if EnemyCTRL and EnemyCTRL.HurtEnemy then EnemyCTRL.HurtEnemy(uuid, 1e30) end
-                        end
-                    end
+                if Settings.SilentKillMobs then
+                    instantSlayAllEnemies()
                 end
 
                 if Settings.AutoCollectCrystals then
+                    enableAutoVacuumOres()
                     local oreCache = workspace:FindFirstChild("OreCache")
                     if oreCache then
                         for _, ore in ipairs(oreCache:GetChildren()) do
@@ -4291,6 +4343,8 @@ task.spawn(function()
                 if OfflineRE_Claim then OfflineRE_Claim:FireServer() end
                 if DungeonRE_Claim then DungeonRE_Claim:FireServer() end
                 if IndexRF_Exp then IndexRF_Exp:InvokeServer() end
+                if SeasonRE_ClaimDailyTic then SeasonRE_ClaimDailyTic:FireServer() end
+                if SeasonRE_ClaimAll then SeasonRE_ClaimAll:FireServer() end
             end)
             task.wait(5.0)
         else
@@ -4336,24 +4390,51 @@ task.spawn(function()
                         end
                     end
                 end
+                instantSlayAllEnemies()
             end)
         end
-        if Settings.AutoWorldBoss and Bindable_EnemyHit then
+        if Settings.AutoWorldBoss then
             safe(function()
-                local ef = workspace:FindFirstChild("EnemyFolder")
-                if ef then
-                    for _, enemy in ipairs(ef:GetChildren()) do
-                        local name = enemy.Name:lower()
-                        if name:find("boss") or enemy:GetAttribute("IsBoss") then
-                            local uuid = enemy:GetAttribute("UUID") or enemy.Name
-                            Bindable_EnemyHit:Fire(uuid, 1e32)
-                            if AttackRE_Enemy then AttackRE_Enemy:FireServer(enemy) end
-                        end
+                local curBoss = workspace:GetAttribute("CurrentWorldBoss")
+                local wbFolder = workspace:FindFirstChild("WorldBossFolder")
+                if curBoss or (wbFolder and #wbFolder:GetChildren() > 0) then
+                    if WorldBossRE_IntoFight and curBoss then
+                        WorldBossRE_IntoFight:FireServer(curBoss)
+                    end
+                    instantSlayAllEnemies()
+                    if WorldBossRE_ClaimReward then
+                        pcall(function() WorldBossRE_ClaimReward:FireServer() end)
                     end
                 end
             end)
         end
-        task.wait(2.5)
+        task.wait(2.0)
+    end
+end)
+
+-- Thread 8.5: Dedicated Auto Dungeon Engine
+task.spawn(function()
+    while Running and _G.LootToForgeActiveToken == myToken do
+        if Settings.AutoDungeon then
+            safe(function()
+                local inFight = LocalPlayer:GetAttribute("IntoFight")
+                if not inFight and DungeonData and DungeonData.TryIntoDungeon then
+                    DungeonData.TryIntoDungeon()
+                    task.wait(1.2)
+                end
+
+                if Settings.DungeonInstaKill then
+                    instantSlayAllEnemies()
+                end
+
+                if DungeonData and DungeonData.StartRound then
+                    DungeonData.StartRound()
+                end
+            end)
+            task.wait(0.8)
+        else
+            task.wait(1.5)
+        end
     end
 end)
 
