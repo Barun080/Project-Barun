@@ -9,7 +9,7 @@
     ║       Synthesized from 2K Elite Architecture & High-Performance Low-Level Luau  ║
     ╚══════════════════════════════════════════════════════════════════════════════════╝
 
-    [14 PILLARS OF 2K & BARUN MASTER ARCHITECTURE]
+    [18 PILLARS OF 2K & BARUN MASTER ARCHITECTURE]
     1. Lifecycle & Ghost Eradication: Strict GUID Token, Event Registry, Total Auto-Cleanup
     2. Triple-Layer Zero-Disconnect Anti-AFK: Game Script Kill, Teleport Hook, Idle Bypass
     3. Network Guard & Debounce: Throttled FireServer/InvokeServer with Timeout Protection
@@ -24,6 +24,10 @@
     12. 1:1 Floating Rotating Neon Squircle Toggle: Smooth Free-Drag & Ambient Glow Button
     13. Ultra-Smooth Performance Accelerator: 120 FPS Cap, Shadow Stripping & PostFX Killer
     14. Persistent JSON Config Engine: Zero-Loss Profiles, Deep Defaults Merging & Reset
+    15. Maru & 2K Combat & Navigation Engine: Fast Attack, Mob Magnet, Safe Platform & Smooth Tween
+    16. Dungeon & Tower Real-Combat Engine: Live Floor Telemetry, Target Cap, Auto-Exit & Screen Minimizer
+    17. Pre-execution Security & Network Spy: Deep Hooking for Http, Request & Dynamic Loadstring Auditing
+    18. 5-Pillar Standard UI Blueprint & Auto-Binding: Automated 3-Tier Section Stacking & Live JSON Sync
 --]]
 
 local RunService        = game:GetService("RunService")
@@ -1033,7 +1037,269 @@ do
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- 15. MASTER EXPORT (14 PILLARS OF 2K & BARUN SCRIPTING ARCHITECTURE)
+-- 15. MARU & 2K COMBAT & NAVIGATION ENGINE (HIGH-EFFICIENCY COMBAT)
+-- ═══════════════════════════════════════════════════════════════════════════════
+local CombatEngine = {}
+do
+    local activePlatform: Part? = nil
+    local currentTween: Tween? = nil
+    local noClipConnection: RBXScriptConnection? = nil
+
+    function CombatEngine.FastAttack(tool: Tool?, registerHitRemote: RemoteEvent?, targetPart: BasePart?, customArgs: any?)
+        pcall(function()
+            if tool then
+                tool:Activate()
+            end
+            if registerHitRemote and targetPart then
+                if customArgs then
+                    registerHitRemote:FireServer(unpack(customArgs))
+                else
+                    registerHitRemote:FireServer(targetPart, { targetPart })
+                end
+            end
+        end)
+    end
+
+    function CombatEngine.MobMagnet(centerPoint: Vector3, radius: number, folder: Instance?, offsetLookAt: Vector3?)
+        if not folder then return end
+        local char = LP.Character
+        for _, enemy in ipairs(folder:GetChildren()) do
+            if enemy:IsA("Model") and enemy ~= char then
+                local hum = enemy:FindFirstChildOfClass("Humanoid")
+                local eHrp = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("Torso")
+                if hum and hum.Health > 0 and eHrp then
+                    local dist = (eHrp.Position - centerPoint).Magnitude
+                    if dist <= radius and dist > 3 then
+                        pcall(function()
+                            local targetPos = offsetLookAt or centerPoint
+                            eHrp.CFrame = CFrame.new(targetPos)
+                            eHrp.CanCollide = false
+                            eHrp.Velocity = Vector3.zero
+                        end)
+                    end
+                end
+            end
+        end
+    end
+
+    function CombatEngine.SafePlatform(position: Vector3?, size: Vector3?, color: Color3?): Part?
+        if not position then
+            if activePlatform then
+                pcall(function() activePlatform:Destroy() end)
+                activePlatform = nil
+            end
+            return nil
+        end
+
+        if not activePlatform or not activePlatform.Parent then
+            activePlatform = Instance.new("Part")
+            activePlatform.Name = "Barun_SafePlatform"
+            activePlatform.Size = size or Vector3.new(12, 1, 12)
+            activePlatform.Transparency = 0.75
+            activePlatform.Color = color or Color3.fromRGB(0, 210, 255)
+            activePlatform.Material = Enum.Material.Neon
+            activePlatform.Anchored = true
+            activePlatform.CanCollide = true
+            activePlatform.Parent = Workspace
+            Lifecycle.TrackInstance(activePlatform)
+        end
+
+        activePlatform.CFrame = CFrame.new(position - Vector3.new(0, 3.5, 0))
+        return activePlatform
+    end
+
+    function CombatEngine.OverheadAngle(targetPart: BasePart, height: number): CFrame
+        local hoverPos = targetPart.Position + Vector3.new(0, height or 12, 0)
+        return CFrame.new(hoverPos, targetPart.Position)
+    end
+
+    function CombatEngine.SmoothTween(targetCFrame: CFrame, speed: number?, onComplete: (() -> ())?): Tween?
+        local char = LP.Character
+        if not char then return nil end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return nil end
+
+        local dist = (targetCFrame.Position - hrp.Position).Magnitude
+        if dist < 6 then
+            hrp.CFrame = targetCFrame
+            CombatEngine.SafePlatform(targetCFrame.Position)
+            if onComplete then onComplete() end
+            return nil
+        end
+
+        if currentTween then
+            currentTween:Cancel()
+            currentTween = nil
+        end
+
+        local actualSpeed = speed or 250
+        local duration = math.clamp(dist / actualSpeed, 0.05, 12)
+        local ti = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+
+        currentTween = TweenService:Create(hrp, ti, { CFrame = targetCFrame })
+        currentTween.Completed:Connect(function()
+            currentTween = nil
+            CombatEngine.SafePlatform(targetCFrame.Position)
+            if onComplete then onComplete() end
+        end)
+        currentTween:Play()
+        CombatEngine.SafePlatform(targetCFrame.Position)
+
+        return currentTween
+    end
+
+    function CombatEngine.EnableNoClip(enable: boolean)
+        if enable then
+            if not noClipConnection then
+                noClipConnection = RunService.Stepped:Connect(function()
+                    local char = LP.Character
+                    if char then
+                        for _, part in ipairs(char:GetDescendants()) do
+                            if part:IsA("BasePart") and part.CanCollide then
+                                part.CanCollide = false
+                            end
+                        end
+                    end
+                end)
+                Lifecycle.BindConnection(noClipConnection)
+            end
+        else
+            if noClipConnection then
+                noClipConnection:Disconnect()
+                noClipConnection = nil
+            end
+        end
+    end
+end
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- 16. DUNGEON & TOWER REAL-COMBAT ENGINE (FLOOR TRACKER & AUTO-RESTART)
+-- ═══════════════════════════════════════════════════════════════════════════════
+local DungeonEngine = {}
+do
+    function DungeonEngine.TrackSession(initialFloor: number?)
+        return {
+            CurrentFloor = initialFloor or 0,
+            LastSeenFloor = initialFloor or 0,
+            FloorsClearedSession = 0,
+            CurrentStatus = "Standby"
+        }
+    end
+
+    function DungeonEngine.CheckTargetFloor(curFloor: number, targetMax: number, onReachTarget: () -> ()): boolean
+        if curFloor >= targetMax then
+            pcall(onReachTarget)
+            return true
+        end
+        return false
+    end
+
+    function DungeonEngine.AutoClickElement(element: Instance)
+        pcall(function()
+            if firesignal and (element:IsA("GuiButton") or element:FindFirstChildWhichIsA("BindableEvent")) then
+                if element:IsA("GuiButton") then
+                    firesignal(element.Activated)
+                end
+            elseif element:IsA("GuiButton") and VirtualUser then
+                local abs = element.AbsolutePosition
+                local sz = element.AbsoluteSize
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton1(Vector2.new(abs.X + sz.X / 2, abs.Y + sz.Y / 2))
+            end
+        end)
+    end
+end
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- 17. PRE-EXECUTION SECURITY & NETWORK SPY (AUDIT & DUMPING ENGINE)
+-- ═══════════════════════════════════════════════════════════════════════════════
+local SpyEngine = {}
+do
+    function SpyEngine.SpyHttp(callback: (url: string, method: string, headers: any, body: any) -> ())
+        if not hookfunction then return false end
+
+        local oldReq = (syn and syn.request) or (http and http.request) or http_request or request
+        local spyHandler = function(reqData)
+            pcall(function()
+                callback(tostring(reqData.Url), tostring(reqData.Method or "GET"), reqData.Headers, reqData.Body)
+            end)
+            return oldReq(reqData)
+        end
+
+        pcall(function()
+            if request then hookfunction(request, spyHandler) end
+            if http_request then hookfunction(http_request, spyHandler) end
+            if syn and syn.request then hookfunction(syn.request, spyHandler) end
+        end)
+
+        return true
+    end
+
+    function SpyEngine.SpyLoadstring(callback: (source: string, chunkName: string?) -> ()): boolean
+        if not hookfunction then return false end
+        local oldLoadstring = loadstring
+        hookfunction(loadstring, function(chunk, chunkName)
+            pcall(function()
+                callback(tostring(chunk), chunkName)
+            end)
+            return oldLoadstring(chunk, chunkName)
+        end)
+        return true
+    end
+
+    function SpyEngine.DumpToFile(filename: string, content: string): boolean
+        if not writefile then return false end
+        local ok = pcall(function()
+            writefile(filename, content)
+        end)
+        return ok
+    end
+end
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- 18. 5-PILLAR STANDARD UI BLUEPRINT & AUTO-BINDING ENGINE
+-- ═══════════════════════════════════════════════════════════════════════════════
+local UIStandards = {}
+do
+    UIStandards.Pillars = {
+        MainFarm    = { Name = "Main Farm",   Icon = "⚔️", Subtitle = "Core Farm Loop & Live Telemetry" },
+        Economy     = { Name = "Economy",     Icon = "💰", Subtitle = "Asset Protection, Auto Sell & Potions" },
+        Content     = { Name = "Content",     Icon = "🏰", Subtitle = "Dungeons, Towers, Raids & Mini-games" },
+        Progression = { Name = "Progression", Icon = "📈", Subtitle = "Stats, Rebirth & Skill Tree Upgrades" },
+        Settings    = { Name = "Settings",    Icon = "⚙️", Subtitle = "Anti-AFK, Performance 120 FPS & Unload" }
+    }
+
+    function UIStandards.CreateStandardTabs(window: any): { [string]: any }
+        local createdTabs = {}
+        for key, p in pairs(UIStandards.Pillars) do
+            if window.CreateTab then
+                createdTabs[key] = window:CreateTab({
+                    Name = p.Name,
+                    Icon = p.Icon,
+                    Subtitle = p.Subtitle
+                })
+            end
+        end
+        return createdTabs
+    end
+
+    function UIStandards.BindConfig(controlCallback: (any) -> (), configTable: any, key: string, saveFile: string?)
+        return function(newValue: any)
+            configTable[key] = newValue
+            pcall(function()
+                controlCallback(newValue)
+            end)
+            if saveFile and ConfigManager then
+                task.delay(0.2, function()
+                    ConfigManager.Save(saveFile, configTable)
+                end)
+            end
+        end
+    end
+end
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- 19. MASTER EXPORT (18 PILLARS OF 2K & BARUN SCRIPTING ARCHITECTURE)
 -- ═══════════════════════════════════════════════════════════════════════════════
 Core.Lifecycle          = Lifecycle
 Core.Defense            = Defense
@@ -1049,9 +1315,14 @@ Core.SignalDispatcher   = SignalDispatcher
 Core.FloatingSquircle   = FloatingSquircle
 Core.PerformanceEngine  = PerformanceEngine
 Core.ConfigManager      = ConfigManager
+Core.CombatEngine       = CombatEngine
+Core.DungeonEngine      = DungeonEngine
+Core.SpyEngine          = SpyEngine
+Core.UIStandards        = UIStandards
 
 -- ออโต้เริ่มต้นระบบ Anti-AFK แบบมาตรฐานทันทีที่โหลดโมดูล
 Defense.Initialize()
 
-print("[Project Barun Core] 💎 Master Scripting Architecture Engine v3.5 (Full 2K Synthesis) Online & Ready.")
+print("[Project Barun Core] 💎 Master Scripting Architecture Engine v4.0 (18 Pillars of 2K & Maru Synthesis) Online & Ready.")
 return Core
+
