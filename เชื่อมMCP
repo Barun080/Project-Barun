@@ -1,0 +1,273 @@
+-- ==============================================================================
+-- 🚀 PRO MCP BRIDGE LOADER (ULTRA-FAST, MULTI-PORT & AUTO-DETECT)
+-- ==============================================================================
+-- รองรับทุก Executor: Wave, Solara, Delta, Codex, Fluxus, Swift, Volcano, etc.
+-- รองรับทั้ง PC, Hotspot/LAN (Mobile), และ Android Emulator (LDPlayer/MuMu/Nox)
+-- ==============================================================================
+
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+-- ==========================================
+-- ⚙️ CONFIGURATION & TUNING
+-- ==========================================
+local CONFIG = {
+    -- พอร์ตที่ MCP Server ใช้งาน (ปกติ 16384 และ 16385)
+    PORTS = { 16385, 16384 },
+
+    -- รายการ Host/IP ที่ระบบจะทำการค้นหาแบบ Auto-Scan
+    HOST_IPS = {
+        getgenv().CustomMCPHost,          -- กำหนดเองผ่าน getgenv().CustomMCPHost ได้
+        "172.20.10.13",                   -- Hotspot / Mobile LAN IP
+        "127.0.0.1",                      -- Localhost IPv4 (PC)
+        "localhost",                      -- Localhost Hostname
+        "10.0.2.2",                       -- Gateway IP สำหรับ Android Emulator (LDPlayer/MuMu/Bluestacks)
+        "192.168.1.100",
+        "192.168.1.50",
+    },
+
+    MAX_RETRIES     = 60,                 -- จำนวนรอบในการพยายามเชื่อมต่อ
+    RETRY_DELAY     = 0.4,                -- ดีเลย์ระหว่างรอบ (วินาที)
+    FAST_PROBE_WAIT = 0.8,                -- Timeout สูงสุดในการเช็คแต่ละ Host (วินาที)
+    SHOW_NOTIFY     = true,               -- แสดง In-Game Notification หรือไม่
+    ENABLE_WATCHDOG = true,               -- ตรวจจับการหลุดแล้ว Reconnect อัตโนมัติ
+
+    -- ⚡ OPTIMIZATION SETTINGS (ป้องกันเกมกระตุก/ค้าง)
+    OPTIMIZATIONS = {
+        DisableDecompMapping = true,      -- ข้ามการ decompile ทุกสคริปต์ตอนเริ่ม (ลดแลค 100%)
+        ScriptMappingWorkers = 8,         -- ปรับ worker ไม่ให้กิน CPU เครื่อง
+        FailedResyncInterval = 45,        -- รอบ resync สคริปต์ที่ล้มเหลว
+    }
+}
+
+-- ==========================================
+-- 🛡️ APPLY OPTIMIZATIONS TO GENENV
+-- ==========================================
+if CONFIG.OPTIMIZATIONS.DisableDecompMapping then
+    getgenv().DisableInitialScriptDecompMapping = true
+end
+if CONFIG.OPTIMIZATIONS.ScriptMappingWorkers then
+    getgenv().MCP_ScriptMappingWorkers = CONFIG.OPTIMIZATIONS.ScriptMappingWorkers
+end
+if CONFIG.OPTIMIZATIONS.FailedResyncInterval then
+    getgenv().MCP_FailedScriptResyncInterval = CONFIG.OPTIMIZATIONS.FailedResyncInterval
+end
+
+-- ==========================================
+-- 📢 IN-GAME NOTIFICATION HELPER
+-- ==========================================
+local function notify(title, text, duration, icon)
+    if not CONFIG.SHOW_NOTIFY then return end
+    pcall(function()
+        local StarterGui = game:GetService("StarterGui")
+        StarterGui:SetCore("SendNotification", {
+            Title = title or "MCP Bridge",
+            Text = text or "",
+            Duration = duration or 3,
+            Icon = icon or "rbxassetid://10888375286",
+        })
+    end)
+end
+
+-- ==========================================
+-- 🌐 UNIVERSAL HTTP FETCHER
+-- ==========================================
+local function safeHttpGet(url, timeout)
+    timeout = timeout or 2
+
+    -- 1. ตรวจสอบ Executor Request Functions
+    local reqFn = (typeof(request) == "function" and request)
+        or (typeof(http_request) == "function" and http_request)
+        or (typeof(syn) == "table" and typeof(syn.request) == "function" and syn.request)
+        or (typeof(http) == "table" and typeof(http.request) == "function" and http.request)
+        or (typeof(fluxus) == "table" and typeof(fluxus.request) == "function" and fluxus.request)
+
+    if reqFn then
+        local ok, res = pcall(reqFn, {
+            Url = url,
+            Method = "GET",
+            Timeout = timeout,
+            Headers = {
+                ["User-Agent"] = "Roblox/MCP-Bridge-Pro",
+                ["Cache-Control"] = "no-cache",
+            },
+        })
+        if ok and type(res) == "table" then
+            local body = res.Body or res.body
+            local status = res.StatusCode or res.status_code
+            if (status == 200 or status == nil) and type(body) == "string" and #body > 0 then
+                return true, body
+            end
+        end
+    end
+
+    -- 2. Fallback ไปยัง game:HttpGet
+    if game and typeof(game.HttpGet) == "function" then
+        local ok, res = pcall(function()
+            return game:HttpGet(url)
+        end)
+        if ok and type(res) == "string" and #res > 0 then
+            return true, res
+        end
+    end
+
+    return false, "Connection failed or returned empty payload"
+end
+
+-- ==========================================
+-- 🔍 GENERATE CANDIDATE LIST
+-- ==========================================
+local function buildCandidateHosts()
+    local candidates = {}
+    local seen = {}
+
+    -- ถ้า Maker กำหนด BridgeURL หรือ TARGET_HOST ไว้ ให้เป็นอันดับแรก
+    local priorityList = {
+        getgenv().BridgeURL,
+        getgenv().bridgeurl,
+        getgenv().TargetMCPHost,
+    }
+
+    for _, p in ipairs(priorityList) do
+        if type(p) == "string" and #p > 0 and not seen[p] then
+            seen[p] = true
+            table.insert(candidates, p)
+        end
+    end
+
+    -- รวม Host + Port เข้าด้วยกัน
+    for _, ip in ipairs(CONFIG.HOST_IPS) do
+        if type(ip) == "string" and #ip > 0 then
+            for _, port in ipairs(CONFIG.PORTS) do
+                local entry = ("%s:%s"):format(ip, tostring(port))
+                if not seen[entry] then
+                    seen[entry] = true
+                    table.insert(candidates, entry)
+                end
+            end
+        end
+    end
+
+    return candidates
+end
+
+-- ==========================================
+-- ⚡ ULTRA-FAST PROBE & CONNECT
+-- ==========================================
+local function tryConnect()
+    local candidates = buildCandidateHosts()
+
+    for _, host in ipairs(candidates) do
+        local url = ("http://%s/script.luau"):format(host)
+        local ok, body = safeHttpGet(url, CONFIG.FAST_PROBE_WAIT)
+
+        if ok and body and #body > 20 then
+            -- ตรวจสอบว่าโค้ด compile ผ่าน
+            local fn, parseErr = loadstring(body)
+            if not fn then
+                return false, ("Parse error on %s: %s"):format(host, tostring(parseErr))
+            end
+
+            -- ตั้งค่า Bridge Environment ตัวแปรสำคัญ
+            getgenv().BridgeURL = host
+            getgenv().bridgeurl = host
+
+            -- รัน connector script
+            local runOk, runErr = pcall(fn)
+            if not runOk then
+                return false, ("Runtime error on %s: %s"):format(host, tostring(runErr))
+            end
+
+            return true, host
+        end
+    end
+
+    return false, "No responsive MCP Bridge server found on candidate endpoints"
+end
+
+-- ==========================================
+-- 🚀 MAIN LOADER CONTROLLER
+-- ==========================================
+local function startLoader()
+    if getgenv().MCP_Loaded then
+        print("[MCP Pro] Bridge is already active! Host: " .. tostring(getgenv().BridgeURL))
+        notify("MCP Bridge", "Active on: " .. tostring(getgenv().BridgeURL), 2)
+        return true
+    end
+
+    print("[MCP Pro] Scanning MCP servers across candidate endpoints...")
+    notify("MCP Bridge", "Scanning endpoints...", 2)
+
+    local attempts = 0
+    local connectedHost = nil
+
+    while not getgenv().MCP_Loaded and attempts < CONFIG.MAX_RETRIES do
+        attempts += 1
+        local ok, detail = tryConnect()
+
+        if ok then
+            connectedHost = detail
+            break
+        end
+
+        task.wait(CONFIG.RETRY_DELAY)
+    end
+
+    if getgenv().MCP_Loaded then
+        local msg = ("Connected to %s in %d attempt(s) ✓"):format(tostring(connectedHost or getgenv().BridgeURL), attempts)
+        print("[MCP Pro] " .. msg)
+        notify("MCP Connected! ⚡", tostring(connectedHost or getgenv().BridgeURL), 4, "rbxassetid://10888375286")
+        return true
+    else
+        local failMsg = ("Failed to connect after %d attempts."):format(CONFIG.MAX_RETRIES)
+        warn("[MCP Pro] " .. failMsg)
+        notify("MCP Error", "Cannot reach server (Check PC & Port)", 5)
+        return false
+    end
+end
+
+-- ==========================================
+-- 🐕 BACKGROUND WATCHDOG (AUTO RECONNECT)
+-- ==========================================
+local function startWatchdog()
+    if not CONFIG.ENABLE_WATCHDOG or getgenv()._MCP_WatchdogRunning then return end
+    getgenv()._MCP_WatchdogRunning = true
+
+    task.spawn(function()
+        while true do
+            task.wait(15)
+            if not getgenv().MCP_Loaded then
+                print("[MCP Watchdog] Connection lost or inactive. Attempting reconnect...")
+                startLoader()
+            end
+        end
+    end)
+end
+
+-- ==========================================
+-- 🛠️ EXPOSE MCP CONTROLLER API
+-- ==========================================
+getgenv().MCP = {
+    Reload = function()
+        getgenv().MCP_Loaded = false
+        return startLoader()
+    end,
+    GetHost = function()
+        return getgenv().BridgeURL or "None"
+    end,
+    Ping = function()
+        local host = getgenv().BridgeURL
+        if not host then return false, "No host" end
+        local t0 = os.clock()
+        local ok, _ = safeHttpGet(("http://%s/script.luau"):format(host), 1.5)
+        local dt = math.floor((os.clock() - t0) * 1000)
+        return ok, dt
+    end,
+    Config = CONFIG,
+}
+
+-- เริ่มการทำงานทันที
+startLoader()
+startWatchdog()
+
