@@ -5,11 +5,37 @@
     ╚══════════════════════════════════════════════════════════════════════════╝
 --]]
 
-local UI = loadfile and loadfile("ui/ui_template_master_v4.luau") and loadfile("ui/ui_template_master_v4.luau")()
+local UI = nil
+
+-- Check local workspace file safely without throwing
+if isfile and isfile("ui/ui_template_master_v4.luau") and loadfile then
+    local ok, res = pcall(function()
+        return loadfile("ui/ui_template_master_v4.luau")()
+    end)
+    if ok and res then
+        UI = res
+    end
+end
+
+-- Fallback to GitHub via HttpGet
 if not UI then
-    -- Fallback via HttpGet if loaded over web
-    local raw = game:HttpGet("https://raw.githubusercontent.com/Barun080/Project-Barun/main/ui/ui_template_master_v4.luau")
-    UI = loadstring(raw)()
+    local ok, raw = pcall(function()
+        return game:HttpGet("https://raw.githubusercontent.com/Barun080/Project-Barun/main/ui/ui_template_master_v4.luau?v=" .. tick())
+    end)
+    if ok and raw then
+        local chunk, err = loadstring(raw)
+        if chunk then
+            UI = chunk()
+        else
+            warn("[Project Barun UI] Failed to compile downloaded UI: " .. tostring(err))
+        end
+    else
+        warn("[Project Barun UI] Failed to fetch UI from GitHub!")
+    end
+end
+
+if not UI then
+    error("[Project Barun UI] Could not load UI Library (Local and Web both failed)")
 end
 
 local Window = UI:CreateWindow({
