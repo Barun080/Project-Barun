@@ -818,12 +818,13 @@ function UI:CreateWindow(config)
     })
 
     -- ─── Minimize & Visibility Logic ─────────────────────────────────
-    local isMinimized = false
     local isVisible = false
 
     local function setWindowVisible(show)
         isVisible = show
         if show then
+            Root.Size = WindowSize
+            ContentHolder.Visible = true
             Root.Visible = true
             tw(RootScale, { Scale = 1 }, 0.32, Enum.EasingStyle.Back)
             tw(BorderStroke, { Transparency = 0 }, 0.28)
@@ -839,16 +840,7 @@ function UI:CreateWindow(config)
     end
 
     local function toggleMinimize()
-        isMinimized = not isMinimized
-        if isMinimized then
-            tw(Root, { Size = UDim2.new(WindowSize.X.Scale, WindowSize.X.Offset, 0, 58) }, 0.28, Enum.EasingStyle.Quart)
-            ContentHolder.Visible = false
-            MinBtn.Text = "□"
-        else
-            tw(Root, { Size = WindowSize }, 0.32, Enum.EasingStyle.Back)
-            ContentHolder.Visible = true
-            MinBtn.Text = "—"
-        end
+        setWindowVisible(false)
     end
 
     MinBtn.MouseButton1Click:Connect(toggleMinimize)
