@@ -344,14 +344,14 @@ function UI:CreateWindow(config)
     local WindowSize     = config.Size or UDim2.new(0, 840, 0, 520)
     local WindowName     = config.Name or "ProjectBarun_MasterUI"
     local ToggleKey      = config.ToggleKey or config.MenuKeybind or Enum.KeyCode.RightShift
-    local ShowMobileBtn  = (config.MobileButton ~= false)
+    local ShowToggleBtn  = (config.ToggleButton ~= false and config.MobileButton ~= false)
     local AccentColor    = config.Accent or Theme.Accent
 
     local okHui, huiTarget = pcall(function() return gethui and gethui() end)
     local ParentTarget = (okHui and huiTarget) or CoreGui
 
     for _, existing in ipairs(ParentTarget:GetChildren()) do
-        if existing.Name == WindowName or existing.Name == WindowName .. "_MobileOrb" then
+        if existing.Name == WindowName or existing.Name == WindowName .. "_ToggleButton" or existing.Name == WindowName .. "_MobileOrb" then
             existing:Destroy()
         end
     end
@@ -819,6 +819,7 @@ function UI:CreateWindow(config)
 
     -- ─── Minimize & Visibility Logic ─────────────────────────────────
     local isVisible = false
+    local ToggleButton = nil
 
     local function setWindowVisible(show)
         isVisible = show
@@ -829,10 +830,16 @@ function UI:CreateWindow(config)
             tw(RootScale, { Scale = 1 }, 0.32, Enum.EasingStyle.Back)
             tw(BorderStroke, { Transparency = 0 }, 0.28)
             tw(Shadow, { ImageTransparency = 0.4 }, 0.35)
+            if ToggleButton and ToggleButton:FindFirstChild("StatusDot") then
+                tw(ToggleButton.StatusDot, { BackgroundColor3 = Theme.Success }, 0.2)
+            end
         else
             tw(RootScale, { Scale = 0.9 }, 0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
             tw(BorderStroke, { Transparency = 1 }, 0.22)
             tw(Shadow, { ImageTransparency = 1 }, 0.22)
+            if ToggleButton and ToggleButton:FindFirstChild("StatusDot") then
+                tw(ToggleButton.StatusDot, { BackgroundColor3 = Theme.TextDim }, 0.2)
+            end
             task.delay(0.24, function()
                 if not isVisible then Root.Visible = false end
             end)
@@ -885,61 +892,98 @@ function UI:CreateWindow(config)
         end
     end)
 
-    -- Mobile Floating Orb
-    local FloatingOrb = nil
-    if ShowMobileBtn then
-        FloatingOrb = make("ImageButton", {
-            Name = WindowName .. "_MobileOrb",
-            Size = UDim2.fromOffset(46, 46),
-            Position = UDim2.new(0, 16, 0.45, 0),
+    -- ─── Floating Draggable Toggle Button (PC & Mobile Universal) ───
+    if ShowToggleBtn then
+        ToggleButton = make("ImageButton", {
+            Name = WindowName .. "_ToggleButton",
+            Size = UDim2.fromOffset(48, 48),
+            Position = UDim2.new(0, 20, 0.45, 0),
             BackgroundColor3 = Color3.fromRGB(15, 18, 28),
-            Image = "rbxassetid://10723415760",
-            ImageColor3 = AccentColor,
+            BackgroundTransparency = 0.05,
             AutoButtonColor = false,
+            ZIndex = 40,
             Parent = ScreenGui,
         }, {
             pill(),
-            stroke(AccentColor, 1.8, 0.15, "OrbStroke"),
+            stroke(AccentColor, 1.8, 0.15, "ToggleStroke"),
+            make("UIGradient", {
+                Name = "Sheen",
+                Color = ColorSequence.new(WHITE, Color3.fromRGB(180, 190, 220)),
+                Rotation = 45,
+            }),
+            make("ImageLabel", {
+                Name = "Icon",
+                Size = UDim2.new(0, 24, 0, 24),
+                Position = UDim2.new(0.5, -12, 0.5, -12),
+                BackgroundTransparency = 1,
+                Image = "rbxassetid://10723415760",
+                ImageColor3 = AccentColor,
+                ZIndex = 41,
+            }),
+            make("Frame", {
+                Name = "StatusDot",
+                Size = UDim2.new(0, 8, 0, 8),
+                Position = UDim2.new(1, -10, 0, 2),
+                BackgroundColor3 = Theme.Success,
+                ZIndex = 42,
+            }, { pill() }),
         })
 
-        local orbDrag = false
-        local orbStart = Vector2.zero
-        local orbPos = UDim2.new()
-        local orbMoved = false
+        local btnScale = make("UIScale", { Scale = 1, Parent = ToggleButton })
 
-        FloatingOrb.InputBegan:Connect(function(input)
+        ToggleButton.MouseEnter:Connect(function()
+            tw(btnScale, { Scale = 1.08 }, 0.16, Enum.EasingStyle.Back)
+            if ToggleButton:FindFirstChild("ToggleStroke") then
+                tw(ToggleButton.ToggleStroke, { Transparency = 0.0, Thickness = 2.2 }, 0.16)
+            end
+        end)
+        ToggleButton.MouseLeave:Connect(function()
+            tw(btnScale, { Scale = 1.0 }, 0.16)
+            if ToggleButton:FindFirstChild("ToggleStroke") then
+                tw(ToggleButton.ToggleStroke, { Transparency = 0.15, Thickness = 1.8 }, 0.16)
+            end
+        end)
+
+        local btnDrag = false
+        local btnStart = Vector2.zero
+        local btnPos = UDim2.new()
+        local btnMoved = false
+
+        ToggleButton.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                orbDrag = true
-                orbStart = input.Position
-                orbPos = FloatingOrb.Position
-                orbMoved = false
+                btnDrag = true
+                btnStart = input.Position
+                btnPos = ToggleButton.Position
+                btnMoved = false
+                tw(btnScale, { Scale = 0.94 }, 0.08)
 
                 input.Changed:Connect(function()
                     if input.UserInputState == Enum.UserInputState.End then
-                        orbDrag = false
-                        task.delay(0.08, function() orbMoved = false end)
+                        btnDrag = false
+                        tw(btnScale, { Scale = 1.0 }, 0.16, Enum.EasingStyle.Back)
+                        task.delay(0.08, function() btnMoved = false end)
                     end
                 end)
             end
         end)
 
         bind(UserInputService.InputChanged, function(input)
-            if orbDrag and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                local delta = input.Position - orbStart
+            if btnDrag and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                local delta = input.Position - btnStart
                 if math.abs(delta.X) > 4 or math.abs(delta.Y) > 4 then
-                    orbMoved = true
-                    FloatingOrb.Position = UDim2.new(
-                        orbPos.X.Scale,
-                        orbPos.X.Offset + delta.X,
-                        orbPos.Y.Scale,
-                        orbPos.Y.Offset + delta.Y
+                    btnMoved = true
+                    ToggleButton.Position = UDim2.new(
+                        btnPos.X.Scale,
+                        btnPos.X.Offset + delta.X,
+                        btnPos.Y.Scale,
+                        btnPos.Y.Offset + delta.Y
                     )
                 end
             end
         end)
 
-        FloatingOrb.MouseButton1Click:Connect(function()
-            if not orbMoved then
+        ToggleButton.MouseButton1Click:Connect(function()
+            if not btnMoved then
                 setWindowVisible(not isVisible)
             end
         end)
@@ -949,12 +993,22 @@ function UI:CreateWindow(config)
     local Window = {
         Gui            = ScreenGui,
         Root           = Root,
+        ToggleButton   = ToggleButton,
+        FloatingOrb    = ToggleButton,
         Toggles        = UI.Toggles,
         Options        = UI.Options,
         Tabs           = {},
         ActiveTab      = nil,
         Conns          = Conns,
     }
+
+    function Window:Toggle()
+        setWindowVisible(not isVisible)
+    end
+
+    function Window:SetToggleButtonVisibility(vis)
+        if ToggleButton then ToggleButton.Visible = (vis == true) end
+    end
 
     function Window:SetWatermark(text)
         WatermarkFrame.WmText.Text = tostring(text)

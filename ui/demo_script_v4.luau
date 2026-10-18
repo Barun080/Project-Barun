@@ -45,7 +45,7 @@ local Window = UI:CreateWindow({
     Size = UDim2.new(0, 840, 0, 520),
     Name = "Barun_DemoSuite_v4",
     ToggleKey = Enum.KeyCode.RightShift,
-    MobileButton = true, -- Displays the sleek neon floating draggable button for mobile players
+    ToggleButton = true, -- Displays the sleek neon floating draggable toggle button on screen (PC & Mobile)
     Accent = Color3.fromRGB(34, 211, 238), -- Electric Cyan
 })
 
