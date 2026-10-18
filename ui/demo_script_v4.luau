@@ -1,7 +1,8 @@
 --[[
     ╔══════════════════════════════════════════════════════════════════════════╗
-    ║        💎 PROJECT BARUN (PB) — UI v4.0 MASTER DEMONSTRATION SUITE        ║
-    ║        Features: Mobile Floating Orb, Real-Time Search, 5 Pillars        ║
+    ║        💎 PROJECT BARUN (PB) — UI v4.5 MASTER DEMONSTRATION SUITE        ║
+    ║        Hybrid Obsidian Engine + Neo-Cyber Glassmorphism Architecture     ║
+    ║        Features: Dual Groupboxes, SaveManager, ThemeManager, Mobile Orb   ║
     ╚══════════════════════════════════════════════════════════════════════════╝
 --]]
 
@@ -40,7 +41,7 @@ end
 
 local Window = UI:CreateWindow({
     Title = "PROJECT BARUN",
-    Subtitle = "AURORA ELITE v4.0",
+    Subtitle = "OBSIDIAN HYBRID v4.5",
     Size = UDim2.new(0, 840, 0, 520),
     Name = "Barun_DemoSuite_v4",
     ToggleKey = Enum.KeyCode.RightShift,
@@ -48,34 +49,31 @@ local Window = UI:CreateWindow({
     Accent = Color3.fromRGB(34, 211, 238), -- Electric Cyan
 })
 
+-- Watermark
+Window:SetWatermark("PROJECT BARUN | Obsidian Glass v4.5 | 60 FPS")
+Window:SetWatermarkVisibility(true)
+
 -- Welcome Toast
 Window:Notify({
-    Title = "Welcome to Barun v4.0",
-    Content = "Mobile Floating Orb & Real-Time Search active!",
+    Title = "Welcome to Barun v4.5",
+    Content = "Dual-Column Groupbox, SaveManager & ThemeManager active!",
     Duration = 4,
     Type = "success"
 })
 
 -- ─────────────────────────────────────────────────────────────────────
--- TAB 1: MAIN FARM (5-PILLAR STANDARD)
+-- TAB 1: MAIN COMBAT (OBSIDIAN DUAL-COLUMN GROUPBOX DEMO)
 -- ─────────────────────────────────────────────────────────────────────
 local TabMain = Window:CreateTab({
     Name = "Main Farm",
     Icon = "⚔️",
-    Subtitle = "Core Farm Loop & Live Telemetry"
 })
 
-TabMain:AddSection("LIVE TELEMETRY")
-local CardRolls = TabMain:AddStatCard({
-    Title = "Session Actions",
-    Value = "1,420",
-    Subtext = "Total automated clicks",
-    Progress = 0.65
-})
+-- Left Groupbox: Combat Automation
+local LeftBox = TabMain:AddLeftGroupbox("Automation Engine")
 
-TabMain:AddSection("AUTOMATED COMBAT ENGINE")
-TabMain:AddToggle({
-    Name = "Auto Farm Level (ฟาร์มเลเวลอัตโนมัติ)",
+local FarmToggle = LeftBox:AddToggle("AutoFarm", {
+    Text = "Auto Farm Level (ฟาร์มเลเวลอัตโนมัติ)",
     Desc = "วาร์ปขึ้นเหนือหัวมอนสเตอร์ในระยะปลอดภัย พร้อมตีต่อเนื่อง",
     Default = false,
     Callback = function(v)
@@ -86,130 +84,102 @@ TabMain:AddToggle({
         })
     end
 })
+-- Inline Keybind attachment (Obsidian / Linoria style)
+FarmToggle:AddKeybind("AutoFarmKey", { Default = Enum.KeyCode.F, Mode = "Toggle" })
 
-TabMain:AddToggle({
-    Name = "Fast Attack (โจมตีความเร็วสูง)",
+LeftBox:AddToggle("FastAttack", {
+    Text = "Fast Attack (โจมตีความเร็วสูง)",
     Desc = "ข้ามดีเลย์แอนิเมชันสวิงอาวุธ 100%",
     Default = true,
-    Callback = function(v) end
 })
 
-TabMain:AddSlider({
-    Name = "Farm Distance (ระยะห่างจากมอนสเตอร์)",
+LeftBox:AddSlider("FarmDistance", {
+    Text = "Farm Distance (ระยะห่างจากมอน)",
     Min = 5,
     Max = 30,
     Default = 12,
-    Increment = 1,
-    ValueName = "studs",
-    Callback = function(v) end
+    Rounding = 1,
+    Suffix = " studs",
 })
 
-TabMain:AddButton({
-    Name = "Fast Equip Melee (สวมใส่หมัดทันที)",
-    Icon = "👊",
-    Callback = function()
-        Window:Notify({ Title = "Weapon", Content = "Melee equipped!", Type = "info" })
-    end
+LeftBox:AddButton({
+    Text = "Fast Equip Weapon",
+    Func = function()
+        Window:Notify({ Title = "Weapon", Content = "Equipped weapon!", Type = "info" })
+    end,
+})
+
+-- Right Groupbox: Telemetry & Targets
+local RightBox = TabMain:AddRightGroupbox("Target & Telemetry")
+
+RightBox:AddLabel("Status: Active and monitoring entities", true)
+RightBox:AddDivider()
+
+RightBox:AddDropdown("MobSelect", {
+    Text = "Select Target Mob",
+    Values = { "Bandit [Lv. 1]", "Pirate [Lv. 15]", "Marine [Lv. 30]", "Boss Dragon [Lv. 100]" },
+    Default = "Bandit [Lv. 1]",
+})
+
+RightBox:AddDropdown("AttackModes", {
+    Text = "Attack Method",
+    Values = { "Melee Priority", "Sword Slash", "Fruit Skill Chain", "Gun Snipe" },
+    Default = { "Melee Priority", "Fruit Skill Chain" },
+    Multi = true,
+})
+
+RightBox:AddInput("CustomTarget", {
+    Text = "Custom Target Name",
+    Placeholder = "Enter mob name...",
+    Default = "",
 })
 
 -- ─────────────────────────────────────────────────────────────────────
--- TAB 2: ECONOMY
+-- TAB 2: ECONOMY & DUNGEONS
 -- ─────────────────────────────────────────────────────────────────────
 local TabEcon = Window:CreateTab({
     Name = "Economy",
     Icon = "💰",
-    Subtitle = "Auto Sell & Chest Collection"
 })
 
-TabEcon:AddSection("CHEST FARMING")
-TabEcon:AddToggle({
-    Name = "Auto Collect Chests (เก็บหีบทั่วแมพ)",
+local EconLeft = TabEcon:AddLeftGroupbox("Chests & Grinding")
+EconLeft:AddToggle("AutoChest", {
+    Text = "Auto Collect Chests (เก็บหีบทั่วแมพ)",
     Default = false,
-    Callback = function(v) end
 })
 
-TabEcon:AddDropdown({
-    Name = "Select Items to Protect (ห้ามขาย)",
-    Options = { "Mythical", "Legendary", "Equipped", "Plotted", "Locked" },
+EconLeft:AddDropdown("ProtectedItems", {
+    Text = "Protected Items (ห้ามขาย)",
+    Values = { "Mythical", "Legendary", "Equipped", "Plotted", "Locked" },
     Default = { "Mythical", "Legendary", "Equipped" },
-    MultiSelect = true, -- Multi-select support!
-    Callback = function(selected)
-        print("Protected items:", table.concat(selected, ", "))
-    end
+    Multi = true,
 })
 
--- ─────────────────────────────────────────────────────────────────────
--- TAB 3: CONTENT
--- ─────────────────────────────────────────────────────────────────────
-local TabContent = Window:CreateTab({
-    Name = "Content",
-    Icon = "🏰",
-    Subtitle = "Dungeons & Mini-games"
-})
-
-TabContent:AddSection("DUNGEON SELECTOR")
-TabContent:AddDropdown({
-    Name = "Target Dungeon",
-    Options = { "Dragon Tower", "Infinity Tower", "Raid Boss Arena", "Ghost Cavern" },
+local EconRight = TabEcon:AddRightGroupbox("Dungeon & Raids")
+EconRight:AddDropdown("DungeonSelect", {
+    Text = "Target Dungeon",
+    Values = { "Dragon Tower", "Infinity Tower", "Raid Boss Arena", "Ghost Cavern" },
     Default = "Dragon Tower",
-    Callback = function(v)
-        Window:Notify({ Title = "Target Selected", Content = "Dungeon set to: " .. v, Type = "info" })
-    end
+})
+
+EconRight:AddToggle("AutoReplay", {
+    Text = "Auto Replay on Finish",
+    Default = true,
 })
 
 -- ─────────────────────────────────────────────────────────────────────
--- TAB 4: PROGRESSION
--- ─────────────────────────────────────────────────────────────────────
-local TabProg = Window:CreateTab({
-    Name = "Progression",
-    Icon = "📈",
-    Subtitle = "Stats & Upgrades"
-})
-
-TabProg:AddSection("AUTO STATS DISTRIBUTION")
-TabProg:AddToggle({
-    Name = "Auto Allocate Melee (+3 Points)",
-    Default = false,
-    Callback = function(v) end
-})
-
--- ─────────────────────────────────────────────────────────────────────
--- TAB 5: SETTINGS
+-- TAB 3: SETTINGS (INTEGRATED SAVEMANAGER & THEMEMANAGER)
 -- ─────────────────────────────────────────────────────────────────────
 local TabSettings = Window:CreateTab({
     Name = "Settings",
     Icon = "⚙️",
-    Subtitle = "Anti-AFK & Performance"
 })
 
-TabSettings:AddSection("SAFETY & PERFORMANCE")
-TabSettings:AddToggle({
-    Name = "Triple-Layer Anti-AFK (24/7 กันหลุด)",
-    Desc = "ป้องกันเกมเตะออกหลังจากไม่ขยับตัว 20 นาที",
-    Default = true,
-    Callback = function(v) end
-})
+-- Built-in Obsidian SaveManager (Saves all configs to JSON automatically)
+UI.SaveManager:SetFolder("ProjectBarun/Configs/BarunMaster")
+UI.SaveManager:BuildConfigSection(TabSettings)
 
-TabSettings:AddToggle({
-    Name = "Mobile FPS Boost (120 FPS Cap & Shadow Stripper)",
-    Default = false,
-    Callback = function(v) end
-})
+-- Built-in Obsidian ThemeManager (Theme switcher and hotkey manager)
+UI.ThemeManager:ApplyToTab(TabSettings)
 
-TabSettings:AddKeybind({
-    Name = "Toggle UI Hotkey",
-    Default = Enum.KeyCode.RightShift,
-    Callback = function(k)
-        print("Hotkey changed to:", k.Name)
-    end
-})
-
-TabSettings:AddButton({
-    Name = "Rejoin Current Server",
-    Icon = "🔄",
-    Callback = function()
-        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, game:GetService("Players").LocalPlayer)
-    end
-})
-
-print("💎 [PROJECT BARUN] UI v4.0 MASTER SUITE LAUNCHED!")
+print("💎 [PROJECT BARUN] UI v4.5 HYBRID OBSIDIAN SUITE INITIALIZED!")
