@@ -1,11 +1,16 @@
 --[[
     ╔══════════════════════════════════════════════════════════════════════════╗
-    ║      💎 PROJECT BARUN (PB) — NEO-CYBER OBSIDIAN GLASS v5.0               ║
-    ║      Dual-Engine: Obsidian / Linoria Hybrid + Next-Gen Glassmorphism     ║
+    ║      💎 PROJECT BARUN (PB) — NEO-CYBER TITANIUM LUXE v5.1               ║
+    ║      Dual-Engine: Obsidian / Linoria Hybrid + Refined Glassmorphism     ║
     ║      Engineered with Mimi Precision for Clack's Arsenal                  ║
     ╚══════════════════════════════════════════════════════════════════════════╝
 
-    [WHAT'S ELEVATED IN v5.0 NEO-CYBER GLASS]
+    [WHAT'S ELEVATED IN v5.1 TITANIUM LUXE]
+    • New Titanium Luxe default theme: restrained ice-cyan accents, deep graphite surfaces, calmer contrast
+    • Refined spacing, card geometry, border weight and default canvas for a more premium visual hierarchy
+    • All existing themes, widget methods, config APIs and hotkeys remain available
+
+    [v5.0 NEO-CYBER GLASS FEATURES]
     • Ultra-Sleek Glassmorphic Aesthetics: Multi-layered acrylic chassis, depth shadows & rim glow
     • Kinetic Fluid Background: Breathing ambient aurora mesh orbs with procedural organic drift
     • Dynamic Iridescent Orbit Stroke: 360-degree rotating gradient neon border with specular sheen
@@ -176,6 +181,26 @@ local Themes = {
         Warning         = Color3.fromRGB(235, 203, 139),
         Danger          = Color3.fromRGB(191, 97, 106),
     },
+    ["Titanium Luxe"] = {
+        VoidBg          = Color3.fromRGB(7, 10, 16),
+        SurfaceBg       = Color3.fromRGB(12, 16, 24),
+        SidebarBg       = Color3.fromRGB(9, 13, 20),
+        CardBg          = Color3.fromRGB(17, 23, 33),
+        CardHover       = Color3.fromRGB(24, 33, 46),
+        CardBorder      = Color3.fromRGB(43, 56, 72),
+        CardBorderGlow  = Color3.fromRGB(103, 210, 220),
+        InputBg         = Color3.fromRGB(10, 15, 23),
+        AccentPrimary   = Color3.fromRGB(85, 155, 177),
+        AccentSecondary = Color3.fromRGB(93, 116, 160),
+        Accent          = Color3.fromRGB(113, 220, 225),
+        AccentGlow      = Color3.fromRGB(173, 244, 240),
+        TextTitle       = Color3.fromRGB(245, 249, 252),
+        TextBody        = Color3.fromRGB(202, 214, 225),
+        TextDim         = Color3.fromRGB(125, 144, 162),
+        Success         = Color3.fromRGB(77, 207, 158),
+        Warning         = Color3.fromRGB(239, 190, 103),
+        Danger          = Color3.fromRGB(242, 105, 125),
+    },
     ["Synthwave Pink"] = {
         VoidBg          = Color3.fromRGB(15, 8, 20),
         SurfaceBg       = Color3.fromRGB(22, 11, 30),
@@ -198,7 +223,7 @@ local Themes = {
     },
 }
 
-local CurrentThemeName = "Aurora Cyan"
+local CurrentThemeName = "Titanium Luxe"
 local Theme = {}
 for k, v in pairs(Themes[CurrentThemeName]) do Theme[k] = v end
 
@@ -288,7 +313,7 @@ end
 local function txt(props, children)
     local p = {
         Font = Theme.FontRegular,
-        TextSize = 11,
+        TextSize = 12,
         TextColor3 = Theme.TextBody,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Center,
@@ -335,8 +360,8 @@ local function makeCard(parent, height, interactive)
     end
 
     local card = make(interactive and "TextButton" or "Frame", props, {
-        corner(10),
-        stroke(Theme.CardBorder, 1.15, 0.38, "CardStroke"),
+        corner(12),
+        stroke(Theme.CardBorder, 1.1, 0.32, "CardStroke"),
         make("UIGradient", {
             Name = "Sheen",
             Color = ColorSequence.new({
@@ -385,19 +410,19 @@ local function hoverable(card, accent)
     card.MouseLeave:Connect(function()
         tw(card, { BackgroundColor3 = Theme.CardBg }, 0.18)
         if s then
-            tw(s, { Color = Theme.CardBorder, Transparency = 0.38 }, 0.18)
+            tw(s, { Color = Theme.CardBorder, Transparency = 0.32 }, 0.18)
         end
     end)
 end
 
 -- ═════════════════════════════════════════════════════════════════════
--- WINDOW CREATION (NEO-CYBER OBSIDIAN GLASS v5.0)
+-- WINDOW CREATION (NEO-CYBER TITANIUM LUXE v5.1)
 -- ═════════════════════════════════════════════════════════════════════
 function UI:CreateWindow(config)
     config = config or {}
     local TitleText      = config.Title or "PROJECT BARUN"
     local SubtitleText   = config.Subtitle or "OBSIDIAN GLASS v5.0"
-    local WindowSize     = config.Size or UDim2.new(0, 840, 0, 520)
+    local WindowSize     = config.Size or UDim2.new(0, 900, 0, 570)
     local WindowName     = config.Name or "ProjectBarun_MasterUI"
     local ToggleKey      = config.ToggleKey or config.MenuKeybind or Enum.KeyCode.RightShift
     local ShowToggleBtn  = (config.ToggleButton ~= false and config.MobileButton ~= false)
@@ -482,7 +507,7 @@ function UI:CreateWindow(config)
         ClipsDescendants = true,
         Parent = Root,
     }, {
-        corner(16),
+        corner(18),
     })
 
     local Backdrop = make("Frame", {
@@ -510,7 +535,7 @@ function UI:CreateWindow(config)
         BackgroundTransparency = 0.35,
         Parent = Main,
     }, {
-        corner(16),
+        corner(18),
         make("UIGradient", {
             Name = "GlassGrad",
             Color = ColorSequence.new({

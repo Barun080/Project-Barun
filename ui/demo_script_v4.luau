@@ -1,37 +1,51 @@
 --[[
     ╔══════════════════════════════════════════════════════════════════════════╗
-    ║        💎 PROJECT BARUN (PB) — UI v4.5 MASTER DEMONSTRATION SUITE        ║
-    ║        Hybrid Obsidian Engine + Neo-Cyber Glassmorphism Architecture     ║
-    ║        Features: Dual Groupboxes, SaveManager, ThemeManager, Mobile Orb   ║
+    ║        💎 PROJECT BARUN (PB) — TITANIUM LUXE v5.1 DEMONSTRATION SUITE    ║
+    ║        Hybrid Obsidian Engine + Refined Neo-Cyber Glassmorphism          ║
+    ║        Features: Titanium Palette, Dual Groupboxes, Save/Theme Manager   ║
     ╚══════════════════════════════════════════════════════════════════════════╝
 --]]
 
 local UI = nil
 
--- Check local workspace file safely without throwing
-if isfile and isfile("ui/ui_template_master_v4.luau") and loadfile then
-    local ok, res = pcall(function()
-        return loadfile("ui/ui_template_master_v4.luau")()
-    end)
-    if ok and res then
-        UI = res
+-- Check local workspace files safely (Priority: v5.1 Titanium Luxe, then v4)
+local localCandidates = {
+    "ui/ui_template_master_v5_1_titanium_luxe.luau",
+    "ui/ui_template_master_v4.luau",
+}
+
+if isfile and loadfile then
+    for _, path in ipairs(localCandidates) do
+        if isfile(path) then
+            local ok, res = pcall(function()
+                return loadfile(path)()
+            end)
+            if ok and res then
+                UI = res
+                break
+            end
+        end
     end
 end
 
 -- Fallback to GitHub via HttpGet
 if not UI then
-    local ok, raw = pcall(function()
-        return game:HttpGet("https://raw.githubusercontent.com/Barun080/Project-Barun/main/ui/ui_template_master_v4.luau?v=" .. tick())
-    end)
-    if ok and raw then
-        local chunk, err = loadstring(raw)
-        if chunk then
-            UI = chunk()
-        else
-            warn("[Project Barun UI] Failed to compile downloaded UI: " .. tostring(err))
+    local webCandidates = {
+        "https://raw.githubusercontent.com/Barun080/Project-Barun/main/ui/ui_template_master_v5_1_titanium_luxe.luau?v=" .. tick(),
+        "https://raw.githubusercontent.com/Barun080/Project-Barun/main/ui/ui_template_master_v4.luau?v=" .. tick(),
+    }
+    for _, url in ipairs(webCandidates) do
+        local ok, raw = pcall(function() return game:HttpGet(url) end)
+        if ok and raw and #raw > 100 then
+            local chunk, err = loadstring(raw)
+            if chunk then
+                local execOk, res = pcall(chunk)
+                if execOk and res then
+                    UI = res
+                    break
+                end
+            end
         end
-    else
-        warn("[Project Barun UI] Failed to fetch UI from GitHub!")
     end
 end
 
@@ -41,22 +55,22 @@ end
 
 local Window = UI:CreateWindow({
     Title = "PROJECT BARUN",
-    Subtitle = "NEO-CYBER GLASS v5.0",
-    Size = UDim2.new(0, 840, 0, 520),
+    Subtitle = "TITANIUM LUXE v5.1",
+    Size = UDim2.new(0, 900, 0, 570),
     Name = "Barun_DemoSuite_v4",
     ToggleKey = Enum.KeyCode.RightShift,
     ToggleButton = true, -- Displays the sleek neon floating draggable toggle button on screen (PC & Mobile)
-    Accent = Color3.fromRGB(34, 211, 238), -- Electric Cyan
+    Accent = Color3.fromRGB(113, 220, 225), -- Titanium Ice Cyan
 })
 
 -- Watermark
-Window:SetWatermark("PROJECT BARUN | Neo-Cyber Glass v5.0 | 60 FPS")
+Window:SetWatermark("PROJECT BARUN | Titanium Luxe v5.1 | 60 FPS")
 Window:SetWatermarkVisibility(true)
 
 -- Welcome Toast
 Window:Notify({
-    Title = "Welcome to Barun v5.0",
-    Content = "Neo-Cyber Glassmorphism, Live Theming & Telemetry active!",
+    Title = "Project Barun v5.1 Active",
+    Content = "Titanium Luxe Glassmorphism & High-Performance Suite initialized!",
     Duration = 4,
     Type = "success"
 })
