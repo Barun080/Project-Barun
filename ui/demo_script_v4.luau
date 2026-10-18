@@ -41,7 +41,7 @@ end
 
 local Window = UI:CreateWindow({
     Title = "PROJECT BARUN",
-    Subtitle = "OBSIDIAN HYBRID v4.5",
+    Subtitle = "NEO-CYBER GLASS v5.0",
     Size = UDim2.new(0, 840, 0, 520),
     Name = "Barun_DemoSuite_v4",
     ToggleKey = Enum.KeyCode.RightShift,
@@ -50,13 +50,13 @@ local Window = UI:CreateWindow({
 })
 
 -- Watermark
-Window:SetWatermark("PROJECT BARUN | Obsidian Glass v4.5 | 60 FPS")
+Window:SetWatermark("PROJECT BARUN | Neo-Cyber Glass v5.0 | 60 FPS")
 Window:SetWatermarkVisibility(true)
 
 -- Welcome Toast
 Window:Notify({
-    Title = "Welcome to Barun v4.5",
-    Content = "Dual-Column Groupbox, SaveManager & ThemeManager active!",
+    Title = "Welcome to Barun v5.0",
+    Content = "Neo-Cyber Glassmorphism, Live Theming & Telemetry active!",
     Duration = 4,
     Type = "success"
 })

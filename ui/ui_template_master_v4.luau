@@ -1,22 +1,26 @@
 --[[
     ╔══════════════════════════════════════════════════════════════════════════╗
-    ║      💎 PROJECT BARUN (PB) OBSIDIAN GLASS — AURORA ELITE v4.5            ║
-    ║      Dual-Engine: Obsidian / Linoria Hybrid + Neo-Cyber Glassmorphism    ║
-    ║      Engineered by cook45 with Mimi Precision for Clack's Arsenal        ║
+    ║      💎 PROJECT BARUN (PB) — NEO-CYBER OBSIDIAN GLASS v5.0               ║
+    ║      Dual-Engine: Obsidian / Linoria Hybrid + Next-Gen Glassmorphism     ║
+    ║      Engineered with Mimi Precision for Clack's Arsenal                  ║
     ╚══════════════════════════════════════════════════════════════════════════╝
 
-    [WHAT'S NEW IN v4.5 - OBSIDIAN HYBRID ENGINE]
-    • Dual-Column Groupbox Architecture (Obsidian / Linoria style: AddLeftGroupbox & AddRightGroupbox)
-    • Universal Element API: Supports both Barun object-config style AND Linoria (id, config) signature
-    • Global State Registry: UI.Toggles & UI.Options (Toggles.Key.Value, Options.Key.Value, :OnChanged, :SetValue)
-    • Inline Component Attachments: Toggle:AddKeybind() & Toggle:AddColorPicker() inline badges
-    • Integrated SaveManager: Full JSON config system (save, load, delete, autoload, config GUI builder)
-    • Integrated ThemeManager: 7 Cyber themes (Obsidian, Aurora Cyan, Amethyst, Crimson, Emerald, Amber, Nord)
-    • Dynamic Live Theming: Instantly updates all accents, glows, and strokes in real-time
-    • Desktop Hotkey (RightShift) + Mobile Floating Draggable Neon Orb (Dual-Mode)
-    • Global Real-Time Search Bar: Live card & groupbox element filtering
-    • Sleek Watermark System & Live Telemetry (FPS + Ping monitor)
-    • 100% Backward Compatible with all v4.0 scripts
+    [WHAT'S ELEVATED IN v5.0 NEO-CYBER GLASS]
+    • Ultra-Sleek Glassmorphic Aesthetics: Multi-layered acrylic chassis, depth shadows & rim glow
+    • Kinetic Fluid Background: Breathing ambient aurora mesh orbs with procedural organic drift
+    • Dynamic Iridescent Orbit Stroke: 360-degree rotating gradient neon border with specular sheen
+    • Live Dynamic Theming Engine: 8 curated Cyber themes that update the active GUI in real-time
+    • Advanced Telemetry HUD: Real-time Ping (ms), FPS, and live RAM monitor (MB) with latency dots
+    • Modern Navigation Sidebar: Spring-animated active pill indicator, icon glow & hover feedback
+    • Next-Gen Component Polish:
+      - Toggles: Neon active track, bouncy spring knob, ripple pulse & inline Keybind/Colorpicker badges
+      - Sliders: Dual-color gradient fill, draggable glowing knob, interactive live numeric badges
+      - Dropdowns: Smooth 180° chevron rotation, chip badges for multi-select, accordion expand
+      - Buttons: Cyber glass with micro-spring press physics (UIScale 0.96) and accent hover glow
+      - Inputs: Frosted glass inset with neon focus glow and quick-clear controls
+      - Toasts: Floating slide-in cards with status badges and live countdown progress bars
+    • Universal Dual-Mode: Keyboard hotkey (RightShift) + Draggable Floating Neon Orb with boundary dampening
+    • 100% Backward Compatible with all v4.x / v4.5 scripts & demo suites
 --]]
 
 local TweenService     = game:GetService("TweenService")
@@ -26,24 +30,25 @@ local CoreGui          = game:GetService("CoreGui")
 local Players          = game:GetService("Players")
 local StatsService     = game:GetService("Stats")
 local HttpService      = game:GetService("HttpService")
+local Lighting         = game:GetService("Lighting")
 
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 
--- ─── Color Palettes & Preset Themes ─────────────────────────────────
+-- ─── Curated Next-Gen Cyber Palettes ─────────────────────────────────
 local Themes = {
     ["Aurora Cyan"] = {
         VoidBg          = Color3.fromRGB(10, 12, 18),
-        SurfaceBg       = Color3.fromRGB(16, 18, 27),
-        SidebarBg       = Color3.fromRGB(14, 16, 25),
-        CardBg          = Color3.fromRGB(23, 26, 40),
-        CardHover       = Color3.fromRGB(31, 35, 54),
-        CardBorder      = Color3.fromRGB(44, 49, 74),
-        CardBorderGlow  = Color3.fromRGB(96, 104, 160),
-        InputBg         = Color3.fromRGB(15, 17, 27),
+        SurfaceBg       = Color3.fromRGB(14, 17, 26),
+        SidebarBg       = Color3.fromRGB(12, 14, 22),
+        CardBg          = Color3.fromRGB(19, 23, 36),
+        CardHover       = Color3.fromRGB(26, 31, 48),
+        CardBorder      = Color3.fromRGB(38, 44, 68),
+        CardBorderGlow  = Color3.fromRGB(56, 189, 248),
+        InputBg         = Color3.fromRGB(13, 16, 25),
         AccentPrimary   = Color3.fromRGB(139, 92, 246), -- Neon Purple
         AccentSecondary = Color3.fromRGB(59, 130, 246),  -- Cyber Blue
         Accent          = Color3.fromRGB(34, 211, 238),  -- Electric Cyan
-        AccentGlow      = Color3.fromRGB(168, 85, 247),
+        AccentGlow      = Color3.fromRGB(56, 189, 248),
         TextTitle       = Color3.fromRGB(248, 250, 252),
         TextBody        = Color3.fromRGB(203, 213, 225),
         TextDim         = Color3.fromRGB(110, 124, 148),
@@ -52,124 +57,144 @@ local Themes = {
         Danger          = Color3.fromRGB(251, 85, 115),
     },
     ["Obsidian Dark"] = {
-        VoidBg          = Color3.fromRGB(10, 10, 12),
-        SurfaceBg       = Color3.fromRGB(15, 15, 18),
-        SidebarBg       = Color3.fromRGB(13, 13, 16),
-        CardBg          = Color3.fromRGB(20, 20, 25),
-        CardHover       = Color3.fromRGB(28, 28, 36),
-        CardBorder      = Color3.fromRGB(40, 40, 52),
-        CardBorderGlow  = Color3.fromRGB(120, 120, 145),
-        InputBg         = Color3.fromRGB(14, 14, 18),
-        AccentPrimary   = Color3.fromRGB(140, 140, 160),
-        AccentSecondary = Color3.fromRGB(90, 90, 110),
-        Accent          = Color3.fromRGB(200, 200, 220),
-        AccentGlow      = Color3.fromRGB(160, 160, 185),
-        TextTitle       = Color3.fromRGB(250, 250, 252),
-        TextBody        = Color3.fromRGB(210, 210, 220),
-        TextDim         = Color3.fromRGB(115, 115, 130),
+        VoidBg          = Color3.fromRGB(8, 8, 10),
+        SurfaceBg       = Color3.fromRGB(12, 12, 15),
+        SidebarBg       = Color3.fromRGB(10, 10, 13),
+        CardBg          = Color3.fromRGB(18, 18, 23),
+        CardHover       = Color3.fromRGB(25, 25, 33),
+        CardBorder      = Color3.fromRGB(35, 35, 45),
+        CardBorderGlow  = Color3.fromRGB(160, 160, 180),
+        InputBg         = Color3.fromRGB(11, 11, 14),
+        AccentPrimary   = Color3.fromRGB(150, 150, 175),
+        AccentSecondary = Color3.fromRGB(95, 95, 115),
+        Accent          = Color3.fromRGB(220, 220, 240),
+        AccentGlow      = Color3.fromRGB(180, 180, 205),
+        TextTitle       = Color3.fromRGB(252, 252, 254),
+        TextBody        = Color3.fromRGB(215, 215, 225),
+        TextDim         = Color3.fromRGB(120, 120, 135),
         Success         = Color3.fromRGB(52, 211, 153),
         Warning         = Color3.fromRGB(251, 191, 36),
         Danger          = Color3.fromRGB(251, 85, 115),
     },
     ["Cyber Amethyst"] = {
-        VoidBg          = Color3.fromRGB(12, 10, 20),
-        SurfaceBg       = Color3.fromRGB(18, 14, 30),
-        SidebarBg       = Color3.fromRGB(15, 12, 26),
-        CardBg          = Color3.fromRGB(26, 20, 44),
-        CardHover       = Color3.fromRGB(36, 28, 60),
-        CardBorder      = Color3.fromRGB(56, 42, 90),
-        CardBorderGlow  = Color3.fromRGB(147, 85, 247),
-        InputBg         = Color3.fromRGB(16, 12, 26),
+        VoidBg          = Color3.fromRGB(11, 9, 18),
+        SurfaceBg       = Color3.fromRGB(16, 12, 28),
+        SidebarBg       = Color3.fromRGB(13, 10, 23),
+        CardBg          = Color3.fromRGB(23, 18, 40),
+        CardHover       = Color3.fromRGB(32, 24, 54),
+        CardBorder      = Color3.fromRGB(50, 36, 82),
+        CardBorderGlow  = Color3.fromRGB(168, 85, 247),
+        InputBg         = Color3.fromRGB(14, 10, 24),
         AccentPrimary   = Color3.fromRGB(168, 85, 247),
         AccentSecondary = Color3.fromRGB(124, 58, 237),
         Accent          = Color3.fromRGB(192, 132, 252),
         AccentGlow      = Color3.fromRGB(216, 180, 254),
         TextTitle       = Color3.fromRGB(250, 245, 255),
-        TextBody        = Color3.fromRGB(220, 210, 235),
-        TextDim         = Color3.fromRGB(130, 115, 155),
+        TextBody        = Color3.fromRGB(222, 212, 238),
+        TextDim         = Color3.fromRGB(132, 118, 158),
         Success         = Color3.fromRGB(52, 211, 153),
         Warning         = Color3.fromRGB(251, 191, 36),
         Danger          = Color3.fromRGB(251, 85, 115),
     },
     ["Blood Crimson"] = {
-        VoidBg          = Color3.fromRGB(16, 8, 12),
-        SurfaceBg       = Color3.fromRGB(24, 12, 18),
-        SidebarBg       = Color3.fromRGB(20, 10, 15),
-        CardBg          = Color3.fromRGB(34, 16, 24),
-        CardHover       = Color3.fromRGB(48, 22, 34),
-        CardBorder      = Color3.fromRGB(80, 32, 50),
-        CardBorderGlow  = Color3.fromRGB(225, 29, 72),
-        InputBg         = Color3.fromRGB(20, 10, 15),
+        VoidBg          = Color3.fromRGB(14, 8, 11),
+        SurfaceBg       = Color3.fromRGB(20, 10, 15),
+        SidebarBg       = Color3.fromRGB(17, 9, 13),
+        CardBg          = Color3.fromRGB(28, 14, 21),
+        CardHover       = Color3.fromRGB(40, 18, 29),
+        CardBorder      = Color3.fromRGB(68, 26, 42),
+        CardBorderGlow  = Color3.fromRGB(244, 63, 94),
+        InputBg         = Color3.fromRGB(16, 9, 13),
         AccentPrimary   = Color3.fromRGB(244, 63, 94),
         AccentSecondary = Color3.fromRGB(225, 29, 72),
         Accent          = Color3.fromRGB(251, 113, 133),
         AccentGlow      = Color3.fromRGB(253, 164, 175),
         TextTitle       = Color3.fromRGB(255, 245, 247),
-        TextBody        = Color3.fromRGB(235, 210, 218),
-        TextDim         = Color3.fromRGB(150, 110, 125),
+        TextBody        = Color3.fromRGB(235, 212, 220),
+        TextDim         = Color3.fromRGB(152, 112, 128),
         Success         = Color3.fromRGB(52, 211, 153),
         Warning         = Color3.fromRGB(251, 191, 36),
         Danger          = Color3.fromRGB(251, 85, 115),
     },
     ["Emerald Matrix"] = {
-        VoidBg          = Color3.fromRGB(8, 16, 12),
-        SurfaceBg       = Color3.fromRGB(12, 24, 18),
-        SidebarBg       = Color3.fromRGB(10, 20, 15),
-        CardBg          = Color3.fromRGB(16, 36, 26),
-        CardHover       = Color3.fromRGB(24, 50, 36),
-        CardBorder      = Color3.fromRGB(36, 80, 56),
-        CardBorderGlow  = Color3.fromRGB(16, 185, 129),
-        InputBg         = Color3.fromRGB(10, 22, 16),
+        VoidBg          = Color3.fromRGB(7, 14, 10),
+        SurfaceBg       = Color3.fromRGB(10, 20, 15),
+        SidebarBg       = Color3.fromRGB(8, 17, 13),
+        CardBg          = Color3.fromRGB(14, 30, 22),
+        CardHover       = Color3.fromRGB(20, 42, 30),
+        CardBorder      = Color3.fromRGB(30, 68, 48),
+        CardBorderGlow  = Color3.fromRGB(52, 211, 153),
+        InputBg         = Color3.fromRGB(9, 18, 14),
         AccentPrimary   = Color3.fromRGB(16, 185, 129),
         AccentSecondary = Color3.fromRGB(5, 150, 105),
         Accent          = Color3.fromRGB(52, 211, 153),
         AccentGlow      = Color3.fromRGB(110, 231, 183),
         TextTitle       = Color3.fromRGB(245, 255, 250),
-        TextBody        = Color3.fromRGB(210, 235, 225),
-        TextDim         = Color3.fromRGB(110, 150, 130),
+        TextBody        = Color3.fromRGB(210, 236, 226),
+        TextDim         = Color3.fromRGB(112, 152, 132),
         Success         = Color3.fromRGB(52, 211, 153),
         Warning         = Color3.fromRGB(251, 191, 36),
         Danger          = Color3.fromRGB(251, 85, 115),
     },
     ["Golden Amber"] = {
-        VoidBg          = Color3.fromRGB(16, 14, 8),
-        SurfaceBg       = Color3.fromRGB(24, 20, 12),
-        SidebarBg       = Color3.fromRGB(20, 17, 10),
-        CardBg          = Color3.fromRGB(36, 30, 18),
-        CardHover       = Color3.fromRGB(50, 42, 24),
-        CardBorder      = Color3.fromRGB(80, 66, 36),
-        CardBorderGlow  = Color3.fromRGB(245, 158, 11),
-        InputBg         = Color3.fromRGB(22, 18, 12),
+        VoidBg          = Color3.fromRGB(14, 12, 7),
+        SurfaceBg       = Color3.fromRGB(20, 17, 10),
+        SidebarBg       = Color3.fromRGB(17, 14, 9),
+        CardBg          = Color3.fromRGB(30, 25, 15),
+        CardHover       = Color3.fromRGB(42, 35, 20),
+        CardBorder      = Color3.fromRGB(68, 56, 30),
+        CardBorderGlow  = Color3.fromRGB(251, 191, 36),
+        InputBg         = Color3.fromRGB(18, 15, 10),
         AccentPrimary   = Color3.fromRGB(245, 158, 11),
         AccentSecondary = Color3.fromRGB(217, 119, 6),
         Accent          = Color3.fromRGB(251, 191, 36),
         AccentGlow      = Color3.fromRGB(253, 224, 71),
         TextTitle       = Color3.fromRGB(255, 252, 245),
-        TextBody        = Color3.fromRGB(235, 230, 215),
-        TextDim         = Color3.fromRGB(150, 140, 115),
+        TextBody        = Color3.fromRGB(235, 230, 216),
+        TextDim         = Color3.fromRGB(152, 142, 118),
         Success         = Color3.fromRGB(52, 211, 153),
         Warning         = Color3.fromRGB(251, 191, 36),
         Danger          = Color3.fromRGB(251, 85, 115),
     },
     ["Nord Frost"] = {
-        VoidBg          = Color3.fromRGB(12, 15, 20),
-        SurfaceBg       = Color3.fromRGB(18, 22, 30),
-        SidebarBg       = Color3.fromRGB(15, 19, 26),
-        CardBg          = Color3.fromRGB(26, 32, 44),
-        CardHover       = Color3.fromRGB(36, 44, 60),
-        CardBorder      = Color3.fromRGB(54, 66, 90),
-        CardBorderGlow  = Color3.fromRGB(129, 161, 193),
-        InputBg         = Color3.fromRGB(16, 20, 28),
+        VoidBg          = Color3.fromRGB(10, 13, 18),
+        SurfaceBg       = Color3.fromRGB(15, 19, 26),
+        SidebarBg       = Color3.fromRGB(13, 16, 22),
+        CardBg          = Color3.fromRGB(22, 27, 38),
+        CardHover       = Color3.fromRGB(30, 37, 52),
+        CardBorder      = Color3.fromRGB(46, 56, 78),
+        CardBorderGlow  = Color3.fromRGB(136, 192, 208),
+        InputBg         = Color3.fromRGB(14, 17, 24),
         AccentPrimary   = Color3.fromRGB(129, 161, 193),
         AccentSecondary = Color3.fromRGB(94, 129, 172),
         Accent          = Color3.fromRGB(136, 192, 208),
         AccentGlow      = Color3.fromRGB(143, 188, 187),
         TextTitle       = Color3.fromRGB(248, 250, 252),
-        TextBody        = Color3.fromRGB(216, 222, 233),
-        TextDim         = Color3.fromRGB(120, 134, 156),
+        TextBody        = Color3.fromRGB(216, 224, 236),
+        TextDim         = Color3.fromRGB(122, 136, 160),
         Success         = Color3.fromRGB(163, 190, 140),
         Warning         = Color3.fromRGB(235, 203, 139),
         Danger          = Color3.fromRGB(191, 97, 106),
+    },
+    ["Synthwave Pink"] = {
+        VoidBg          = Color3.fromRGB(15, 8, 20),
+        SurfaceBg       = Color3.fromRGB(22, 11, 30),
+        SidebarBg       = Color3.fromRGB(18, 9, 25),
+        CardBg          = Color3.fromRGB(32, 16, 44),
+        CardHover       = Color3.fromRGB(46, 22, 62),
+        CardBorder      = Color3.fromRGB(75, 32, 98),
+        CardBorderGlow  = Color3.fromRGB(244, 114, 182),
+        InputBg         = Color3.fromRGB(19, 10, 27),
+        AccentPrimary   = Color3.fromRGB(236, 72, 153),
+        AccentSecondary = Color3.fromRGB(168, 85, 247),
+        Accent          = Color3.fromRGB(244, 114, 182),
+        AccentGlow      = Color3.fromRGB(251, 207, 232),
+        TextTitle       = Color3.fromRGB(255, 245, 252),
+        TextBody        = Color3.fromRGB(238, 216, 232),
+        TextDim         = Color3.fromRGB(160, 118, 152),
+        Success         = Color3.fromRGB(52, 211, 153),
+        Warning         = Color3.fromRGB(251, 191, 36),
+        Danger          = Color3.fromRGB(251, 85, 115),
     },
 }
 
@@ -192,9 +217,22 @@ local UI = {
     CurrentTheme   = CurrentThemeName,
     Toggles        = {},
     Options        = {},
-    ThemeTrackers  = {}, -- Holds objects for live theme updates
+    ThemeTrackers  = {}, -- Elements registered for live theme updates
+    ThemeListeners = {}, -- Callback listeners when theme changes
 }
 UI.__index = UI
+
+function UI:RegisterThemeCallback(fn)
+    table.insert(self.ThemeListeners, fn)
+end
+
+function UI:RegisterThemeElement(inst, propName, themeKey)
+    table.insert(self.ThemeTrackers, {
+        Instance = inst,
+        Property = propName,
+        Key = themeKey
+    })
+end
 
 -- ─── Core Helpers ───────────────────────────────────────────────────
 local function tw(inst, props, dur, style, dir)
@@ -277,7 +315,7 @@ local function orb(parent, color, diameter, pos)
             Position = UDim2.new(0.5, 0, 0.5, 0),
             Size = UDim2.new(s, 0, s, 0),
             BackgroundColor3 = color,
-            BackgroundTransparency = 0.965,
+            BackgroundTransparency = 0.955,
             Parent = holder,
         }, { pill() })
     end
@@ -288,7 +326,7 @@ local function makeCard(parent, height, interactive)
     local props = {
         Size = UDim2.new(1, 0, 0, height),
         BackgroundColor3 = Theme.CardBg,
-        BackgroundTransparency = 0.04,
+        BackgroundTransparency = 0.08,
         Parent = parent,
     }
     if interactive then
@@ -296,51 +334,69 @@ local function makeCard(parent, height, interactive)
         props.Text = ""
     end
 
-    return make(interactive and "TextButton" or "Frame", props, {
+    local card = make(interactive and "TextButton" or "Frame", props, {
         corner(10),
-        stroke(Theme.CardBorder, 1.1, 0.35, "CardStroke"),
+        stroke(Theme.CardBorder, 1.15, 0.38, "CardStroke"),
         make("UIGradient", {
             Name = "Sheen",
-            Color = ColorSequence.new(WHITE, Color3.fromRGB(205, 205, 222)),
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0.0, WHITE),
+                ColorSequenceKeypoint.new(0.4, Color3.fromRGB(220, 225, 240)),
+                ColorSequenceKeypoint.new(1.0, Color3.fromRGB(180, 185, 205)),
+            }),
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0.0, 0.0),
+                NumberSequenceKeypoint.new(0.4, 0.02),
+                NumberSequenceKeypoint.new(1.0, 0.05),
+            }),
             Rotation = 90,
         }),
         make("Frame", {
             Name = "Highlight",
-            Size = UDim2.new(1, -24, 0, 1),
-            Position = UDim2.new(0, 12, 0, 0),
+            Size = UDim2.new(1, -20, 0, 1),
+            Position = UDim2.new(0, 10, 0, 0),
             BackgroundColor3 = WHITE,
-            BackgroundTransparency = 0.82,
+            BackgroundTransparency = 0.84,
         }, {
             make("UIGradient", {
                 Transparency = NumberSequence.new({
-                    NumberSequenceKeypoint.new(0, 1),
+                    NumberSequenceKeypoint.new(0.0, 1),
                     NumberSequenceKeypoint.new(0.5, 0),
-                    NumberSequenceKeypoint.new(1, 1),
+                    NumberSequenceKeypoint.new(1.0, 1),
                 }),
             }),
         }),
     })
+
+    UI:RegisterThemeElement(card, "BackgroundColor3", "CardBg")
+    local s = card:FindFirstChild("CardStroke")
+    if s then UI:RegisterThemeElement(s, "Color", "CardBorder") end
+    return card
 end
 
 local function hoverable(card, accent)
     local s = card:FindFirstChild("CardStroke")
     card.MouseEnter:Connect(function()
-        tw(card, { BackgroundColor3 = Theme.CardHover }, 0.16)
-        if s then tw(s, { Color = accent or Theme.CardBorderGlow, Transparency = 0.05 }, 0.16) end
+        tw(card, { BackgroundColor3 = Theme.CardHover }, 0.18)
+        if s then
+            tw(s, { Color = accent or Theme.CardBorderGlow, Transparency = 0.08 }, 0.18)
+        end
     end)
     card.MouseLeave:Connect(function()
-        tw(card, { BackgroundColor3 = Theme.CardBg }, 0.16)
-        if s then tw(s, { Color = Theme.CardBorder, Transparency = 0.35 }, 0.16) end
+        tw(card, { BackgroundColor3 = Theme.CardBg }, 0.18)
+        if s then
+            tw(s, { Color = Theme.CardBorder, Transparency = 0.38 }, 0.18)
+        end
     end)
 end
 
 -- ═════════════════════════════════════════════════════════════════════
--- WINDOW CREATION (AURORA ELITE v4.5 MASTER SUITE)
+-- WINDOW CREATION (NEO-CYBER OBSIDIAN GLASS v5.0)
 -- ═════════════════════════════════════════════════════════════════════
 function UI:CreateWindow(config)
     config = config or {}
     local TitleText      = config.Title or "PROJECT BARUN"
-    local SubtitleText   = config.Subtitle or "AURORA ELITE v4.5"
+    local SubtitleText   = config.Subtitle or "OBSIDIAN GLASS v5.0"
     local WindowSize     = config.Size or UDim2.new(0, 840, 0, 520)
     local WindowName     = config.Name or "ProjectBarun_MasterUI"
     local ToggleKey      = config.ToggleKey or config.MenuKeybind or Enum.KeyCode.RightShift
@@ -371,9 +427,21 @@ function UI:CreateWindow(config)
         Parent = ParentTarget,
     })
 
+    -- Optional safe depth blur in Lighting
+    local DepthBlur = nil
+    pcall(function()
+        DepthBlur = Instance.new("BlurEffect")
+        DepthBlur.Name = WindowName .. "_Blur"
+        DepthBlur.Size = 0
+        DepthBlur.Parent = Lighting
+    end)
+
     ScreenGui.Destroying:Connect(function()
         for _, c in ipairs(Conns) do
             pcall(function() c:Disconnect() end)
+        end
+        if DepthBlur and DepthBlur.Parent then
+            pcall(function() DepthBlur:Destroy() end)
         end
     end)
 
@@ -387,15 +455,16 @@ function UI:CreateWindow(config)
         Visible = false,
         Parent = ScreenGui,
     }, {
-        make("UIScale", { Name = "Scale", Scale = 0.9 }),
+        make("UIScale", { Name = "Scale", Scale = 0.92 }),
     })
     local RootScale = Root.Scale
 
+    -- Multi-stage Ambient Depth Shadows
     local Shadow = make("ImageLabel", {
         Name = "AmbientShadow",
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0.5, 0, 0.5, 12),
-        Size = UDim2.new(1, 76, 1, 76),
+        Position = UDim2.new(0.5, 0, 0.5, 14),
+        Size = UDim2.new(1, 88, 1, 88),
         BackgroundTransparency = 1,
         Image = SHADOW_ASSET,
         ImageColor3 = Color3.fromRGB(0, 0, 0),
@@ -405,7 +474,7 @@ function UI:CreateWindow(config)
         Parent = Root,
     })
 
-    -- Chassis
+    -- Main Chassis with Frosted Glass Layering
     local Main = make("Frame", {
         Name = "MainChassis",
         Size = UDim2.new(1, 0, 1, 0),
@@ -425,32 +494,60 @@ function UI:CreateWindow(config)
         make("UIGradient", {
             Name = "BackdropGrad",
             Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0.0, Color3.fromRGB(20, 22, 36)),
-                ColorSequenceKeypoint.new(0.55, Color3.fromRGB(12, 14, 22)),
-                ColorSequenceKeypoint.new(1.0, Color3.fromRGB(9, 10, 16)),
+                ColorSequenceKeypoint.new(0.0, Color3.fromRGB(18, 21, 33)),
+                ColorSequenceKeypoint.new(0.45, Color3.fromRGB(13, 15, 23)),
+                ColorSequenceKeypoint.new(1.0, Color3.fromRGB(8, 9, 14)),
             }),
-            Rotation = 50,
+            Rotation = 48,
         }),
     })
 
-    -- Ambient orbs
+    -- Glassmorphic Frost Panel
+    local Glass = make("Frame", {
+        Name = "GlassBackground",
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundColor3 = Theme.SurfaceBg,
+        BackgroundTransparency = 0.35,
+        Parent = Main,
+    }, {
+        corner(16),
+        make("UIGradient", {
+            Name = "GlassGrad",
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0.0, Color3.fromRGB(30, 36, 56)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(16, 18, 28)),
+                ColorSequenceKeypoint.new(1.0, Color3.fromRGB(10, 11, 18)),
+            }),
+            Rotation = 120,
+        }),
+    })
+    UI:RegisterThemeElement(Glass, "BackgroundColor3", "SurfaceBg")
+
+    -- Kinetic Ambient Aurora Mesh Orbs (Organic Breathing Drift)
     local Orb1 = orb(Main, Theme.AccentPrimary, 460, UDim2.new(0.92, 0, 0.02, 0))
     local Orb2 = orb(Main, AccentColor, 400, UDim2.new(0.12, 0, 1.0, 0))
-    local Orb3 = orb(Main, Theme.AccentSecondary, 260, UDim2.new(0.62, 0, 0.55, 0))
+    local Orb3 = orb(Main, Theme.AccentSecondary, 280, UDim2.new(0.62, 0, 0.55, 0))
 
-    -- Orbiting neon border
+    bind(RunService.RenderStepped, function()
+        local t = tick()
+        Orb1.Position = UDim2.new(0.92 + math.sin(t * 0.7) * 0.035, 0, 0.02 + math.cos(t * 0.6) * 0.035, 0)
+        Orb2.Position = UDim2.new(0.12 + math.cos(t * 0.5) * 0.04, 0, 1.0 - math.sin(t * 0.6) * 0.04, 0)
+        Orb3.Position = UDim2.new(0.62 + math.sin(t * 0.9) * 0.03, 0, 0.55 + math.cos(t * 0.8) * 0.03, 0)
+    end)
+
+    -- Dynamic Orbiting Neon Border
     local BorderFrame = make("Frame", {
         Name = "Border",
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
-        ZIndex = 10,
+        ZIndex = 12,
         Parent = Root,
     }, {
         corner(16),
         make("UIStroke", {
             Name = "Stroke",
             Color = WHITE,
-            Thickness = 1.5,
+            Thickness = 1.6,
             Transparency = 1,
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
         }, {
@@ -463,9 +560,9 @@ function UI:CreateWindow(config)
                     ColorSequenceKeypoint.new(1.0, Theme.AccentPrimary),
                 }),
                 Transparency = NumberSequence.new({
-                    NumberSequenceKeypoint.new(0.0, 0.1),
-                    NumberSequenceKeypoint.new(0.5, 0.78),
-                    NumberSequenceKeypoint.new(1.0, 0.1),
+                    NumberSequenceKeypoint.new(0.0, 0.05),
+                    NumberSequenceKeypoint.new(0.5, 0.75),
+                    NumberSequenceKeypoint.new(1.0, 0.05),
                 }),
             }),
         }),
@@ -474,10 +571,10 @@ function UI:CreateWindow(config)
     local OrbitGrad = BorderStroke.Orbit
 
     bind(RunService.RenderStepped, function()
-        OrbitGrad.Rotation = (OrbitGrad.Rotation + 0.35) % 360
+        OrbitGrad.Rotation = (OrbitGrad.Rotation + 0.4) % 360
     end)
 
-    -- Top neon accent line with shimmer
+    -- Shimmering Neon Top Accent Bar
     local NeonTopLine = make("Frame", {
         Name = "NeonAccentBar",
         Size = UDim2.new(1, -56, 0, 2),
@@ -495,78 +592,79 @@ function UI:CreateWindow(config)
             }),
             Transparency = NumberSequence.new({
                 NumberSequenceKeypoint.new(0.0, 1),
-                NumberSequenceKeypoint.new(0.15, 0),
-                NumberSequenceKeypoint.new(0.85, 0),
+                NumberSequenceKeypoint.new(0.12, 0),
+                NumberSequenceKeypoint.new(0.88, 0),
                 NumberSequenceKeypoint.new(1.0, 1),
             }),
         }),
     })
     local Shimmer = make("Frame", {
         Name = "Shimmer",
-        Size = UDim2.new(0, 90, 1, 0),
-        Position = UDim2.new(0, -90, 0, 0),
+        Size = UDim2.new(0, 110, 1, 0),
+        Position = UDim2.new(0, -110, 0, 0),
         BackgroundColor3 = WHITE,
         Parent = NeonTopLine,
     }, {
         make("UIGradient", {
             Transparency = NumberSequence.new({
                 NumberSequenceKeypoint.new(0.0, 1),
-                NumberSequenceKeypoint.new(0.5, 0.35),
+                NumberSequenceKeypoint.new(0.5, 0.25),
                 NumberSequenceKeypoint.new(1.0, 1),
             }),
         }),
     })
     task.spawn(function()
         while ScreenGui.Parent do
-            Shimmer.Position = UDim2.new(0, -90, 0, 0)
+            Shimmer.Position = UDim2.new(0, -110, 0, 0)
             local t = TweenService:Create(Shimmer, TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                Position = UDim2.new(1, 40, 0, 0)
+                Position = UDim2.new(1, 50, 0, 0)
             })
             t:Play()
             t.Completed:Wait()
-            task.wait(1.5)
+            task.wait(1.8)
         end
     end)
 
     -- Toast HUD Stack
     local ToastHolder = make("Frame", {
         Name = "ToastHolder",
-        Size = UDim2.new(0, 310, 1, -40),
-        Position = UDim2.new(1, -330, 0, 20),
+        Size = UDim2.new(0, 320, 1, -40),
+        Position = UDim2.new(1, -340, 0, 20),
         BackgroundTransparency = 1,
-        ZIndex = 25,
+        ZIndex = 35,
         Parent = ScreenGui,
     }, {
         make("UIListLayout", {
             SortOrder = Enum.SortOrder.LayoutOrder,
             VerticalAlignment = Enum.VerticalAlignment.Bottom,
-            Padding = UDim.new(0, 6),
+            Padding = UDim.new(0, 8),
         }),
     })
 
-    -- ─── Watermark System ───────────────────────────────────────────
+    -- ─── Watermark Telemetry Bar ────────────────────────────────────
     local WatermarkFrame = make("Frame", {
         Name = "Watermark",
-        Size = UDim2.new(0, 260, 0, 26),
-        Position = UDim2.new(0, 20, 0, 12),
-        BackgroundColor3 = Color3.fromRGB(15, 18, 28),
-        BackgroundTransparency = 0.2,
+        Size = UDim2.new(0, 280, 0, 28),
+        Position = UDim2.new(0, 20, 0, 14),
+        BackgroundColor3 = Color3.fromRGB(13, 16, 25),
+        BackgroundTransparency = 0.18,
         Visible = false,
         ZIndex = 30,
         Parent = ScreenGui,
     }, {
-        corner(8),
-        stroke(AccentColor, 1.2, 0.4, "WmStroke"),
+        corner(9),
+        stroke(AccentColor, 1.25, 0.35, "WmStroke"),
         txt({
             Name = "WmText",
-            Text = "PROJECT BARUN | Obsidian Glass v4.5",
+            Text = "PROJECT BARUN | Obsidian Glass v5.0",
             Font = Theme.FontBold,
-            TextSize = 10,
+            TextSize = 10.5,
             TextColor3 = WHITE,
-            Position = UDim2.new(0, 10, 0, 0),
-            Size = UDim2.new(1, -20, 1, 0),
+            Position = UDim2.new(0, 12, 0, 0),
+            Size = UDim2.new(1, -24, 1, 0),
         }),
     })
+    UI:RegisterThemeElement(WatermarkFrame.WmStroke, "Color", "Accent")
 
     -- ─── TopBar ──────────────────────────────────────────────────────
     local TopBar = make("Frame", {
@@ -583,15 +681,15 @@ function UI:CreateWindow(config)
             make("UIGradient", {
                 Transparency = NumberSequence.new({
                     NumberSequenceKeypoint.new(0.0, 1),
-                    NumberSequenceKeypoint.new(0.2, 0.55),
-                    NumberSequenceKeypoint.new(0.8, 0.55),
+                    NumberSequenceKeypoint.new(0.2, 0.5),
+                    NumberSequenceKeypoint.new(0.8, 0.5),
                     NumberSequenceKeypoint.new(1.0, 1),
                 }),
             }),
         }),
     })
 
-    -- Logo Badge
+    -- Cyber Logo Badge
     local LogoBadgeHolder = make("Frame", {
         Name = "LogoBadgeHolder",
         Size = UDim2.new(0, 38, 0, 38),
@@ -600,8 +698,8 @@ function UI:CreateWindow(config)
         Parent = TopBar,
     }, {
         corner(10),
-        stroke(AccentColor, 1.4, 0.2, "LogoGlowStroke"),
-        grad(Color3.fromRGB(30, 34, 60), Color3.fromRGB(12, 14, 24), 45),
+        stroke(AccentColor, 1.4, 0.15, "LogoGlowStroke"),
+        grad(Color3.fromRGB(32, 38, 64), Color3.fromRGB(14, 16, 28), 45),
         txt({
             Name = "FallbackText",
             Size = UDim2.new(1, 0, 1, 0),
@@ -612,15 +710,17 @@ function UI:CreateWindow(config)
             TextXAlignment = Enum.TextXAlignment.Center,
         }),
     })
+    UI:RegisterThemeElement(LogoBadgeHolder.LogoGlowStroke, "Color", "Accent")
+    UI:RegisterThemeElement(LogoBadgeHolder.FallbackText, "TextColor3", "Accent")
 
-    -- Titles
+    -- Title & Subtitle Hierarchy
     local TitleLabel = txt({
         Name = "Title",
         Text = TitleText,
         Font = Theme.FontBlack,
-        TextSize = 13,
+        TextSize = 13.5,
         TextColor3 = Theme.TextTitle,
-        Position = UDim2.new(0, 62, 0, 13),
+        Position = UDim2.new(0, 62, 0, 12),
         Size = UDim2.new(0, 180, 0, 18),
         Parent = TopBar,
     })
@@ -634,32 +734,35 @@ function UI:CreateWindow(config)
         Size = UDim2.new(0, 180, 0, 14),
         Parent = TopBar,
     })
+    UI:RegisterThemeElement(SubtitleLabel, "TextColor3", "Accent")
 
-    -- ─── Real-Time Search Bar ────────────────────────────────────────
+    -- ─── Real-Time Global Search Bar ─────────────────────────────────
     local SearchBoxHolder = make("Frame", {
         Name = "SearchBoxHolder",
-        Size = UDim2.new(0, 165, 0, 30),
-        Position = UDim2.new(0, 245, 0.5, -15),
+        Size = UDim2.new(0, 175, 0, 30),
+        Position = UDim2.new(0, 246, 0.5, -15),
         BackgroundColor3 = Theme.InputBg,
         Parent = TopBar,
     }, {
         corner(8),
-        stroke(Theme.CardBorder, 1, 0.3, "SearchStroke"),
+        stroke(Theme.CardBorder, 1, 0.35, "SearchStroke"),
         txt({
             Name = "SearchIcon",
             Text = "🔍",
             Size = UDim2.new(0, 24, 1, 0),
-            Position = UDim2.new(0, 4, 0, 0),
+            Position = UDim2.new(0, 6, 0, 0),
             TextSize = 10,
             TextColor3 = Theme.TextDim,
             TextXAlignment = Enum.TextXAlignment.Center,
         }),
     })
+    UI:RegisterThemeElement(SearchBoxHolder, "BackgroundColor3", "InputBg")
+    UI:RegisterThemeElement(SearchBoxHolder.SearchStroke, "Color", "CardBorder")
 
     local SearchInput = make("TextBox", {
         Name = "SearchInput",
-        Size = UDim2.new(1, -30, 1, 0),
-        Position = UDim2.new(0, 26, 0, 0),
+        Size = UDim2.new(1, -34, 1, 0),
+        Position = UDim2.new(0, 28, 0, 0),
         BackgroundTransparency = 1,
         Text = "",
         PlaceholderText = "ค้นหาฟังก์ชัน...",
@@ -672,22 +775,24 @@ function UI:CreateWindow(config)
     })
 
     SearchInput.Focused:Connect(function()
-        tw(SearchBoxHolder.SearchStroke, { Color = AccentColor, Transparency = 0.1 }, 0.18)
+        tw(SearchBoxHolder, { Size = UDim2.new(0, 195, 0, 30) }, 0.2)
+        tw(SearchBoxHolder.SearchStroke, { Color = AccentColor, Transparency = 0.05 }, 0.18)
     end)
     SearchInput.FocusLost:Connect(function()
-        tw(SearchBoxHolder.SearchStroke, { Color = Theme.CardBorder, Transparency = 0.3 }, 0.18)
+        tw(SearchBoxHolder, { Size = UDim2.new(0, 175, 0, 30) }, 0.2)
+        tw(SearchBoxHolder.SearchStroke, { Color = Theme.CardBorder, Transparency = 0.35 }, 0.18)
     end)
 
-    -- Live Telemetry Pill
+    -- ─── Telemetry HUD (FPS, Ping, RAM) ──────────────────────────────
     local TelemetryCard = make("Frame", {
         Name = "TelemetryCard",
-        Size = UDim2.new(0, 160, 0, 28),
-        Position = UDim2.new(1, -260, 0.5, -14),
-        BackgroundColor3 = Color3.fromRGB(20, 23, 36),
+        Size = UDim2.new(0, 190, 0, 28),
+        Position = UDim2.new(1, -285, 0.5, -14),
+        BackgroundColor3 = Color3.fromRGB(18, 22, 34),
         Parent = TopBar,
     }, {
         corner(8),
-        stroke(Theme.CardBorder, 1, 0.35),
+        stroke(Theme.CardBorder, 1, 0.4, "TelStroke"),
         txt({
             Name = "PingLabel",
             Text = "Ping: --",
@@ -695,7 +800,7 @@ function UI:CreateWindow(config)
             TextSize = 9.5,
             TextColor3 = AccentColor,
             Position = UDim2.new(0, 10, 0, 0),
-            Size = UDim2.new(0.5, -10, 1, 0),
+            Size = UDim2.new(0.33, -4, 1, 0),
         }),
         txt({
             Name = "FpsLabel",
@@ -703,11 +808,23 @@ function UI:CreateWindow(config)
             Font = Theme.FontSemi,
             TextSize = 9.5,
             TextColor3 = Theme.Success,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            Position = UDim2.new(0.33, 0, 0, 0),
+            Size = UDim2.new(0.33, 0, 1, 0),
+        }),
+        txt({
+            Name = "MemLabel",
+            Text = "RAM: --",
+            Font = Theme.FontSemi,
+            TextSize = 9.5,
+            TextColor3 = Theme.Warning,
             TextXAlignment = Enum.TextXAlignment.Right,
-            Position = UDim2.new(0.5, 0, 0, 0),
-            Size = UDim2.new(0.5, -10, 1, 0),
+            Position = UDim2.new(0.66, 0, 0, 0),
+            Size = UDim2.new(0.34, -10, 1, 0),
         }),
     })
+    UI:RegisterThemeElement(TelemetryCard.TelStroke, "Color", "CardBorder")
+    UI:RegisterThemeElement(TelemetryCard.PingLabel, "TextColor3", "Accent")
 
     local frameCount = 0
     local lastSec = tick()
@@ -722,8 +839,13 @@ function UI:CreateWindow(config)
             pcall(function()
                 ping = math.floor(StatsService.Network.ServerStatsItem["Data Ping"]:GetValue())
             end)
+            local memMb = math.floor(gcinfo() / 1024)
+
             TelemetryCard.FpsLabel.Text = string.format("FPS: %d", fps)
+            TelemetryCard.FpsLabel.TextColor3 = fps >= 55 and Theme.Success or (fps >= 30 and Theme.Warning or Theme.Danger)
             TelemetryCard.PingLabel.Text = string.format("Ping: %dms", ping)
+            TelemetryCard.PingLabel.TextColor3 = ping <= 90 and Theme.Success or (ping <= 160 and Theme.Warning or Theme.Danger)
+            TelemetryCard.MemLabel.Text = string.format("RAM: %dM", memMb)
         end
     end)
 
@@ -745,14 +867,14 @@ function UI:CreateWindow(config)
     local MinBtn = make("TextButton", {
         Name = "MinBtn",
         Size = UDim2.new(0, 28, 0, 28),
-        BackgroundColor3 = Color3.fromRGB(34, 38, 56),
+        BackgroundColor3 = Color3.fromRGB(28, 32, 48),
         Text = "—",
         TextColor3 = Theme.TextBody,
         Font = Theme.FontBold,
-        TextSize = 12,
+        TextSize = 11,
         AutoButtonColor = false,
         Parent = WindowControls,
-    }, { corner(7), stroke(Theme.CardBorder, 1, 0.4) })
+    }, { corner(7), stroke(Theme.CardBorder, 1, 0.45) })
 
     local CloseBtn = make("TextButton", {
         Name = "CloseBtn",
@@ -766,6 +888,20 @@ function UI:CreateWindow(config)
         Parent = WindowControls,
     }, { corner(7) })
 
+    MinBtn.MouseEnter:Connect(function()
+        tw(MinBtn, { BackgroundColor3 = Theme.CardHover, TextColor3 = WHITE }, 0.15)
+    end)
+    MinBtn.MouseLeave:Connect(function()
+        tw(MinBtn, { BackgroundColor3 = Color3.fromRGB(28, 32, 48), TextColor3 = Theme.TextBody }, 0.15)
+    end)
+
+    CloseBtn.MouseEnter:Connect(function()
+        tw(CloseBtn, { BackgroundColor3 = Color3.fromRGB(255, 30, 75) }, 0.15)
+    end)
+    CloseBtn.MouseLeave:Connect(function()
+        tw(CloseBtn, { BackgroundColor3 = Color3.fromRGB(244, 63, 94) }, 0.15)
+    end)
+
     -- ─── Layout: Sidebar & Content Area ──────────────────────────────
     local ContentHolder = make("Frame", {
         Name = "ContentHolder",
@@ -777,14 +913,14 @@ function UI:CreateWindow(config)
 
     local Sidebar = make("Frame", {
         Name = "Sidebar",
-        Size = UDim2.new(0, 175, 1, -16),
+        Size = UDim2.new(0, 178, 1, -16),
         Position = UDim2.new(0, 12, 0, 8),
         BackgroundColor3 = Theme.SidebarBg,
-        BackgroundTransparency = 0.25,
+        BackgroundTransparency = 0.28,
         Parent = ContentHolder,
     }, {
         corner(12),
-        stroke(Theme.CardBorder, 1, 0.4),
+        stroke(Theme.CardBorder, 1, 0.45, "SbStroke"),
         make("UIPadding", {
             PaddingTop = UDim.new(0, 8),
             PaddingBottom = UDim.new(0, 8),
@@ -792,6 +928,8 @@ function UI:CreateWindow(config)
             PaddingRight = UDim.new(0, 8),
         }),
     })
+    UI:RegisterThemeElement(Sidebar, "BackgroundColor3", "SidebarBg")
+    UI:RegisterThemeElement(Sidebar.SbStroke, "Color", "CardBorder")
 
     local TabScroll = make("ScrollingFrame", {
         Name = "TabScroll",
@@ -808,11 +946,12 @@ function UI:CreateWindow(config)
             Padding = UDim.new(0, 5),
         }),
     })
+    UI:RegisterThemeElement(TabScroll, "ScrollBarImageColor3", "Accent")
 
     local PagesContainer = make("Frame", {
         Name = "PagesContainer",
-        Size = UDim2.new(1, -210, 1, -16),
-        Position = UDim2.new(0, 196, 0, 8),
+        Size = UDim2.new(1, -214, 1, -16),
+        Position = UDim2.new(0, 200, 0, 8),
         BackgroundTransparency = 1,
         Parent = ContentHolder,
     })
@@ -827,9 +966,10 @@ function UI:CreateWindow(config)
             Root.Size = WindowSize
             ContentHolder.Visible = true
             Root.Visible = true
-            tw(RootScale, { Scale = 1 }, 0.32, Enum.EasingStyle.Back)
+            tw(RootScale, { Scale = 1 }, 0.34, Enum.EasingStyle.Back)
             tw(BorderStroke, { Transparency = 0 }, 0.28)
-            tw(Shadow, { ImageTransparency = 0.4 }, 0.35)
+            tw(Shadow, { ImageTransparency = 0.45 }, 0.35)
+            if DepthBlur then pcall(function() tw(DepthBlur, { Size = 14 }, 0.3) end) end
             if ToggleButton and ToggleButton:FindFirstChild("StatusDot") then
                 tw(ToggleButton.StatusDot, { BackgroundColor3 = Theme.Success }, 0.2)
             end
@@ -837,6 +977,7 @@ function UI:CreateWindow(config)
             tw(RootScale, { Scale = 0.9 }, 0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
             tw(BorderStroke, { Transparency = 1 }, 0.22)
             tw(Shadow, { ImageTransparency = 1 }, 0.22)
+            if DepthBlur then pcall(function() tw(DepthBlur, { Size = 0 }, 0.24) end) end
             if ToggleButton and ToggleButton:FindFirstChild("StatusDot") then
                 tw(ToggleButton.StatusDot, { BackgroundColor3 = Theme.TextDim }, 0.2)
             end
@@ -846,11 +987,9 @@ function UI:CreateWindow(config)
         end
     end
 
-    local function toggleMinimize()
+    MinBtn.MouseButton1Click:Connect(function()
         setWindowVisible(false)
-    end
-
-    MinBtn.MouseButton1Click:Connect(toggleMinimize)
+    end)
     CloseBtn.MouseButton1Click:Connect(function()
         setWindowVisible(false)
     end)
@@ -861,7 +1000,7 @@ function UI:CreateWindow(config)
         end
     end)
 
-    -- Window Dragging Physics
+    -- Smooth Window Dragging Physics
     local isDragging = false
     local dragStart = Vector2.zero
     local startPos = UDim2.new()
@@ -892,14 +1031,14 @@ function UI:CreateWindow(config)
         end
     end)
 
-    -- ─── Floating Draggable Toggle Button (PC & Mobile Universal) ───
+    -- ─── Floating Draggable Neon Orb (PC & Mobile Universal) ─────────
     if ShowToggleBtn then
         ToggleButton = make("ImageButton", {
             Name = WindowName .. "_ToggleButton",
             Size = UDim2.fromOffset(48, 48),
             Position = UDim2.new(0, 20, 0.45, 0),
             BackgroundColor3 = Color3.fromRGB(15, 18, 28),
-            BackgroundTransparency = 0.05,
+            BackgroundTransparency = 0.08,
             AutoButtonColor = false,
             ZIndex = 40,
             Parent = ScreenGui,
@@ -928,6 +1067,8 @@ function UI:CreateWindow(config)
                 ZIndex = 42,
             }, { pill() }),
         })
+        UI:RegisterThemeElement(ToggleButton.ToggleStroke, "Color", "Accent")
+        UI:RegisterThemeElement(ToggleButton.Icon, "ImageColor3", "Accent")
 
         local btnScale = make("UIScale", { Scale = 1, Parent = ToggleButton })
 
@@ -972,12 +1113,11 @@ function UI:CreateWindow(config)
                 local delta = input.Position - btnStart
                 if math.abs(delta.X) > 4 or math.abs(delta.Y) > 4 then
                     btnMoved = true
-                    ToggleButton.Position = UDim2.new(
-                        btnPos.X.Scale,
-                        btnPos.X.Offset + delta.X,
-                        btnPos.Y.Scale,
-                        btnPos.Y.Offset + delta.Y
-                    )
+                    -- Boundary screen clamping so user doesn't drag button off screen
+                    local viewSize = ScreenGui.AbsoluteSize
+                    local newX = math.clamp(btnPos.X.Offset + delta.X, 10, math.max(viewSize.X - 58, 10))
+                    local newY = math.clamp(btnPos.Y.Offset + delta.Y, 10, math.max(viewSize.Y - 58, 10))
+                    ToggleButton.Position = UDim2.new(btnPos.X.Scale, newX, btnPos.Y.Scale, newY)
                 end
             end
         end)
@@ -1013,7 +1153,7 @@ function UI:CreateWindow(config)
     function Window:SetWatermark(text)
         WatermarkFrame.WmText.Text = tostring(text)
         local bounds = WatermarkFrame.WmText.TextBounds
-        WatermarkFrame.Size = UDim2.new(0, math.max(bounds.X + 24, 140), 0, 26)
+        WatermarkFrame.Size = UDim2.new(0, math.max(bounds.X + 28, 160), 0, 28)
     end
 
     function Window:SetWatermarkVisibility(vis)
@@ -1026,7 +1166,7 @@ function UI:CreateWindow(config)
 
     function Window:Notify(notifConfig)
         notifConfig = notifConfig or {}
-        local title = notifConfig.Title or "System Alert"
+        local title = notifConfig.Title or "System Notification"
         local content = notifConfig.Content or notifConfig.Text or ""
         local duration = notifConfig.Duration or notifConfig.Time or 3.5
         local nType = notifConfig.Type or "info"
@@ -1037,44 +1177,67 @@ function UI:CreateWindow(config)
             warning = Theme.Warning,
             danger  = Theme.Danger,
         }
+        local typeIcons = {
+            info    = "ℹ",
+            success = "✓",
+            warning = "⚠",
+            danger  = "✕",
+        }
         local accent = typeColors[nType] or AccentColor
+        local iconSymbol = typeIcons[nType] or "ℹ"
 
         local Toast = make("Frame", {
             Name = "ToastCard",
-            Size = UDim2.new(1, 0, 0, 56),
-            BackgroundColor3 = Color3.fromRGB(18, 21, 32),
+            Size = UDim2.new(1, 0, 0, 60),
+            Position = UDim2.new(1, 40, 0, 0), -- Off-screen for slide-in
+            BackgroundColor3 = Color3.fromRGB(17, 20, 31),
+            BackgroundTransparency = 0.08,
+            ClipsDescendants = true,
             Parent = ToastHolder,
         }, {
             corner(10),
-            stroke(accent, 1.2, 0.25),
+            stroke(accent, 1.25, 0.25, "ToastStroke"),
+            txt({
+                Name = "BadgeIcon",
+                Text = iconSymbol,
+                Font = Theme.FontBlack,
+                TextSize = 13,
+                TextColor3 = accent,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                Position = UDim2.new(0, 10, 0, 8),
+                Size = UDim2.new(0, 20, 0, 20),
+            }),
             txt({
                 Text = title,
                 Font = Theme.FontBold,
                 TextSize = 11.5,
                 TextColor3 = WHITE,
-                Position = UDim2.new(0, 14, 0, 8),
-                Size = UDim2.new(1, -28, 0, 16),
+                Position = UDim2.new(0, 36, 0, 8),
+                Size = UDim2.new(1, -44, 0, 18),
             }),
             txt({
                 Text = content,
                 Font = Theme.FontRegular,
                 TextSize = 10,
                 TextColor3 = Theme.TextBody,
-                Position = UDim2.new(0, 14, 0, 26),
-                Size = UDim2.new(1, -28, 0, 20),
+                Position = UDim2.new(0, 36, 0, 28),
+                Size = UDim2.new(1, -44, 0, 22),
             }),
             make("Frame", {
                 Name = "ProgressBar",
-                Size = UDim2.new(1, 0, 0, 2),
-                Position = UDim2.new(0, 0, 1, -2),
+                Size = UDim2.new(1, 0, 0, 2.5),
+                Position = UDim2.new(0, 0, 1, -2.5),
                 BackgroundColor3 = accent,
             }, { pill() }),
         })
 
-        tw(Toast.ProgressBar, { Size = UDim2.new(0, 0, 0, 2) }, duration, Enum.EasingStyle.Linear)
+        -- Slide-in animation
+        tw(Toast, { Position = UDim2.new(0, 0, 0, 0) }, 0.28, Enum.EasingStyle.Back)
+        tw(Toast.ProgressBar, { Size = UDim2.new(0, 0, 0, 2.5) }, duration, Enum.EasingStyle.Linear)
+
         task.delay(duration, function()
             if Toast and Toast.Parent then
-                tw(Toast, { BackgroundTransparency = 1 }, 0.24)
+                tw(Toast, { Position = UDim2.new(1, 40, 0, 0), BackgroundTransparency = 1 }, 0.24)
                 task.wait(0.25)
                 Toast:Destroy()
             end
@@ -1107,22 +1270,29 @@ function UI:CreateWindow(config)
 
         local TabBtn = make("TextButton", {
             Name = tabName .. "_TabBtn",
-            Size = UDim2.new(1, 0, 0, 36),
-            BackgroundColor3 = Color3.fromRGB(20, 23, 34),
-            BackgroundTransparency = 0.6,
+            Size = UDim2.new(1, 0, 0, 38),
+            BackgroundColor3 = Color3.fromRGB(19, 22, 34),
+            BackgroundTransparency = 0.55,
             Text = "",
             AutoButtonColor = false,
             Parent = TabScroll,
         }, {
-            corner(8),
-            stroke(Theme.CardBorder, 1, 0.7, "TabStroke"),
+            corner(9),
+            stroke(Theme.CardBorder, 1, 0.75, "TabStroke"),
+            make("Frame", {
+                Name = "ActiveIndicator",
+                Size = UDim2.new(0, 3, 0, 18),
+                Position = UDim2.new(0, 4, 0.5, -9),
+                BackgroundColor3 = AccentColor,
+                BackgroundTransparency = 1,
+            }, { pill() }),
             txt({
                 Name = "Icon",
                 Text = tabIcon,
                 Font = Theme.FontBold,
-                TextSize = 12,
+                TextSize = 12.5,
                 TextColor3 = Theme.TextDim,
-                Position = UDim2.new(0, 10, 0, 0),
+                Position = UDim2.new(0, 14, 0, 0),
                 Size = UDim2.new(0, 20, 1, 0),
                 TextXAlignment = Enum.TextXAlignment.Center,
             }),
@@ -1132,8 +1302,8 @@ function UI:CreateWindow(config)
                 Font = Theme.FontSemi,
                 TextSize = 11,
                 TextColor3 = Theme.TextBody,
-                Position = UDim2.new(0, 34, 0, 0),
-                Size = UDim2.new(1, -40, 1, 0),
+                Position = UDim2.new(0, 38, 0, 0),
+                Size = UDim2.new(1, -44, 1, 0),
             }),
         })
 
@@ -1171,17 +1341,25 @@ function UI:CreateWindow(config)
         local function activateTab()
             for _, t in pairs(Window.Tabs) do
                 t.Page.Visible = false
-                tw(t.Button, { BackgroundTransparency = 0.6, BackgroundColor3 = Color3.fromRGB(20, 23, 34) }, 0.18)
+                tw(t.Button, { BackgroundTransparency = 0.55, BackgroundColor3 = Color3.fromRGB(19, 22, 34) }, 0.18)
                 tw(t.Button.Label, { TextColor3 = Theme.TextBody }, 0.18)
                 tw(t.Button.Icon, { TextColor3 = Theme.TextDim }, 0.18)
-                tw(t.Button.TabStroke, { Transparency = 0.7, Color = Theme.CardBorder }, 0.18)
+                tw(t.Button.TabStroke, { Transparency = 0.75, Color = Theme.CardBorder }, 0.18)
+                if t.Button:FindFirstChild("ActiveIndicator") then
+                    tw(t.Button.ActiveIndicator, { BackgroundTransparency = 1, Size = UDim2.new(0, 3, 0, 10) }, 0.18)
+                end
             end
             Page.Visible = true
             Window.ActiveTab = TabObj
-            tw(TabBtn, { BackgroundTransparency = 0, BackgroundColor3 = AccentColor }, 0.22)
+
+            -- Refined Modern Active Tab (Translucent Card + Spring Neon Indicator)
+            tw(TabBtn, { BackgroundTransparency = 0.15, BackgroundColor3 = Color3.fromRGB(26, 30, 48) }, 0.22)
             tw(TabBtn.Label, { TextColor3 = WHITE }, 0.22)
-            tw(TabBtn.Icon, { TextColor3 = WHITE }, 0.22)
-            tw(TabBtn.TabStroke, { Transparency = 0.2, Color = WHITE }, 0.22)
+            tw(TabBtn.Icon, { TextColor3 = AccentColor }, 0.22)
+            tw(TabBtn.TabStroke, { Transparency = 0.25, Color = AccentColor }, 0.22)
+            if TabBtn:FindFirstChild("ActiveIndicator") then
+                tw(TabBtn.ActiveIndicator, { BackgroundTransparency = 0, Size = UDim2.new(0, 3, 0, 20) }, 0.25, Enum.EasingStyle.Back)
+            end
 
             if SearchInput.Text ~= "" then
                 local query = string.lower(SearchInput.Text)
@@ -1196,6 +1374,19 @@ function UI:CreateWindow(config)
                 end
             end
         end
+
+        TabBtn.MouseEnter:Connect(function()
+            if Window.ActiveTab ~= TabObj then
+                tw(TabBtn, { BackgroundTransparency = 0.35 }, 0.15)
+                tw(TabBtn.Label, { TextColor3 = WHITE }, 0.15)
+            end
+        end)
+        TabBtn.MouseLeave:Connect(function()
+            if Window.ActiveTab ~= TabObj then
+                tw(TabBtn, { BackgroundTransparency = 0.55 }, 0.15)
+                tw(TabBtn.Label, { TextColor3 = Theme.TextBody }, 0.15)
+            end
+        end)
 
         TabBtn.MouseButton1Click:Connect(activateTab)
         Window.Tabs[tabName] = TabObj
@@ -1324,7 +1515,7 @@ function UI:CreateWindow(config)
                     Parent = AccessoryStack,
                 }, {
                     pill(),
-                    stroke(isToggled and AccentColor or Theme.CardBorder, 1.2, 0.3, "TrackStroke"),
+                    stroke(isToggled and AccentColor or Theme.CardBorder, 1.25, 0.3, "TrackStroke"),
                 })
 
                 local Knob = make("Frame", {
@@ -1383,8 +1574,8 @@ function UI:CreateWindow(config)
                     local keyName = (typeof(defaultKey) == "EnumItem" and defaultKey.Name) or tostring(defaultKey)
                     local KeyBadge = make("TextButton", {
                         Name = "InlineKeybind",
-                        Size = UDim2.new(0, 32, 0, 18),
-                        BackgroundColor3 = Color3.fromRGB(30, 34, 50),
+                        Size = UDim2.new(0, 34, 0, 19),
+                        BackgroundColor3 = Color3.fromRGB(28, 32, 48),
                         Text = keyName == "Unknown" and "[NONE]" or "[" .. keyName .. "]",
                         Font = Theme.FontBold,
                         TextSize = 9,
@@ -1392,7 +1583,7 @@ function UI:CreateWindow(config)
                         AutoButtonColor = false,
                         LayoutOrder = -1,
                         Parent = AccessoryStack,
-                    }, { corner(4), stroke(Theme.CardBorder, 1, 0.4) })
+                    }, { corner(5), stroke(Theme.CardBorder, 1, 0.4) })
 
                     local isListening = false
                     KeyBadge.MouseButton1Click:Connect(function()
@@ -1430,7 +1621,7 @@ function UI:CreateWindow(config)
                         AutoButtonColor = false,
                         LayoutOrder = -2,
                         Parent = AccessoryStack,
-                    }, { corner(4), stroke(Theme.CardBorder, 1, 0.4) })
+                    }, { corner(5), stroke(Theme.CardBorder, 1, 0.4) })
 
                     local CpHandle = { Value = defColor }
                     if cpIdx then UI.Options[cpIdx] = CpHandle end
@@ -1477,21 +1668,31 @@ function UI:CreateWindow(config)
                     Parent = SliderCard,
                 })
 
-                local ValText = txt({
-                    Text = tostring(currentVal) .. suffix,
-                    Font = Theme.FontBold,
-                    TextSize = 10.5,
-                    TextColor3 = AccentColor,
-                    TextXAlignment = Enum.TextXAlignment.Right,
-                    Position = UDim2.new(0.65, 0, 0, 6),
-                    Size = UDim2.new(0.35, -12, 0, 16),
+                local ValBadge = make("Frame", {
+                    Name = "ValBadge",
+                    Size = UDim2.new(0, 60, 0, 18),
+                    Position = UDim2.new(1, -72, 0, 5),
+                    BackgroundColor3 = Color3.fromRGB(15, 18, 28),
                     Parent = SliderCard,
+                }, {
+                    corner(5),
+                    stroke(Theme.CardBorder, 1, 0.45),
+                    txt({
+                        Name = "ValText",
+                        Text = tostring(currentVal) .. suffix,
+                        Font = Theme.FontBold,
+                        TextSize = 9.5,
+                        TextColor3 = AccentColor,
+                        TextXAlignment = Enum.TextXAlignment.Center,
+                        Size = UDim2.new(1, 0, 1, 0),
+                    }),
                 })
+                local ValText = ValBadge.ValText
 
                 local Rail = make("Frame", {
                     Size = UDim2.new(1, -24, 0, 5),
-                    Position = UDim2.new(0, 12, 0, 31),
-                    BackgroundColor3 = Color3.fromRGB(30, 34, 50),
+                    Position = UDim2.new(0, 12, 0, 32),
+                    BackgroundColor3 = Color3.fromRGB(28, 32, 48),
                     Parent = SliderCard,
                 }, { pill() })
 
@@ -1500,10 +1701,18 @@ function UI:CreateWindow(config)
                     Size = UDim2.new(pct, 0, 1, 0),
                     BackgroundColor3 = AccentColor,
                     Parent = Rail,
-                }, { pill() })
+                }, {
+                    pill(),
+                    make("UIGradient", {
+                        Color = ColorSequence.new({
+                            ColorSequenceKeypoint.new(0.0, Theme.AccentPrimary),
+                            ColorSequenceKeypoint.new(1.0, AccentColor),
+                        }),
+                    }),
+                })
 
                 local Knob = make("Frame", {
-                    Size = UDim2.new(0, 12, 0, 12),
+                    Size = UDim2.new(0, 13, 0, 13),
                     AnchorPoint = Vector2.new(0.5, 0.5),
                     Position = UDim2.new(pct, 0, 0.5, 0),
                     BackgroundColor3 = WHITE,
@@ -1536,6 +1745,7 @@ function UI:CreateWindow(config)
                 SliderCard.InputBegan:Connect(function(input)
                     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                         isSliding = true
+                        tw(Knob, { Size = UDim2.new(0, 15, 0, 15) }, 0.1)
                         updateValue(input.Position.X, true)
                     end
                 end)
@@ -1547,6 +1757,7 @@ function UI:CreateWindow(config)
                 bind(UserInputService.InputEnded, function(input)
                     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                         isSliding = false
+                        tw(Knob, { Size = UDim2.new(0, 13, 0, 13) }, 0.1)
                     end
                 end)
 
@@ -1665,14 +1876,14 @@ function UI:CreateWindow(config)
                         Header.SelectedLabel.Text = #selected > 0 and table.concat(selected, ", ") or "None"
                         for opt, b in pairs(optBtns) do
                             local active = table.find(selected, opt) ~= nil
-                            b.BackgroundColor3 = active and AccentColor or Color3.fromRGB(30, 34, 50)
+                            b.BackgroundColor3 = active and AccentColor or Color3.fromRGB(28, 32, 48)
                             b.TextColor3 = active and WHITE or Theme.TextBody
                         end
                     else
                         Header.SelectedLabel.Text = tostring(selected)
                         for opt, b in pairs(optBtns) do
                             local active = (opt == selected)
-                            b.BackgroundColor3 = active and AccentColor or Color3.fromRGB(30, 34, 50)
+                            b.BackgroundColor3 = active and AccentColor or Color3.fromRGB(28, 32, 48)
                             b.TextColor3 = active and WHITE or Theme.TextBody
                         end
                     end
@@ -1701,7 +1912,7 @@ function UI:CreateWindow(config)
                     for _, opt in ipairs(options) do
                         local oBtn = make("TextButton", {
                             Size = UDim2.new(1, 0, 0, 25),
-                            BackgroundColor3 = Color3.fromRGB(30, 34, 50),
+                            BackgroundColor3 = Color3.fromRGB(28, 32, 48),
                             Text = tostring(opt),
                             Font = Theme.FontRegular,
                             TextSize = 10,
@@ -1802,7 +2013,7 @@ function UI:CreateWindow(config)
 
                 BtnCard.InputBegan:Connect(function(input)
                     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                        tw(Scale, { Scale = 0.97 }, 0.08)
+                        tw(Scale, { Scale = 0.96 }, 0.08)
                     end
                 end)
                 BtnCard.InputEnded:Connect(function(input)
@@ -1854,7 +2065,7 @@ function UI:CreateWindow(config)
                 local Input = make("TextBox", {
                     Size = UDim2.new(0.54, 0, 0, 24),
                     Position = UDim2.new(0.44, 0, 0.5, -12),
-                    BackgroundColor3 = Color3.fromRGB(15, 18, 28),
+                    BackgroundColor3 = Color3.fromRGB(14, 17, 26),
                     Text = default,
                     PlaceholderText = placeholder,
                     PlaceholderColor3 = Theme.TextDim,
@@ -1865,7 +2076,7 @@ function UI:CreateWindow(config)
                     Parent = BoxCard,
                 }, {
                     corner(6),
-                    stroke(Theme.CardBorder, 1, 0.4, "Stroke"),
+                    stroke(Theme.CardBorder, 1, 0.45, "Stroke"),
                 })
 
                 local changeCallbacks = {}
@@ -1939,14 +2150,14 @@ function UI:CreateWindow(config)
                 local KeyBtn = make("TextButton", {
                     Size = UDim2.new(0, 72, 0, 22),
                     Position = UDim2.new(1, -84, 0.5, -11),
-                    BackgroundColor3 = Color3.fromRGB(30, 34, 50),
+                    BackgroundColor3 = Color3.fromRGB(28, 32, 48),
                     Text = typeof(currentKey) == "EnumItem" and currentKey.Name or tostring(currentKey),
                     Font = Theme.FontBold,
                     TextSize = 10,
                     TextColor3 = AccentColor,
                     AutoButtonColor = false,
                     Parent = KeyCard,
-                }, { corner(6), stroke(Theme.CardBorder, 1, 0.4, "KStroke") })
+                }, { corner(6), stroke(Theme.CardBorder, 1, 0.45, "KStroke") })
 
                 KeyBtn.MouseButton1Click:Connect(function()
                     isListening = true
@@ -2013,7 +2224,7 @@ function UI:CreateWindow(config)
                 return make("Frame", {
                     Size = UDim2.new(1, -16, 0, 1),
                     BackgroundColor3 = Theme.CardBorder,
-                    BackgroundTransparency = 0.5,
+                    BackgroundTransparency = 0.55,
                     Parent = targetContainer,
                 })
             end
@@ -2036,11 +2247,11 @@ function UI:CreateWindow(config)
                 Size = UDim2.new(1, 0, 0, 0),
                 AutomaticSize = Enum.AutomaticSize.Y,
                 BackgroundColor3 = Theme.CardBg,
-                BackgroundTransparency = 0.1,
+                BackgroundTransparency = 0.12,
                 Parent = targetColumn,
             }, {
                 corner(10),
-                stroke(Theme.CardBorder, 1.1, 0.4, "GbStroke"),
+                stroke(Theme.CardBorder, 1.15, 0.45, "GbStroke"),
                 make("UIPadding", {
                     PaddingTop = UDim.new(0, 8),
                     PaddingBottom = UDim.new(0, 10),
@@ -2048,6 +2259,8 @@ function UI:CreateWindow(config)
                     PaddingRight = UDim.new(0, 8),
                 }),
             })
+            UI:RegisterThemeElement(GroupboxFrame, "BackgroundColor3", "CardBg")
+            UI:RegisterThemeElement(GroupboxFrame.GbStroke, "Color", "CardBorder")
 
             -- Header with Title and sleek accent line
             local Header = make("Frame", {
@@ -2079,6 +2292,7 @@ function UI:CreateWindow(config)
                     }),
                 }),
             })
+            UI:RegisterThemeElement(Header.Title, "TextColor3", "Accent")
 
             -- Inner container for Groupbox elements
             local InnerContainer = make("Frame", {
@@ -2177,7 +2391,7 @@ function UI:CreateWindow(config)
                 local track = make("Frame", {
                     Size = UDim2.new(1, -28, 0, 4),
                     Position = UDim2.new(0, 14, 0, 36),
-                    BackgroundColor3 = Color3.fromRGB(30, 34, 50),
+                    BackgroundColor3 = Color3.fromRGB(28, 32, 48),
                     Parent = card,
                 }, { pill() })
                 Meter = make("Frame", {
@@ -2219,7 +2433,7 @@ function UI:CreateWindow(config)
 end
 
 -- ═════════════════════════════════════════════════════════════════════
--- INTEGRATED THEME MANAGER
+-- INTEGRATED THEME MANAGER (DYNAMIC LIVE THEME ENGINE)
 -- ═════════════════════════════════════════════════════════════════════
 UI.ThemeManager = {
     Themes = Themes,
@@ -2230,6 +2444,23 @@ function UI.ThemeManager:SetTheme(themeName)
     if not t then return end
     UI.CurrentTheme = themeName
     for k, v in pairs(t) do Theme[k] = v end
+
+    -- Live Dynamic Update of all registered UI elements across the GUI
+    for _, item in ipairs(UI.ThemeTrackers) do
+        pcall(function()
+            if item.Instance and item.Instance.Parent then
+                local targetColor = Theme[item.Key]
+                if targetColor then
+                    tw(item.Instance, { [item.Property] = targetColor }, 0.25)
+                end
+            end
+        end)
+    end
+
+    -- Call custom registered listeners
+    for _, fn in ipairs(UI.ThemeListeners) do
+        pcall(fn, themeName, t)
+    end
 end
 
 function UI.ThemeManager:ApplyToTab(tabObj)
@@ -2264,9 +2495,9 @@ function UI.ThemeManager:ApplyToTab(tabObj)
     })
 end
 
--- ═════════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════
 -- INTEGRATED SAVE MANAGER (JSON CONFIG ENGINE)
--- ═════════════════════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════════════════
 UI.SaveManager = {
     Folder = "ProjectBarun/Configs",
     IgnoreIndexes = {},
