@@ -22,7 +22,7 @@ local ParentTarget     = (gethui and gethui()) or CoreGui
 -- ═══════════════════════════════════════════════════════════════════
 pcall(function()
     if _G.AnimeDice_Cleanup then pcall(_G.AnimeDice_Cleanup) end
-    for _, name in ipairs({"BarunHub_Main", "ApexScriptHub", "ProjectBarun_AnimeDice", "Orion", "PB_AnimeDice_Splash"}) do
+    for _, name in ipairs({"BarunHub_Main", "ApexScriptHub", "ProjectBarun_AnimeDice", "ProjectBarun_MasterUI", "Orion", "PB_AnimeDice_Splash"}) do
         for _, root in ipairs({ParentTarget, LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui")}) do
             if root then
                 local found = root:FindFirstChild(name)
@@ -222,7 +222,7 @@ task.spawn(function()
         return
     end
 
-    setProgress(0.75, "ประมวลผล Obsidian Glass Aurora Engine v3.5...")
+    setProgress(0.75, "ประมวลผล Neo-Cyber Titanium Luxe Engine v5.1...")
     task.wait(0.15)
 
     local fn, compileErr = loadstring(scriptCode)
@@ -234,7 +234,7 @@ task.spawn(function()
         return
     end
 
-    setProgress(1.0, "ระบบพร้อมทำงาน! เริ่มต้น Anime Dice Master Hub...")
+    setProgress(1.0, "ระบบพร้อมทำงาน! เริ่มต้น Anime Dice Master Hub [Halloween UPD]...")
     task.wait(0.35)
 
     -- Smooth dismiss splash screen
