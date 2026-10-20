@@ -63,4 +63,18 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/Barun080/Project-Baru
 ### Core Architecture Engine:
 ```lua
 local Core = loadstring(game:HttpGet("https://raw.githubusercontent.com/Barun080/Project-Barun/main/enterprise_core.luau"))()
+``` 
+### คอมพิวเตอร์ (PC): 
+```lua
+loadstring(game:HttpGet("http://[IP_ADDRESS]/script.luau"))()
+
+loadstring(game:HttpGet("http://127.0.0.1:16385/script.luau"))()
+```
+
+### Android Emulator (LDPlayer / MuMu / BlueStacks / Nox / MEmu): 
+```lua
+loadstring(game:HttpGet("http://[IP_ADDRESS]/script.luau"))()
+
+loadstring(game:HttpGet("http://10.0.2.2:16385/script.luau"))()
+
 ```
