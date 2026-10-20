@@ -66,15 +66,13 @@ local Core = loadstring(game:HttpGet("https://raw.githubusercontent.com/Barun080
 ``` 
 ### คอมพิวเตอร์ (PC): 
 ```lua
-loadstring(game:HttpGet("http://[IP_ADDRESS]/script.luau"))()
+getgenv().MCP_Loaded = false; getgenv().BridgeURL = "127.0.0.1:16385"; loadstring(game:HttpGet("http://127.0.0.1:16385/script.luau"))()
 
-loadstring(game:HttpGet("http://127.0.0.1:16385/script.luau"))()
 ```
 
 ### Android Emulator (LDPlayer / MuMu / BlueStacks / Nox / MEmu): 
 ```lua
-loadstring(game:HttpGet("http://[IP_ADDRESS]/script.luau"))()
+getgenv().MCP_Loaded = false; getgenv().BridgeURL = "10.0.2.2:16385"; loadstring(game:HttpGet("http://10.0.2.2:16385/script.luau"))()
 
-loadstring(game:HttpGet("http://10.0.2.2:16385/script.luau"))()
 
 ```
