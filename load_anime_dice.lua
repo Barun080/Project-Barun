@@ -222,7 +222,7 @@ task.spawn(function()
         return
     end
 
-    setProgress(0.75, "ประมวลผล Neo-Cyber Titanium Luxe Engine v5.1...")
+    setProgress(0.75, "ประมวลผล Ouroboros Obsidian Engine [Halloween Suite]...")
     task.wait(0.15)
 
     local fn, compileErr = loadstring(scriptCode)

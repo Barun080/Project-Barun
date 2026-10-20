@@ -122,10 +122,20 @@ if CONFIG.OPTIMIZATIONS.FailedResyncInterval then
     getgenv().MCP_FailedScriptResyncInterval = CONFIG.OPTIMIZATIONS.FailedResyncInterval
 end
 
--- ป้องกัน WebSocket Crash บน Mobile Emulator ถ้ายังไม่ได้กำหนดเอง
-if PlatformInfo.IsMobileOrEmulator and CONFIG.OPTIMIZATIONS.SafeWebSocketForMobile then
-    if getgenv().DisableWebSocket == nil then
-        getgenv().DisableWebSocket = true -- บังคับใช้ HTTP Polling ซึ่งเสถียร 100% บนมือถือ/โปรแกรมจำลอง
+-- ป้องกัน WebSocket Crash (ตรวจจับว่า Executor รองรับ WebSocket จริงหรือไม่ ป้องกัน "WebSocket client is not available")
+if getgenv().DisableWebSocket == nil then
+    local wsWorks = false
+    if typeof(WebSocket) == "table" and typeof(WebSocket.connect) == "function" then
+        local probeOk, probeRes = pcall(function()
+            return WebSocket.connect("ws://127.0.0.1:1")
+        end)
+        -- ถ้า error ระบุว่า "not available" แสดงว่า Executor ปิดระบบ WebSocket ไว้
+        if probeOk or (not probeOk and not tostring(probeRes):lower():find("not available")) then
+            wsWorks = not PlatformInfo.IsMobileOrEmulator -- ถ้าเป็น Mobile/Emulator แนะนำให้ปิดเพื่อกันค้าง
+        end
+    end
+    if not wsWorks then
+        getgenv().DisableWebSocket = true -- บังคับใช้ HTTP Polling ซึ่งเสถียร 100% บนทุก Executor/Emulator
     end
 end
 
